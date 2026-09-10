@@ -1,0 +1,9 @@
+{
+  "id": "player-one",
+  "hp": 100,
+  "speed": 260,
+  "weaponId": "player-basic",
+  "x": 400,
+  "y": 650,
+  "radius": 14
+}

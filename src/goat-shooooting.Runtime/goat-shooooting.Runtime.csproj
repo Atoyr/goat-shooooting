@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\goat-shooooting.Core\goat-shooooting.Core.csproj" />
+    <ProjectReference Include="..\goat-shooooting.Definitions\goat-shooooting.Definitions.csproj" />
+  </ItemGroup>
+</Project>

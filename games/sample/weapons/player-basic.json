@@ -1,0 +1,5 @@
+{
+  "id": "player-basic",
+  "bulletId": "player-shot",
+  "cooldown": 0.25
+}

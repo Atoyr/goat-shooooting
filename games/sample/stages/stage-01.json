@@ -1,0 +1,12 @@
+{
+  "id": "stage-01",
+  "events": [
+    {
+      "time": 5.0,
+      "type": "spawn-enemy",
+      "enemyId": "fighter-a",
+      "x": 400,
+      "y": 180
+    }
+  ]
+}

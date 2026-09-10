@@ -1,0 +1,7 @@
+{
+  "id": "player-shot",
+  "speed": 320,
+  "damage": 10,
+  "radius": 5,
+  "lifetime": 3
+}

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\goat-shooooting.Definitions\goat-shooooting.Definitions.csproj" />
+    <ProjectReference Include="..\goat-shooooting.Framework\goat-shooooting.Framework.csproj" />
+    <ProjectReference Include="..\goat-shooooting.Runtime\goat-shooooting.Runtime.csproj" />
+    <Content Include="..\..\games\sample\**\*.json" Link="game\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
