@@ -16,9 +16,11 @@ public sealed class StageSystemTests
 
         system.Update(world, definitions, 4.9f, telemetry);
         Assert.Empty(world.Query<EnemyComponent>());
+        Assert.False(system.IsComplete);
 
         system.Update(world, definitions, 0.1f, telemetry);
         Assert.Single(world.Query<EnemyComponent>());
+        Assert.True(system.IsComplete);
 
         system.Update(world, definitions, 10f, telemetry);
         Assert.Single(world.Query<EnemyComponent>());

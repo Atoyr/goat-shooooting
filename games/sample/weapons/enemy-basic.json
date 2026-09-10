@@ -1,0 +1,5 @@
+{
+  "id": "enemy-basic",
+  "bulletId": "enemy-shot",
+  "cooldown": 0.8
+}

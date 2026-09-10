@@ -39,22 +39,37 @@ public sealed class WeaponSystem(BulletFactory bulletFactory)
             var holder = entity.Get<WeaponHolderComponent>();
             holder.CooldownRemaining = Math.Max(0, holder.CooldownRemaining - deltaTime);
 
-            // Enemy firing is outside this MVP; holders on enemies remain definition-ready.
-            if (!entity.Has<PlayerComponent>() || !input.Fire || holder.CooldownRemaining > 0)
+            var ownerLayer = entity.Has<PlayerComponent>()
+                ? CollisionLayer.Player
+                : entity.Has<EnemyComponent>()
+                    ? CollisionLayer.Enemy
+                    : (CollisionLayer?)null;
+            var wantsToFire = ownerLayer switch
+            {
+                CollisionLayer.Player => input.Fire,
+                CollisionLayer.Enemy => true,
+                _ => false
+            };
+            if (ownerLayer is null || !wantsToFire || holder.CooldownRemaining > 0)
             {
                 continue;
             }
 
             var weapon = definitions.GetWeapon(holder.WeaponId);
             var bullet = definitions.GetBullet(weapon.BulletId);
+            var direction = ownerLayer == CollisionLayer.Player ? -Vector2.UnitY : Vector2.UnitY;
             _bulletFactory.Create(
                 world,
                 bullet,
                 entity.Get<TransformComponent>().Position,
-                -Vector2.UnitY,
-                CollisionLayer.Player);
+                direction,
+                ownerLayer.Value);
             holder.CooldownRemaining = weapon.Cooldown;
             telemetry.BulletsSpawned++;
+            if (ownerLayer == CollisionLayer.Enemy)
+            {
+                telemetry.EnemyBulletsSpawned++;
+            }
         }
     }
 }
@@ -80,6 +95,47 @@ public sealed class MovementSystem
     }
 }
 
+public sealed class PlayerBoundsSystem
+{
+    public void Update(World world, float width, float height)
+    {
+        foreach (var player in world.Query<PlayerComponent, TransformComponent, ColliderComponent>())
+        {
+            var transform = player.Get<TransformComponent>();
+            var radius = player.Get<ColliderComponent>().Radius;
+            var minX = Math.Min(radius, width / 2);
+            var maxX = Math.Max(width - radius, width / 2);
+            var minY = Math.Min(radius, height / 2);
+            var maxY = Math.Max(height - radius, height / 2);
+            transform.Position = new Vector2(
+                Math.Clamp(transform.Position.X, minX, maxX),
+                Math.Clamp(transform.Position.Y, minY, maxY));
+        }
+    }
+}
+
+public sealed class OutOfBoundsSystem
+{
+    public void Update(World world, float width, float height)
+    {
+        foreach (var entity in world.Query<TransformComponent, ColliderComponent>().ToArray())
+        {
+            if (entity.Has<PlayerComponent>() || entity.Has<PendingDestroyComponent>())
+            {
+                continue;
+            }
+
+            var position = entity.Get<TransformComponent>().Position;
+            var radius = entity.Get<ColliderComponent>().Radius;
+            if (position.X + radius < 0 || position.X - radius > width ||
+                position.Y + radius < 0 || position.Y - radius > height)
+            {
+                entity.Add(new PendingDestroyComponent());
+            }
+        }
+    }
+}
+
 public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFactory)
 {
     private readonly StageDefinition _definition = definition ?? throw new ArgumentNullException(nameof(definition));
@@ -88,6 +144,7 @@ public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFa
     private double _elapsed;
 
     public double Elapsed => _elapsed;
+    public bool IsComplete => _executedEvents.Count == _definition.Events.Count;
 
     public void Update(World world, DefinitionCatalog definitions, float deltaTime, SimulationTelemetry telemetry)
     {
@@ -182,6 +239,11 @@ public sealed class DamageSystem
             var health = damageEvent.Target.Get<HealthComponent>();
             health.Current -= damageEvent.Amount;
             telemetry.DamageEventsApplied++;
+            if (damageEvent.Target.Has<PlayerComponent>())
+            {
+                telemetry.PlayerDamageEventsApplied++;
+            }
+
             if (health.Current <= 0)
             {
                 damageEvent.Target.Add(new PendingDestroyComponent());

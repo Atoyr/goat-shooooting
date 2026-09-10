@@ -13,11 +13,12 @@ public sealed class FrameworkAdapterTests
     {
         var input = new KeyboardInputState();
 
-        input.Apply(new[] { Keys.A, Keys.Up, Keys.Space, Keys.Escape });
+        input.Apply(new[] { Keys.A, Keys.Up, Keys.Space, Keys.R, Keys.Escape });
 
         Assert.Equal(-1, input.MoveX);
         Assert.Equal(-1, input.MoveY);
         Assert.True(input.Fire);
+        Assert.True(input.Retry);
         Assert.True(input.QuitRequested);
     }
 

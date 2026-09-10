@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using GoatShooooting.Core;
 using GoatShooooting.Definitions;
 using GoatShooooting.Runtime;
 
@@ -46,12 +47,23 @@ public sealed class ShootingGame : Game
         }
 
         _simulation.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
+        Window.Title = _simulation.Status switch
+        {
+            SimulationStatus.GameOver => "goat-shooooting — GAME OVER — R/Enter to retry, Esc to quit",
+            SimulationStatus.StageClear => "goat-shooooting — STAGE CLEAR — R/Enter to retry, Esc to quit",
+            _ => $"goat-shooooting — HP {_simulation.Player.Get<HealthComponent>().Current} — Z/Space fire"
+        };
         base.Update(gameTime);
     }
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(new Color(8, 13, 26));
+        GraphicsDevice.Clear(_simulation.Status switch
+        {
+            SimulationStatus.GameOver => new Color(38, 8, 16),
+            SimulationStatus.StageClear => new Color(8, 38, 24),
+            _ => new Color(8, 13, 26)
+        });
         var spriteBatch = _spriteBatch ?? throw new InvalidOperationException("Content has not been loaded.");
         var pixel = _pixel ?? throw new InvalidOperationException("Content has not been loaded.");
 

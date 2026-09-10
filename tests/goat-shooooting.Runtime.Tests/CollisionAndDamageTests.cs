@@ -37,6 +37,32 @@ public sealed class CollisionAndDamageTests
         Assert.Empty(world.Query<EnemyComponent>());
     }
 
+    [Fact]
+    public void EnemyBulletCanKillPlayerAndRecordsPlayerDamage()
+    {
+        var world = new World();
+        var bullet = world.CreateEntity()
+            .Add(new TransformComponent(Vector2.Zero))
+            .Add(new ColliderComponent(3, CollisionLayer.EnemyBullet))
+            .Add(new BulletComponent("enemy-bullet", CollisionLayer.Player))
+            .Add(new DamageComponent(10));
+        var player = world.CreateEntity()
+            .Add(new TransformComponent(Vector2.Zero))
+            .Add(new ColliderComponent(10, CollisionLayer.Player))
+            .Add(new HealthComponent(10))
+            .Add(new PlayerComponent("player", 100));
+        var telemetry = new SimulationTelemetry();
+
+        var collisions = new CollisionSystem().Detect(world);
+        var damage = new BulletHitSystem().Update(collisions, telemetry);
+        new DamageSystem().Update(damage, telemetry);
+        new CleanupSystem().Update(world);
+
+        Assert.DoesNotContain(bullet, world.Entities);
+        Assert.DoesNotContain(player, world.Entities);
+        Assert.Equal(1, telemetry.PlayerDamageEventsApplied);
+    }
+
     private static World CreateOverlappingWorld(out Entity bullet, out Entity enemy)
     {
         var world = new World();

@@ -45,17 +45,27 @@ public static class Program
         Require(telemetry.EnemiesSpawned > 0, "No enemy was spawned from the stage definition.");
         Require(telemetry.EnemyMovementFrames > 0, "No enemy movement was observed.");
         Require(telemetry.BulletsSpawned > 0, "No bullet was spawned by the weapon system.");
+        Require(telemetry.EnemyBulletsSpawned > 0, "No enemy bullet was spawned by the weapon system.");
         Require(telemetry.BulletMovementFrames > 0, "No bullet movement was observed.");
         Require(telemetry.CollisionsDetected > 0, "No bullet/enemy collision was detected.");
         Require(telemetry.DamageEventsApplied > 0, "No damage was applied.");
         Require(telemetry.EnemiesKilled > 0, "No enemy reached zero HP.");
         Require(!simulation.World.Query<EnemyComponent>().Any(), "A dead enemy remained in the world.");
+        Require(simulation.Status == SimulationStatus.StageClear, "The simulation did not reach Stage Clear.");
+
+        input.Fire = false;
+        input.Retry = true;
+        simulation.Update(0);
+        Require(simulation.Status == SimulationStatus.Running, "Retry did not start a new run.");
+        Require(simulation.Player.Get<HealthComponent>().Current == simulation.Player.Get<HealthComponent>().Maximum,
+            "Retry did not restore player health.");
+        Require(simulation.Telemetry.EnemiesSpawned == 0, "Retry did not reset telemetry.");
 
         Console.WriteLine(
             $"SMOKE TEST PASSED: spawned={telemetry.EnemiesSpawned}, enemyMovementFrames={telemetry.EnemyMovementFrames}, " +
-            $"bullets={telemetry.BulletsSpawned}, " +
+            $"bullets={telemetry.BulletsSpawned}, enemyBullets={telemetry.EnemyBulletsSpawned}, " +
             $"movementFrames={telemetry.BulletMovementFrames}, collisions={telemetry.CollisionsDetected}, " +
-            $"damage={telemetry.DamageEventsApplied}, killed={telemetry.EnemiesKilled}");
+            $"damage={telemetry.DamageEventsApplied}, killed={telemetry.EnemiesKilled}, retry=passed");
         return 0;
     }
 

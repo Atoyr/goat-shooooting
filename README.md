@@ -1,6 +1,6 @@
-# goat-shooooting MVP
+# goat-shooooting
 
-goat-shooooting は、JSON で定義した Player、Enemy、Weapon、Bullet、Stage を読み込み、MonoGame 上で動作させる小さな 2D シューティング基盤です。ゲームロジックは描画から独立しており、同じ Production Runtime を headless simulation、統合テスト、smoke test、通常ゲームのすべてで使用します。
+goat-shooooting は、JSON で定義した Player、Enemy、Weapon、Bullet、Stage を読み込み、MonoGame 上で動作させる小さな 2D シューティング基盤です。プレイヤーと敵の双方が射撃でき、被弾による Game Over、敵全滅による Stage Clear、リトライまでを1プレイとして実行できます。ゲームロジックは描画から独立しており、同じ Production Runtime を headless simulation、統合テスト、smoke test、通常ゲームのすべてで使用します。
 
 ## 必要環境
 
@@ -34,9 +34,10 @@ dotnet run --project src/goat-shooooting.SampleGame
 
 - Arrow / WASD: Player 移動
 - Z / Space: 発射
+- R / Enter: Game Over／Stage Clear後にリトライ
 - Esc: 終了
 
-開始 5 秒後に Enemy が Stage definition から出現します。Player Bullet が命中すると Damage が適用され、HP が 0 になった Enemy は World から削除されます。
+開始 5 秒後に Enemy が Stage definition から出現します。Enemyは下方向へ射撃し、PlayerのHPが0になるとGame Overです。Player BulletでEnemyをすべて倒すとStage Clearになります。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。現在HPと終了状態、リトライ操作はウィンドウタイトルにも表示されます。
 
 画面を使わない smoke test:
 
@@ -44,7 +45,7 @@ dotnet run --project src/goat-shooooting.SampleGame
 dotnet run --project src/goat-shooooting.SampleGame -- --smoke-test
 ```
 
-このモードは JSON 読込後に Production の `ShootingSimulation` を一定フレーム進め、Enemy spawn、Bullet spawn と移動、Collision、Damage、Enemy death と cleanup を観測して自動終了します。成功時は exit code 0、検証失敗または例外時は exit code 1 です。
+このモードは JSON 読込後に Production の `ShootingSimulation` を一定フレーム進め、Enemy spawn、双方のBullet spawnと移動、Collision、Damage、Enemy death、Stage Clear、リトライと状態初期化を観測して自動終了します。成功時は exit code 0、検証失敗または例外時は exit code 1 です。
 
 ## Project 構成
 
@@ -81,7 +82,7 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
 
 - `game.json`: 使用する `playerId`、`stageId`、画面サイズ
 - `player.json`: HP、移動速度、初期位置、Collider 半径、Weapon 参照
-- `enemies/*.json`: Enemy の HP、移動速度、Collider 半径
+- `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、任意の Weapon 参照
 - `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime
 - `weapons/*.json`: Bullet 参照と cooldown
 - `stages/*.json`: 時刻付き `spawn-enemy` event と出現位置
@@ -114,8 +115,8 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
 - **Definition**: immutable-style record による静的設定。Runtime state は保持しません。
 - **Factory**: `PlayerFactory`、`EnemyFactory`、`BulletFactory` が Definition を Entity＋Component へ変換します。
 - **Entity / Component**: 継承階層を使わない composition model です。`Transform`、`Velocity`、`Health`、`Damage`、`Collider`、marker、Weapon、Lifetime を World が管理します。
-- **System**: `PlayerInputSystem`、`WeaponSystem`、`MovementSystem`、`StageSystem`、`CollisionSystem`、`BulletHitSystem`、`DamageSystem`、`LifetimeSystem`、`CleanupSystem`、`RenderSystem` が状態を処理します。
-- **Runtime**: `ShootingSimulation.Update(deltaTime)` が System の production 実行順序を統括します。
-- **Framework**: `KeyboardInputState` と `ShootingGame` だけが MonoGame API を扱います。RenderSystem は renderer-neutral な snapshot を返します。
+- **System**: `PlayerInputSystem`、`WeaponSystem`、`MovementSystem`、`PlayerBoundsSystem`、`OutOfBoundsSystem`、`StageSystem`、`CollisionSystem`、`BulletHitSystem`、`DamageSystem`、`LifetimeSystem`、`CleanupSystem`、`RenderSystem` が状態を処理します。
+- **Runtime**: `ShootingSimulation.Update(deltaTime)` が System の production 実行順序と `Running`／`StageClear`／`GameOver` の状態遷移、リトライ時のWorld再構築を統括します。
+- **Framework**: `KeyboardInputState` と `ShootingGame` だけが MonoGame API を扱います。RenderSystem は renderer-neutral な snapshot を返し、終了状態は背景色とウィンドウタイトルで表示します。
 
-MVP の範囲は Player による射撃、単純な下方向 Enemy 移動、円 Collider による命中、Damage／Death までです。Editor、networking、save、boss や高度な ECS 最適化は含みません。
+現在の範囲は Player／Enemyによる射撃、単純な下方向 Enemy 移動、円 Collider による命中、Damage／Death、勝敗とリトライまでです。Editor、networking、save、boss や高度な ECS 最適化は含みません。

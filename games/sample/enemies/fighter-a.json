@@ -2,5 +2,6 @@
   "id": "fighter-a",
   "hp": 10,
   "speed": 20,
+  "weaponId": "enemy-basic",
   "radius": 16
 }
