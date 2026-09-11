@@ -54,7 +54,12 @@ public static class Program
         builder.WebHost.UseUrls(url);
         var app = builder.Build();
 
-        app.MapGet("/", () => Results.File(editorPath, "text/html; charset=utf-8"));
+        app.MapGet("/", (HttpContext context) =>
+        {
+            context.Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+            context.Response.Headers.Pragma = "no-cache";
+            return Results.File(editorPath, "text/html; charset=utf-8");
+        });
         app.MapGet("/api/files", () => Results.Json(service.ListFiles()));
         app.MapGet("/api/file", (string path) => Handle(() => Results.Text(service.Read(path), "application/json")));
         app.MapGet("/api/schema", (string path) => Handle(() =>
@@ -71,7 +76,8 @@ public static class Program
         Console.WriteLine($"Editing: {rootDirectory}");
         if (!args.Contains("--no-open", StringComparer.Ordinal))
         {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            var editorVersion = File.GetLastWriteTimeUtc(editorPath).Ticks;
+            Process.Start(new ProcessStartInfo($"{url}/?v={editorVersion}") { UseShellExecute = true });
         }
 
         await app.RunAsync().ConfigureAwait(false);
