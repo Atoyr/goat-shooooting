@@ -29,6 +29,9 @@ public sealed record EnemyDefinition
     public string? WeaponId { get; init; }
     public float Radius { get; init; }
     public int Score { get; init; } = 100;
+    public string MovementPattern { get; init; } = "straight";
+    public float MovementAmplitude { get; init; }
+    public float MovementFrequency { get; init; }
 }
 
 public sealed record BulletDefinition
@@ -45,6 +48,8 @@ public sealed record WeaponDefinition
     public string Id { get; init; } = string.Empty;
     public string BulletId { get; init; } = string.Empty;
     public float Cooldown { get; init; }
+    public int ProjectileCount { get; init; } = 1;
+    public float SpreadDegrees { get; init; }
 }
 
 public sealed record StageDefinition
@@ -60,4 +65,7 @@ public sealed record StageEventDefinition
     public string EnemyId { get; init; } = string.Empty;
     public float X { get; init; }
     public float Y { get; init; }
+    public int Count { get; init; } = 1;
+    public float SpawnInterval { get; init; }
+    public float SpacingX { get; init; }
 }

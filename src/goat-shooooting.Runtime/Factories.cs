@@ -48,6 +48,14 @@ public sealed class EnemyFactory
             entity.Add(new WeaponHolderComponent(definition.WeaponId));
         }
 
+        if (string.Equals(definition.MovementPattern, "sine", StringComparison.Ordinal))
+        {
+            entity.Add(new SineMovementComponent(
+                position.X,
+                definition.MovementAmplitude,
+                definition.MovementFrequency));
+        }
+
         return entity;
     }
 }

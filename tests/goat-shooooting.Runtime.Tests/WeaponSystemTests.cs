@@ -48,4 +48,41 @@ public sealed class WeaponSystemTests
         Assert.True(bullet.Get<VelocityComponent>().Value.Y > 0);
         Assert.Equal(1, telemetry.EnemyBulletsSpawned);
     }
+
+    [Fact]
+    public void SpreadWeaponCreatesConfiguredProjectileFan()
+    {
+        var baseline = TestDefinitions.Create();
+        var spreadWeapon = baseline.GetWeapon("weapon") with
+        {
+            ProjectileCount = 3,
+            SpreadDegrees = 60
+        };
+        var definitions = new DefinitionCatalog(
+            baseline.Game,
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            baseline.Bullets.Values,
+            new[] { spreadWeapon },
+            baseline.Stages.Values);
+        var world = new World();
+        _ = new PlayerFactory().Create(world, definitions.GetPlayer("player"));
+
+        new WeaponSystem(new BulletFactory()).Update(
+            world,
+            definitions,
+            new MutableInputState { Fire = true },
+            0,
+            new SimulationTelemetry());
+
+        var velocities = world.Query<BulletComponent>()
+            .Select(bullet => bullet.Get<VelocityComponent>().Value)
+            .OrderBy(static velocity => velocity.X)
+            .ToArray();
+        Assert.Equal(3, velocities.Length);
+        Assert.True(velocities[0].X < 0);
+        Assert.Equal(0, velocities[1].X, precision: 3);
+        Assert.True(velocities[2].X > 0);
+        Assert.All(velocities, static velocity => Assert.True(velocity.Y < 0));
+    }
 }

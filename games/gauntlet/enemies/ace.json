@@ -2,7 +2,10 @@
   "id": "ace",
   "hp": 80,
   "speed": 14,
-  "weaponId": "gauntlet-enemy",
+  "weaponId": "gauntlet-spread",
   "radius": 24,
-  "score": 1500
+  "score": 1500,
+  "movementPattern": "sine",
+  "movementAmplitude": 100,
+  "movementFrequency": 0.12
 }

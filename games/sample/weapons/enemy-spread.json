@@ -1,0 +1,7 @@
+{
+  "id": "enemy-spread",
+  "bulletId": "enemy-shot",
+  "cooldown": 1,
+  "projectileCount": 3,
+  "spreadDegrees": 40
+}

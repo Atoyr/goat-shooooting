@@ -1,16 +1,11 @@
 {
   "id": "gauntlet-01",
   "events": [
-    { "time": 2, "type": "spawn-enemy", "enemyId": "dart", "x": 120, "y": 80 },
-    { "time": 2, "type": "spawn-enemy", "enemyId": "dart", "x": 520, "y": 80 },
+    { "time": 2, "type": "spawn-enemy", "enemyId": "dart", "x": 120, "y": 80, "count": 2, "spacingX": 400 },
     { "time": 8, "type": "spawn-enemy", "enemyId": "gunner", "x": 320, "y": 100 },
-    { "time": 14, "type": "spawn-enemy", "enemyId": "dart", "x": 160, "y": 70 },
-    { "time": 14, "type": "spawn-enemy", "enemyId": "dart", "x": 320, "y": 50 },
-    { "time": 14, "type": "spawn-enemy", "enemyId": "dart", "x": 480, "y": 70 },
-    { "time": 22, "type": "spawn-enemy", "enemyId": "gunner", "x": 220, "y": 90 },
-    { "time": 22, "type": "spawn-enemy", "enemyId": "gunner", "x": 420, "y": 90 },
-    { "time": 32, "type": "spawn-enemy", "enemyId": "dart", "x": 120, "y": 60 },
-    { "time": 32, "type": "spawn-enemy", "enemyId": "dart", "x": 520, "y": 60 },
+    { "time": 14, "type": "spawn-enemy", "enemyId": "dart", "x": 160, "y": 70, "count": 3, "spacingX": 160 },
+    { "time": 22, "type": "spawn-enemy", "enemyId": "gunner", "x": 220, "y": 90, "count": 2, "spacingX": 200 },
+    { "time": 32, "type": "spawn-enemy", "enemyId": "dart", "x": 120, "y": 60, "count": 2, "spawnInterval": 0.5, "spacingX": 400 },
     { "time": 45, "type": "spawn-enemy", "enemyId": "ace", "x": 320, "y": 80 }
   ]
 }

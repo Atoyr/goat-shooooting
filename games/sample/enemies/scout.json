@@ -4,5 +4,8 @@
   "speed": 45,
   "weaponId": "enemy-basic",
   "radius": 10,
-  "score": 100
+  "score": 100,
+  "movementPattern": "sine",
+  "movementAmplitude": 45,
+  "movementFrequency": 0.2
 }

@@ -29,6 +29,15 @@ public sealed class JsonDefinitionRepositoryTests
         Assert.Contains("missing-bullet", exception.Message);
     }
 
+    [Fact]
+    public void UnsupportedMovementPatternProducesValidationError()
+    {
+        var exception = Assert.Throws<DefinitionValidationException>(
+            () => TestDefinitions.Create(movementPattern: "spiral"));
+
+        Assert.Contains("spiral", exception.Message);
+    }
+
     private sealed class DefinitionDirectory : IDisposable
     {
         private DefinitionDirectory(string path) => Path = path;

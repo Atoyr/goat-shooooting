@@ -3,5 +3,8 @@
   "hp": 10,
   "speed": 75,
   "radius": 9,
-  "score": 150
+  "score": 150,
+  "movementPattern": "sine",
+  "movementAmplitude": 35,
+  "movementFrequency": 0.3
 }

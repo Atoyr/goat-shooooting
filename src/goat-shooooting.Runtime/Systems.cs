@@ -57,20 +57,38 @@ public sealed class WeaponSystem(BulletFactory bulletFactory)
 
             var weapon = definitions.GetWeapon(holder.WeaponId);
             var bullet = definitions.GetBullet(weapon.BulletId);
-            var direction = ownerLayer == CollisionLayer.Player ? -Vector2.UnitY : Vector2.UnitY;
-            _bulletFactory.Create(
-                world,
-                bullet,
-                entity.Get<TransformComponent>().Position,
-                direction,
-                ownerLayer.Value);
-            holder.CooldownRemaining = weapon.Cooldown;
-            telemetry.BulletsSpawned++;
-            if (ownerLayer == CollisionLayer.Enemy)
+            var baseDirection = ownerLayer == CollisionLayer.Player ? -Vector2.UnitY : Vector2.UnitY;
+            for (var projectileIndex = 0; projectileIndex < weapon.ProjectileCount; projectileIndex++)
             {
-                telemetry.EnemyBulletsSpawned++;
+                var normalizedOffset = weapon.ProjectileCount == 1
+                    ? 0
+                    : ((float)projectileIndex / (weapon.ProjectileCount - 1)) - 0.5f;
+                var angle = normalizedOffset * weapon.SpreadDegrees * (MathF.PI / 180);
+                var direction = Rotate(baseDirection, angle);
+                _bulletFactory.Create(
+                    world,
+                    bullet,
+                    entity.Get<TransformComponent>().Position,
+                    direction,
+                    ownerLayer.Value);
+                telemetry.BulletsSpawned++;
+                if (ownerLayer == CollisionLayer.Enemy)
+                {
+                    telemetry.EnemyBulletsSpawned++;
+                }
             }
+
+            holder.CooldownRemaining = weapon.Cooldown;
         }
+    }
+
+    private static Vector2 Rotate(Vector2 vector, float angle)
+    {
+        var cosine = MathF.Cos(angle);
+        var sine = MathF.Sin(angle);
+        return new Vector2(
+            (vector.X * cosine) - (vector.Y * sine),
+            (vector.X * sine) + (vector.Y * cosine));
     }
 }
 
@@ -91,6 +109,21 @@ public sealed class MovementSystem
             {
                 telemetry.EnemyMovementFrames++;
             }
+        }
+    }
+}
+
+public sealed class MovementPatternSystem
+{
+    public void Update(World world, float deltaTime)
+    {
+        foreach (var entity in world.Query<TransformComponent, SineMovementComponent>())
+        {
+            var pattern = entity.Get<SineMovementComponent>();
+            pattern.Elapsed += deltaTime;
+            entity.Get<TransformComponent>().Position = new Vector2(
+                pattern.OriginX + (pattern.Amplitude * MathF.Sin(2 * MathF.PI * pattern.Frequency * pattern.Elapsed)),
+                entity.Get<TransformComponent>().Position.Y);
         }
     }
 }
@@ -140,11 +173,13 @@ public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFa
 {
     private readonly StageDefinition _definition = definition ?? throw new ArgumentNullException(nameof(definition));
     private readonly EnemyFactory _enemyFactory = enemyFactory ?? throw new ArgumentNullException(nameof(enemyFactory));
-    private readonly HashSet<int> _executedEvents = new();
+    private readonly int[] _spawnedCounts = new int[definition.Events.Count];
     private double _elapsed;
 
     public double Elapsed => _elapsed;
-    public bool IsComplete => _executedEvents.Count == _definition.Events.Count;
+    public bool IsComplete => _definition.Events
+        .Select((stageEvent, index) => _spawnedCounts[index] >= stageEvent.Count)
+        .All(static complete => complete);
 
     public void Update(World world, DefinitionCatalog definitions, float deltaTime, SimulationTelemetry telemetry)
     {
@@ -152,17 +187,22 @@ public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFa
         for (var index = 0; index < _definition.Events.Count; index++)
         {
             var stageEvent = _definition.Events[index];
-            if (_executedEvents.Contains(index) || stageEvent.Time > _elapsed)
+            while (_spawnedCounts[index] < stageEvent.Count)
             {
-                continue;
-            }
+                var spawnIndex = _spawnedCounts[index];
+                var spawnTime = stageEvent.Time + (spawnIndex * stageEvent.SpawnInterval);
+                if (spawnTime > _elapsed)
+                {
+                    break;
+                }
 
-            _enemyFactory.Create(
-                world,
-                definitions.GetEnemy(stageEvent.EnemyId),
-                new Vector2(stageEvent.X, stageEvent.Y));
-            _executedEvents.Add(index);
-            telemetry.EnemiesSpawned++;
+                _enemyFactory.Create(
+                    world,
+                    definitions.GetEnemy(stageEvent.EnemyId),
+                    new Vector2(stageEvent.X + (spawnIndex * stageEvent.SpacingX), stageEvent.Y));
+                _spawnedCounts[index]++;
+                telemetry.EnemiesSpawned++;
+            }
         }
     }
 }

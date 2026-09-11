@@ -2,7 +2,10 @@
   "id": "midboss",
   "hp": 150,
   "speed": 8,
-  "weaponId": "enemy-basic",
+  "weaponId": "enemy-spread",
   "radius": 28,
-  "score": 2000
+  "score": 2000,
+  "movementPattern": "sine",
+  "movementAmplitude": 120,
+  "movementFrequency": 0.08
 }

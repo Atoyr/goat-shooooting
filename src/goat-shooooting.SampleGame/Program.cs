@@ -36,10 +36,13 @@ public static class Program
         const float deltaTime = 1f / 60f;
         const int maximumFrames = 60 * 150;
         var stage = simulation.Definitions.GetStage(simulation.Definitions.Game.StageId);
-        var expectedEnemies = stage.Events.Count;
+        var expectedEnemies = stage.Events.Sum(static stageEvent => stageEvent.Count);
         var expectedScore = stage.Events.Sum(stageEvent =>
-            simulation.Definitions.GetEnemy(stageEvent.EnemyId).Score);
-        var lastEventTime = stage.Events.Count == 0 ? 0 : stage.Events.Max(static stageEvent => stageEvent.Time);
+            simulation.Definitions.GetEnemy(stageEvent.EnemyId).Score * stageEvent.Count);
+        var lastEventTime = stage.Events.Count == 0
+            ? 0
+            : stage.Events.Max(static stageEvent =>
+                stageEvent.Time + ((stageEvent.Count - 1) * stageEvent.SpawnInterval));
 
         for (var frame = 0; frame < maximumFrames && simulation.Status == SimulationStatus.Running; frame++)
         {

@@ -11,7 +11,10 @@ internal static class TestDefinitions
         int bulletDamage = 10,
         float bulletSpeed = 100,
         float cooldown = 0.5f,
-        float bulletLifetime = 5)
+        float bulletLifetime = 5,
+        string movementPattern = "straight",
+        float movementAmplitude = 0,
+        float movementFrequency = 0)
     {
         return new DefinitionCatalog(
             new GameDefinition { PlayerId = "player", StageId = "stage", Width = 800, Height = 600 },
@@ -23,7 +26,16 @@ internal static class TestDefinitions
                     X = 0, Y = 300, Radius = 10
                 }
             },
-            new[] { new EnemyDefinition { Id = "enemy", Hp = enemyHp, Speed = enemySpeed, Radius = 10 } },
+            new[]
+            {
+                new EnemyDefinition
+                {
+                    Id = "enemy", Hp = enemyHp, Speed = enemySpeed, Radius = 10,
+                    MovementPattern = movementPattern,
+                    MovementAmplitude = movementAmplitude,
+                    MovementFrequency = movementFrequency
+                }
+            },
             new[]
             {
                 new BulletDefinition

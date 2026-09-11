@@ -91,10 +91,10 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
 
 - `game.json`: 使用する `playerId`、`stageId`、画面サイズ
 - `player.json`: HP、移動速度、初期位置、Collider 半径、被弾後の無敵時間、Weapon 参照
-- `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照
+- `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照、`straight`／`sine`移動
 - `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime
-- `weapons/*.json`: Bullet 参照と cooldown
-- `stages/*.json`: 時刻付き `spawn-enemy` event と出現位置
+- `weapons/*.json`: Bullet 参照、cooldown、弾数と扇状発射角度
+- `stages/*.json`: 時刻付き `spawn-enemy` event、出現位置、個数、出現間隔、横方向の間隔
 
 新しい JSON を対象フォルダーへ追加し、一意な `id` で参照してください。Engine コードの変更は不要です。起動時に全参照と値を検証するため、不明な Player／Stage／Enemy／Weapon／Bullet ID、重複 ID、未対応 event、0 以下の HP などは `DefinitionValidationException` になります。
 
@@ -115,9 +115,14 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
   "type": "spawn-enemy",
   "enemyId": "fighter-b",
   "x": 240,
-  "y": 100
+  "y": 100,
+  "count": 3,
+  "spawnInterval": 0.25,
+  "spacingX": 80
 }
 ```
+
+同一のRuntimeで両コンテンツパックが使う必要性から、敵のサイン移動、Weaponの扇状射撃、Stage eventの繰り返しSpawnだけをDefinition化しています。未使用のドロップ、複数武器スロット、Stage遷移はまだ抽象化していません。
 
 ## 現在の Architecture
 

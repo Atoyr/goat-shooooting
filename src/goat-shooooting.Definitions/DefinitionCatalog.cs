@@ -54,6 +54,17 @@ public sealed class DefinitionCatalog
             EnsureNonNegative(enemy.Speed, $"Enemy '{enemy.Id}' speed");
             EnsurePositive(enemy.Radius, $"Enemy '{enemy.Id}' radius");
             EnsurePositive(enemy.Score, $"Enemy '{enemy.Id}' score");
+            if (string.Equals(enemy.MovementPattern, "sine", StringComparison.Ordinal))
+            {
+                EnsurePositive(enemy.MovementAmplitude, $"Enemy '{enemy.Id}' movement amplitude");
+                EnsurePositive(enemy.MovementFrequency, $"Enemy '{enemy.Id}' movement frequency");
+            }
+            else if (!string.Equals(enemy.MovementPattern, "straight", StringComparison.Ordinal))
+            {
+                throw new DefinitionValidationException(
+                    $"Enemy '{enemy.Id}' has unsupported movement pattern '{enemy.MovementPattern}'.");
+            }
+
             if (!string.IsNullOrWhiteSpace(enemy.WeaponId))
             {
                 _ = GetWeapon(enemy.WeaponId);
@@ -71,6 +82,8 @@ public sealed class DefinitionCatalog
         foreach (var weapon in Weapons.Values)
         {
             EnsureNonNegative(weapon.Cooldown, $"Weapon '{weapon.Id}' cooldown");
+            EnsurePositive(weapon.ProjectileCount, $"Weapon '{weapon.Id}' projectile count");
+            EnsureRange(weapon.SpreadDegrees, 0, 180, $"Weapon '{weapon.Id}' spread degrees");
             _ = GetBullet(weapon.BulletId);
         }
 
@@ -79,6 +92,9 @@ public sealed class DefinitionCatalog
             foreach (var stageEvent in stage.Events)
             {
                 EnsureNonNegative(stageEvent.Time, $"Stage '{stage.Id}' event time");
+                EnsurePositive(stageEvent.Count, $"Stage '{stage.Id}' event count");
+                EnsureNonNegative(stageEvent.SpawnInterval, $"Stage '{stage.Id}' event spawn interval");
+                EnsureFinite(stageEvent.SpacingX, $"Stage '{stage.Id}' event spacing x");
                 if (!string.Equals(stageEvent.Type, "spawn-enemy", StringComparison.Ordinal))
                 {
                     throw new DefinitionValidationException($"Stage '{stage.Id}' has unsupported event type '{stageEvent.Type}'.");
@@ -136,6 +152,22 @@ public sealed class DefinitionCatalog
         if (value < 0 || !float.IsFinite(value))
         {
             throw new DefinitionValidationException($"{name} must be a finite value greater than or equal to zero.");
+        }
+    }
+
+    private static void EnsureFinite(float value, string name)
+    {
+        if (!float.IsFinite(value))
+        {
+            throw new DefinitionValidationException($"{name} must be finite.");
+        }
+    }
+
+    private static void EnsureRange(float value, float minimum, float maximum, string name)
+    {
+        if (!float.IsFinite(value) || value < minimum || value > maximum)
+        {
+            throw new DefinitionValidationException($"{name} must be between {minimum} and {maximum}.");
         }
     }
 }

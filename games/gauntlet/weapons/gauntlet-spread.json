@@ -1,0 +1,7 @@
+{
+  "id": "gauntlet-spread",
+  "bulletId": "gauntlet-shot",
+  "cooldown": 0.9,
+  "projectileCount": 5,
+  "spreadDegrees": 55
+}
