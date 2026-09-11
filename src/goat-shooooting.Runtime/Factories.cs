@@ -11,13 +11,20 @@ public sealed class PlayerFactory
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(definition);
 
-        return world.CreateEntity()
+        var entity = world.CreateEntity()
             .Add(new TransformComponent(new Vector2(definition.X, definition.Y)))
             .Add(new VelocityComponent(Vector2.Zero))
             .Add(new HealthComponent(definition.Hp))
             .Add(new ColliderComponent(definition.Radius, CollisionLayer.Player))
             .Add(new PlayerComponent(definition.Id, definition.Speed))
             .Add(new WeaponHolderComponent(definition.WeaponId));
+
+        if (definition.InvincibilitySeconds > 0)
+        {
+            entity.Add(new InvincibilityComponent(definition.InvincibilitySeconds));
+        }
+
+        return entity;
     }
 }
 

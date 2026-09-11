@@ -7,6 +7,7 @@ public interface IInputState
     float MoveY { get; }
     bool Fire { get; }
     bool Retry { get; }
+    bool Pause { get; }
 }
 
 public sealed class MutableInputState : IInputState
@@ -15,4 +16,5 @@ public sealed class MutableInputState : IInputState
     public float MoveY { get; set; }
     public bool Fire { get; set; }
     public bool Retry { get; set; }
+    public bool Pause { get; set; }
 }

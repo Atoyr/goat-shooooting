@@ -15,6 +15,8 @@ public sealed class ShootingGame : Game
     private readonly RenderSystem _renderSystem = new();
     private SpriteBatch? _spriteBatch;
     private Texture2D? _pixel;
+    private GameAudio? _audio;
+    private float _shakeRemaining;
 
     public ShootingGame(IDefinitionRepository definitionRepository)
     {
@@ -35,6 +37,7 @@ public sealed class ShootingGame : Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         _pixel = new Texture2D(GraphicsDevice, 1, 1);
         _pixel.SetData(new[] { Color.White });
+        _audio = new GameAudio();
     }
 
     protected override void Update(GameTime gameTime)
@@ -46,19 +49,33 @@ public sealed class ShootingGame : Game
             return;
         }
 
-        _simulation.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
-        Window.Title = _simulation.Status switch
+        var deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        _simulation.Update(deltaTime);
+        _audio?.Play(_simulation.Feedback);
+        _shakeRemaining = Math.Max(0, _shakeRemaining - deltaTime);
+        if (_simulation.Feedback.PlayerHits > 0)
         {
-            SimulationStatus.GameOver => $"goat-shooooting — GAME OVER — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
-            SimulationStatus.StageClear => $"goat-shooooting — STAGE CLEAR — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
-            _ => $"goat-shooooting — HP {_simulation.Player.Get<HealthComponent>().Current} — SCORE {_simulation.Telemetry.Score}"
-        };
+            _shakeRemaining = Math.Max(_shakeRemaining, 0.3f);
+        }
+        else if (_simulation.Feedback.EnemiesDestroyed > 0)
+        {
+            _shakeRemaining = Math.Max(_shakeRemaining, 0.12f);
+        }
+
+        Window.Title = _simulation.IsPaused
+            ? $"goat-shooooting — PAUSED — HP {_simulation.Player.Get<HealthComponent>().Current} — P to resume"
+            : _simulation.Status switch
+            {
+                SimulationStatus.GameOver => $"goat-shooooting — GAME OVER — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
+                SimulationStatus.StageClear => $"goat-shooooting — STAGE CLEAR — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
+                _ => $"goat-shooooting — HP {_simulation.Player.Get<HealthComponent>().Current} — SCORE {_simulation.Telemetry.Score}"
+            };
         base.Update(gameTime);
     }
 
     protected override void Draw(GameTime gameTime)
     {
-        GraphicsDevice.Clear(_simulation.Status switch
+        GraphicsDevice.Clear(_simulation.IsPaused ? new Color(20, 20, 28) : _simulation.Status switch
         {
             SimulationStatus.GameOver => new Color(38, 8, 16),
             SimulationStatus.StageClear => new Color(8, 38, 24),
@@ -67,16 +84,25 @@ public sealed class ShootingGame : Game
         var spriteBatch = _spriteBatch ?? throw new InvalidOperationException("Content has not been loaded.");
         var pixel = _pixel ?? throw new InvalidOperationException("Content has not been loaded.");
 
-        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        var shakeMagnitude = _shakeRemaining > 0 ? 5f * (_shakeRemaining / 0.3f) : 0;
+        var shakeOffset = shakeMagnitude > 0
+            ? new Vector2(
+                (Random.Shared.NextSingle() * 2 - 1) * shakeMagnitude,
+                (Random.Shared.NextSingle() * 2 - 1) * shakeMagnitude)
+            : Vector2.Zero;
+        spriteBatch.Begin(
+            samplerState: SamplerState.PointClamp,
+            transformMatrix: Matrix.CreateTranslation(shakeOffset.X, shakeOffset.Y, 0));
         var items = _renderSystem.Capture(_simulation.World);
         foreach (var item in items)
         {
-            var color = item.Kind switch
+            var color = item.IsFlashing ? Color.White : item.Kind switch
             {
                 RenderKind.Player => new Color(68, 210, 255),
                 RenderKind.Enemy => new Color(255, 92, 92),
                 RenderKind.PlayerBullet => new Color(255, 235, 84),
                 RenderKind.EnemyBullet => new Color(255, 140, 60),
+                RenderKind.Explosion => new Color(255, 180, 50, (int)(255 * (1 - item.EffectProgress))),
                 _ => Color.White
             };
             var bounds = PrimitiveRenderLayout.ToRectangle(item);
@@ -108,6 +134,7 @@ public sealed class ShootingGame : Game
         {
             _pixel?.Dispose();
             _spriteBatch?.Dispose();
+            _audio?.Dispose();
         }
 
         base.Dispose(disposing);

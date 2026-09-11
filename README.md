@@ -34,10 +34,11 @@ dotnet run --project src/goat-shooooting.SampleGame
 
 - Arrow / WASD: Player 移動
 - Z / Space: 発射
+- P: ポーズ／再開
 - R / Enter: Game Over／Stage Clear後にリトライ
 - Esc: 終了
 
-約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Enemyは下方向へ射撃し、PlayerのHPが0になるとGame Overです。Player BulletでEnemyをすべて倒すとStage Clearになります。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。HPバーは画面左上、現在HP・スコア・終了状態・リトライ操作はウィンドウタイトルに表示されます。
+約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Enemyは下方向へ射撃し、PlayerのHPが0になるとGame Overです。Player BulletでEnemyをすべて倒すとStage Clearになります。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。HPバーは画面左上、現在HP・スコア・Pause／終了状態はウィンドウタイトルに表示されます。
 
 画面を使わない smoke test:
 
@@ -81,7 +82,7 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
 サンプルの定義は [`games/sample`](games/sample) にあります。
 
 - `game.json`: 使用する `playerId`、`stageId`、画面サイズ
-- `player.json`: HP、移動速度、初期位置、Collider 半径、Weapon 参照
+- `player.json`: HP、移動速度、初期位置、Collider 半径、被弾後の無敵時間、Weapon 参照
 - `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照
 - `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime
 - `weapons/*.json`: Bullet 参照と cooldown
@@ -115,8 +116,8 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
 - **Definition**: immutable-style record による静的設定。Runtime state は保持しません。
 - **Factory**: `PlayerFactory`、`EnemyFactory`、`BulletFactory` が Definition を Entity＋Component へ変換します。
 - **Entity / Component**: 継承階層を使わない composition model です。`Transform`、`Velocity`、`Health`、`Damage`、`Collider`、marker、Weapon、Lifetime を World が管理します。
-- **System**: `PlayerInputSystem`、`WeaponSystem`、`MovementSystem`、`PlayerBoundsSystem`、`OutOfBoundsSystem`、`StageSystem`、`CollisionSystem`、`BulletHitSystem`、`DamageSystem`、`LifetimeSystem`、`CleanupSystem`、`RenderSystem` が状態を処理します。
-- **Runtime**: `ShootingSimulation.Update(deltaTime)` が System の production 実行順序と `Running`／`StageClear`／`GameOver` の状態遷移、リトライ時のWorld再構築を統括します。
-- **Framework**: `KeyboardInputState` と `ShootingGame` だけが MonoGame API を扱います。RenderSystem は renderer-neutral な snapshot を返し、終了状態は背景色とウィンドウタイトルで表示します。
+- **System**: 入力、射撃、移動、境界、Stage、Collision、Damage、無敵時間、Feedback、Lifetime、Cleanup、Renderをそれぞれ独立したSystemが処理します。
+- **Runtime**: `ShootingSimulation.Update(deltaTime)` が production実行順序、Pause、`Running`／`StageClear`／`GameOver` の状態遷移、リトライ時のWorld再構築を統括します。1フレーム単位の `SimulationFeedback` は描画APIに依存しません。
+- **Framework**: `KeyboardInputState`、`ShootingGame`、手続き生成音を扱う`GameAudio`だけがMonoGame APIを扱います。RenderSystemはrenderer-neutralなsnapshotを返し、Frameworkがフラッシュ、爆発、画面揺れ、HPバーと状態表示へ変換します。
 
 現在の範囲は Player／Enemyによる射撃、単純な下方向 Enemy 移動、円 Collider による命中、Damage／Death、勝敗とリトライまでです。Editor、networking、save、boss や高度な ECS 最適化は含みません。

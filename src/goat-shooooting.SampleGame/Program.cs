@@ -72,6 +72,8 @@ public static class Program
         Require(telemetry.Score == 4200, "The expected score was not awarded for the complete stage.");
         Require(simulation.Elapsed >= 60, "The simulation did not run through the final wave.");
         Require(!simulation.World.Query<EnemyComponent>().Any(), "A dead enemy remained in the world.");
+        Require(simulation.Feedback.EnemiesDestroyed > 0, "No enemy destruction feedback was emitted.");
+        Require(simulation.World.Query<ExplosionComponent>().Any(), "No explosion effect was created.");
         Require(simulation.Status == SimulationStatus.StageClear, "The simulation did not reach Stage Clear.");
 
         input.Fire = false;

@@ -70,4 +70,22 @@ public sealed class LifetimeComponent(float seconds)
     public float Remaining { get; set; } = seconds > 0 ? seconds : throw new ArgumentOutOfRangeException(nameof(seconds));
 }
 
+public sealed class InvincibilityComponent(float duration)
+{
+    public float Duration { get; } = duration > 0 ? duration : throw new ArgumentOutOfRangeException(nameof(duration));
+    public float Remaining { get; set; }
+}
+
+public sealed class HitFlashComponent(float seconds)
+{
+    public float Remaining { get; set; } = seconds > 0 ? seconds : throw new ArgumentOutOfRangeException(nameof(seconds));
+}
+
+public sealed class ExplosionComponent(float maxRadius, float duration)
+{
+    public float MaxRadius { get; } = maxRadius > 0 ? maxRadius : throw new ArgumentOutOfRangeException(nameof(maxRadius));
+    public float Duration { get; } = duration > 0 ? duration : throw new ArgumentOutOfRangeException(nameof(duration));
+    public float Remaining { get; set; } = duration;
+}
+
 public sealed class PendingDestroyComponent;

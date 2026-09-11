@@ -18,6 +18,7 @@ public sealed record PlayerDefinition
     public float X { get; init; }
     public float Y { get; init; }
     public float Radius { get; init; }
+    public float InvincibilitySeconds { get; init; } = 1;
 }
 
 public sealed record EnemyDefinition

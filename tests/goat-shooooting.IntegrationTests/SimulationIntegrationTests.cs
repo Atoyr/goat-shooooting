@@ -31,6 +31,7 @@ public sealed class SimulationIntegrationTests
         Assert.Equal(100, simulation.Telemetry.Score);
         Assert.Empty(simulation.World.Query<EnemyComponent>());
         Assert.Equal(SimulationStatus.StageClear, simulation.Status);
+        Assert.Equal(1, simulation.Feedback.EnemiesDestroyed);
     }
 
     [Fact]
@@ -94,6 +95,34 @@ public sealed class SimulationIntegrationTests
         var changedEnemy = Assert.Single(changed.World.Query<EnemyComponent>());
         Assert.Equal(25, changedEnemy.Get<HealthComponent>().Maximum);
         Assert.Equal(30, changedEnemy.Get<VelocityComponent>().Value.Y);
+    }
+
+    [Fact]
+    public void PauseFreezesSimulationUntilAPausePressResumesIt()
+    {
+        var input = new MutableInputState();
+        var simulation = new ShootingSimulation(
+            new MemoryDefinitionRepository(CreateDefinitions(spawnTime: 10, enemyHp: 10, enemySpeed: 0)),
+            input);
+        simulation.Update(1);
+
+        input.Pause = true;
+        simulation.Update(1);
+        Assert.True(simulation.IsPaused);
+        Assert.Equal(1, simulation.Elapsed);
+
+        simulation.Update(1);
+        Assert.Equal(1, simulation.Elapsed);
+
+        input.Pause = false;
+        simulation.Update(0);
+        input.Pause = true;
+        simulation.Update(0);
+        Assert.False(simulation.IsPaused);
+
+        input.Pause = false;
+        simulation.Update(1);
+        Assert.Equal(2, simulation.Elapsed);
     }
 
     private static DefinitionCatalog CreateDefinitions(

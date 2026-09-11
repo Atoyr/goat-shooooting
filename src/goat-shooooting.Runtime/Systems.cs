@@ -236,8 +236,28 @@ public sealed class DamageSystem
                 continue;
             }
 
+            if (damageEvent.Target.TryGet<InvincibilityComponent>(out var invincibility) &&
+                invincibility.Remaining > 0)
+            {
+                continue;
+            }
+
             var health = damageEvent.Target.Get<HealthComponent>();
             health.Current -= damageEvent.Amount;
+            if (damageEvent.Target.TryGet<HitFlashComponent>(out var hitFlash))
+            {
+                hitFlash.Remaining = 0.1f;
+            }
+            else
+            {
+                damageEvent.Target.Add(new HitFlashComponent(0.1f));
+            }
+
+            if (invincibility is not null)
+            {
+                invincibility.Remaining = invincibility.Duration;
+            }
+
             telemetry.DamageEventsApplied++;
             if (damageEvent.Target.Has<PlayerComponent>())
             {
@@ -253,6 +273,60 @@ public sealed class DamageSystem
                     telemetry.Score += damageEvent.Target.Get<ScoreValueComponent>().Value;
                 }
             }
+        }
+    }
+}
+
+public sealed class InvincibilitySystem
+{
+    public void Update(World world, float deltaTime)
+    {
+        foreach (var entity in world.Query<InvincibilityComponent>())
+        {
+            var invincibility = entity.Get<InvincibilityComponent>();
+            invincibility.Remaining = Math.Max(0, invincibility.Remaining - deltaTime);
+        }
+    }
+}
+
+public sealed class FeedbackSystem
+{
+    private const float ExplosionDuration = 0.35f;
+
+    public void Update(World world, float deltaTime)
+    {
+        foreach (var entity in world.Query<HitFlashComponent>().ToArray())
+        {
+            var flash = entity.Get<HitFlashComponent>();
+            flash.Remaining -= deltaTime;
+            if (flash.Remaining <= 0)
+            {
+                entity.Remove<HitFlashComponent>();
+            }
+        }
+
+        foreach (var entity in world.Query<ExplosionComponent>().ToArray())
+        {
+            var explosion = entity.Get<ExplosionComponent>();
+            explosion.Remaining -= deltaTime;
+            if (explosion.Remaining <= 0)
+            {
+                entity.Add(new PendingDestroyComponent());
+            }
+        }
+
+        foreach (var entity in world.Query<PendingDestroyComponent, TransformComponent, HealthComponent>().ToArray())
+        {
+            if (entity.Get<HealthComponent>().Current > 0 ||
+                (!entity.Has<EnemyComponent>() && !entity.Has<PlayerComponent>()))
+            {
+                continue;
+            }
+
+            var radius = entity.TryGet<ColliderComponent>(out var collider) ? collider.Radius * 2 : 20;
+            world.CreateEntity()
+                .Add(new TransformComponent(entity.Get<TransformComponent>().Position))
+                .Add(new ExplosionComponent(radius, ExplosionDuration));
         }
     }
 }
@@ -294,10 +368,18 @@ public enum RenderKind
     Player,
     Enemy,
     PlayerBullet,
-    EnemyBullet
+    EnemyBullet,
+    Explosion
 }
 
-public readonly record struct RenderItem(int EntityId, RenderKind Kind, Vector2 Position, float Radius, float HealthFraction);
+public readonly record struct RenderItem(
+    int EntityId,
+    RenderKind Kind,
+    Vector2 Position,
+    float Radius,
+    float HealthFraction,
+    bool IsFlashing = false,
+    float EffectProgress = 0);
 
 /// <summary>Transforms runtime state into renderer-neutral draw data.</summary>
 public sealed class RenderSystem
@@ -326,7 +408,22 @@ public sealed class RenderSystem
                 kind.Value,
                 entity.Get<TransformComponent>().Position,
                 entity.Get<ColliderComponent>().Radius,
-                healthFraction));
+                healthFraction,
+                entity.Has<HitFlashComponent>() ||
+                (entity.TryGet<InvincibilityComponent>(out var invincibility) && invincibility.Remaining > 0)));
+        }
+
+        foreach (var entity in world.Query<TransformComponent, ExplosionComponent>())
+        {
+            var explosion = entity.Get<ExplosionComponent>();
+            var progress = Math.Clamp(1 - (explosion.Remaining / explosion.Duration), 0, 1);
+            items.Add(new RenderItem(
+                entity.Id,
+                RenderKind.Explosion,
+                entity.Get<TransformComponent>().Position,
+                explosion.MaxRadius * Math.Max(0.2f, progress),
+                1,
+                EffectProgress: progress));
         }
 
         return items;

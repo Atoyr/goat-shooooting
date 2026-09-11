@@ -44,6 +44,7 @@ public sealed class DefinitionCatalog
             EnsurePositive(player.Hp, $"Player '{player.Id}' hp");
             EnsurePositive(player.Speed, $"Player '{player.Id}' speed");
             EnsurePositive(player.Radius, $"Player '{player.Id}' radius");
+            EnsureNonNegative(player.InvincibilitySeconds, $"Player '{player.Id}' invincibility seconds");
             _ = GetWeapon(player.WeaponId);
         }
 
