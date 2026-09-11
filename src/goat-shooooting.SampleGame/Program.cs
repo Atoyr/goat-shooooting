@@ -11,7 +11,8 @@ public static class Program
     {
         try
         {
-            var definitions = new JsonDefinitionRepository(Path.Combine(AppContext.BaseDirectory, "game"));
+            var gameId = GetGameId(args);
+            var definitions = new JsonDefinitionRepository(Path.Combine(AppContext.BaseDirectory, "games", gameId));
             if (args.Contains("--smoke-test", StringComparer.Ordinal))
             {
                 return RunSmokeTest(definitions);
@@ -33,7 +34,12 @@ public static class Program
         var input = new MutableInputState { Fire = true };
         var simulation = new ShootingSimulation(definitions, input);
         const float deltaTime = 1f / 60f;
-        const int maximumFrames = 60 * 90;
+        const int maximumFrames = 60 * 150;
+        var stage = simulation.Definitions.GetStage(simulation.Definitions.Game.StageId);
+        var expectedEnemies = stage.Events.Count;
+        var expectedScore = stage.Events.Sum(stageEvent =>
+            simulation.Definitions.GetEnemy(stageEvent.EnemyId).Score);
+        var lastEventTime = stage.Events.Count == 0 ? 0 : stage.Events.Max(static stageEvent => stageEvent.Time);
 
         for (var frame = 0; frame < maximumFrames && simulation.Status == SimulationStatus.Running; frame++)
         {
@@ -56,8 +62,7 @@ public static class Program
 
         var telemetry = simulation.Telemetry;
         Require(simulation.Player.Has<PlayerComponent>(), "Player was not created.");
-        Require(telemetry.EnemiesSpawned > 0, "No enemy was spawned from the stage definition.");
-        Require(telemetry.EnemiesSpawned >= 10, "The complete multi-wave stage was not simulated.");
+        Require(telemetry.EnemiesSpawned == expectedEnemies, "The complete stage definition was not simulated.");
         Require(telemetry.EnemyMovementFrames > 0, "No enemy movement was observed.");
         Require(telemetry.BulletsSpawned > 0, "No bullet was spawned by the weapon system.");
         Require(telemetry.EnemyBulletsSpawned > 0, "No enemy bullet was spawned by the weapon system.");
@@ -69,8 +74,8 @@ public static class Program
             telemetry.EnemiesKilled == telemetry.EnemiesSpawned,
             $"Not every spawned enemy was defeated (spawned={telemetry.EnemiesSpawned}, killed={telemetry.EnemiesKilled}, " +
             $"status={simulation.Status}, hp={simulation.Player.Get<HealthComponent>().Current}).");
-        Require(telemetry.Score == 4200, "The expected score was not awarded for the complete stage.");
-        Require(simulation.Elapsed >= 60, "The simulation did not run through the final wave.");
+        Require(telemetry.Score == expectedScore, "The expected score was not awarded for the complete stage.");
+        Require(simulation.Elapsed >= lastEventTime, "The simulation did not run through the final wave.");
         Require(!simulation.World.Query<EnemyComponent>().Any(), "A dead enemy remained in the world.");
         Require(simulation.Feedback.EnemiesDestroyed > 0, "No enemy destruction feedback was emitted.");
         Require(simulation.World.Query<ExplosionComponent>().Any(), "No explosion effect was created.");
@@ -90,6 +95,20 @@ public static class Program
             $"movementFrames={telemetry.BulletMovementFrames}, collisions={telemetry.CollisionsDetected}, " +
             $"damage={telemetry.DamageEventsApplied}, killed={telemetry.EnemiesKilled}, retry=passed");
         return 0;
+    }
+
+    private static string GetGameId(string[] args)
+    {
+        var optionIndex = Array.FindIndex(args, static argument => string.Equals(argument, "--game", StringComparison.Ordinal));
+        var gameId = optionIndex >= 0 && optionIndex + 1 < args.Length ? args[optionIndex + 1] : "sample";
+        if (string.IsNullOrWhiteSpace(gameId) ||
+            !string.Equals(gameId, Path.GetFileName(gameId), StringComparison.Ordinal) ||
+            gameId.Any(static character => !char.IsLetterOrDigit(character) && character is not '-' and not '_'))
+        {
+            throw new ArgumentException($"Invalid game id '{gameId}'. Use a directory name such as 'sample' or 'gauntlet'.");
+        }
+
+        return gameId;
     }
 
     private static void Require(bool condition, string message)

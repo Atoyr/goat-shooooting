@@ -1,0 +1,10 @@
+{
+  "id": "gauntlet-player",
+  "hp": 80,
+  "speed": 340,
+  "weaponId": "rapid-fire",
+  "x": 320,
+  "y": 730,
+  "radius": 12,
+  "invincibilitySeconds": 0.75
+}

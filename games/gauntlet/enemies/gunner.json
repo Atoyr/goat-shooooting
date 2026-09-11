@@ -1,0 +1,8 @@
+{
+  "id": "gunner",
+  "hp": 30,
+  "speed": 30,
+  "weaponId": "gauntlet-enemy",
+  "radius": 15,
+  "score": 350
+}

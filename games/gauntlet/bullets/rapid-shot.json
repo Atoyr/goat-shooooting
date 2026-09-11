@@ -1,0 +1,7 @@
+{
+  "id": "rapid-shot",
+  "speed": 480,
+  "damage": 10,
+  "radius": 4,
+  "lifetime": 3
+}

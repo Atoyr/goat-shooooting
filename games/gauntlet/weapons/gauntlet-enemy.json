@@ -1,0 +1,5 @@
+{
+  "id": "gauntlet-enemy",
+  "bulletId": "gauntlet-shot",
+  "cooldown": 1.5
+}

@@ -1,0 +1,7 @@
+{
+  "id": "gauntlet-shot",
+  "speed": 150,
+  "damage": 1,
+  "radius": 7,
+  "lifetime": 7
+}

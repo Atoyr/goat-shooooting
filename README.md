@@ -30,6 +30,12 @@ dotnet test
 dotnet run --project src/goat-shooooting.SampleGame
 ```
 
+高速・縦長構成の第2コンテンツパックを起動:
+
+```bash
+dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
+```
+
 操作:
 
 - Arrow / WASD: Player 移動
@@ -44,6 +50,7 @@ dotnet run --project src/goat-shooooting.SampleGame
 
 ```bash
 dotnet run --project src/goat-shooooting.SampleGame -- --smoke-test
+dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet --smoke-test
 ```
 
 このモードは JSON 読込後に Production の `ShootingSimulation` を一定フレーム進め、Enemy spawn、双方のBullet spawnと移動、Collision、Damage、Enemy death、Stage Clear、リトライと状態初期化を観測して自動終了します。成功時は exit code 0、検証失敗または例外時は exit code 1 です。
@@ -63,7 +70,8 @@ tests/
   goat-shooooting.Runtime.Tests
   goat-shooooting.Framework.Tests
   goat-shooooting.IntegrationTests
-games/sample/                  実際に SampleGame が読む JSON definitions
+games/sample/                  60秒の標準コンテンツパック
+games/gauntlet/                高速・縦長の第2コンテンツパック
 ```
 
 依存の向きは次のとおりです。
