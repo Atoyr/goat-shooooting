@@ -75,6 +75,18 @@ public sealed class DefinitionEditorServiceTests
         Assert.Contains("/api/file", editor, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PublishedEditorFiltersStagePreviewBySelectedTimelineTime()
+    {
+        var editorPath = Path.Combine(AppContext.BaseDirectory, "editor.html");
+
+        var editor = File.ReadAllText(editorPath);
+
+        Assert.Contains("for (const time of stageTimes())", editor, StringComparison.Ordinal);
+        Assert.Contains("selectedTime = time", editor, StringComparison.Ordinal);
+        Assert.Contains("visibleStageEvents().forEach", editor, StringComparison.Ordinal);
+    }
+
     private sealed class DefinitionFixture : IDisposable
     {
         private DefinitionFixture(string path) => Path = path;
