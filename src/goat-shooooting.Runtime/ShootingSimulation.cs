@@ -13,6 +13,7 @@ public enum SimulationStatus
 /// <summary>Headless-capable composition root for the production game simulation.</summary>
 public sealed class ShootingSimulation
 {
+    private readonly IDefinitionRepository _definitionRepository;
     private readonly IInputState _input;
     private readonly PlayerInputSystem _playerInputSystem = new();
     private readonly WeaponSystem _weaponSystem = new(new BulletFactory());
@@ -33,8 +34,9 @@ public sealed class ShootingSimulation
     public ShootingSimulation(IDefinitionRepository definitionRepository, IInputState input)
     {
         ArgumentNullException.ThrowIfNull(definitionRepository);
+        _definitionRepository = definitionRepository;
         _input = input ?? throw new ArgumentNullException(nameof(input));
-        Definitions = definitionRepository.Load();
+        Definitions = _definitionRepository.Load();
         World = null!;
         Player = null!;
         Telemetry = null!;
@@ -42,13 +44,15 @@ public sealed class ShootingSimulation
     }
 
     public World World { get; private set; }
-    public DefinitionCatalog Definitions { get; }
+    public DefinitionCatalog Definitions { get; private set; }
     public Entity Player { get; private set; }
     public SimulationTelemetry Telemetry { get; private set; }
     public double Elapsed => _stageSystem.Elapsed;
     public SimulationStatus Status { get; private set; }
     public bool IsPaused { get; private set; }
     public SimulationFeedback Feedback { get; private set; }
+    public int DefinitionReloadCount { get; private set; }
+    public string? DefinitionReloadError { get; private set; }
 
     public void Update(float deltaTime)
     {
@@ -58,6 +62,11 @@ public sealed class ShootingSimulation
         }
 
         Feedback = default;
+        if (TryReloadDefinitions())
+        {
+            return;
+        }
+
         if (Status != SimulationStatus.Running)
         {
             if (_input.Retry)
@@ -115,6 +124,32 @@ public sealed class ShootingSimulation
         {
             Status = SimulationStatus.StageClear;
         }
+    }
+
+    private bool TryReloadDefinitions()
+    {
+        if (_definitionRepository is not IReloadableDefinitionRepository reloadable)
+        {
+            return false;
+        }
+
+        var result = reloadable.PollChanges();
+        if (result is null)
+        {
+            return false;
+        }
+
+        if (!result.Success)
+        {
+            DefinitionReloadError = result.Error;
+            return false;
+        }
+
+        Definitions = result.Catalog!;
+        DefinitionReloadError = null;
+        DefinitionReloadCount++;
+        Restart();
+        return true;
     }
 
     private void Restart()

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Enemy Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "hp", "speed", "radius"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "hp": { "type": "integer", "minimum": 1 },
+    "speed": { "type": "number", "minimum": 0 },
+    "weaponId": { "type": ["string", "null"] },
+    "radius": { "type": "number", "exclusiveMinimum": 0 },
+    "score": { "type": "integer", "minimum": 1, "default": 100 },
+    "movementPattern": { "type": "string", "enum": ["straight", "sine"], "default": "straight" },
+    "movementAmplitude": { "type": "number", "minimum": 0, "default": 0 },
+    "movementFrequency": { "type": "number", "minimum": 0, "default": 0 }
+  }
+}

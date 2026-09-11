@@ -38,11 +38,54 @@ public sealed class JsonDefinitionRepositoryTests
         Assert.Contains("spiral", exception.Message);
     }
 
+    [Fact]
+    public void UnknownJsonPropertyReportsFilePathAndLocation()
+    {
+        using var directory = DefinitionDirectory.Create();
+        directory.WriteEnemy("""
+            {
+              "id": "enemy", "hp": 10, "speed": 0, "radius": 10,
+              "speeed": 20
+            }
+            """);
+
+        var exception = Assert.Throws<DefinitionValidationException>(
+            () => new JsonDefinitionRepository(directory.Path).Load());
+
+        Assert.Contains("enemy.json", exception.Message);
+        Assert.Contains("$.speeed", exception.Message);
+        Assert.Contains("line", exception.Message);
+    }
+
+    [Fact]
+    public void ReloadableRepositoryReportsValidAndInvalidFileChangesOnce()
+    {
+        using var directory = DefinitionDirectory.Create();
+        var repository = new ReloadableJsonDefinitionRepository(directory.Path);
+        _ = repository.Load();
+        Assert.Null(repository.PollChanges());
+
+        directory.WriteEnemy("""{"id":"enemy","hp":25,"speed":0,"radius":10}""");
+        var validReload = Assert.IsType<DefinitionReloadResult>(repository.PollChanges());
+        Assert.True(validReload.Success);
+        Assert.Equal(25, validReload.Catalog!.GetEnemy("enemy").Hp);
+        Assert.Null(repository.PollChanges());
+
+        directory.WriteEnemy("""{"id":"enemy","hp":0,"speed":0,"radius":10}""");
+        var invalidReload = Assert.IsType<DefinitionReloadResult>(repository.PollChanges());
+        Assert.False(invalidReload.Success);
+        Assert.Contains("hp", invalidReload.Error);
+        Assert.Null(repository.PollChanges());
+    }
+
     private sealed class DefinitionDirectory : IDisposable
     {
         private DefinitionDirectory(string path) => Path = path;
 
         public string Path { get; }
+
+        public void WriteEnemy(string content) =>
+            File.WriteAllText(System.IO.Path.Combine(Path, "enemies", "enemy.json"), content);
 
         public static DefinitionDirectory Create(string weaponBulletId = "bullet")
         {

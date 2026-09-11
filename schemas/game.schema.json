@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Game Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["playerId", "stageId", "width", "height"],
+  "properties": {
+    "playerId": { "type": "string", "minLength": 1, "description": "Player definition id." },
+    "stageId": { "type": "string", "minLength": 1, "description": "Initial stage definition id." },
+    "width": { "type": "integer", "minimum": 1, "description": "Viewport width in pixels." },
+    "height": { "type": "integer", "minimum": 1, "description": "Viewport height in pixels." }
+  }
+}

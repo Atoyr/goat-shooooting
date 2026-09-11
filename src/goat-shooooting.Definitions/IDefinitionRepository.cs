@@ -5,3 +5,13 @@ public interface IDefinitionRepository
 {
     DefinitionCatalog Load();
 }
+
+public sealed record DefinitionReloadResult(DefinitionCatalog? Catalog, string? Error)
+{
+    public bool Success => Catalog is not null;
+}
+
+public interface IReloadableDefinitionRepository : IDefinitionRepository
+{
+    DefinitionReloadResult? PollChanges();
+}

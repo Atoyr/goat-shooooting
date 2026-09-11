@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Player Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "hp", "speed", "weaponId", "x", "y", "radius"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "hp": { "type": "integer", "minimum": 1 },
+    "speed": { "type": "number", "exclusiveMinimum": 0 },
+    "weaponId": { "type": "string", "minLength": 1 },
+    "x": { "type": "number" },
+    "y": { "type": "number" },
+    "radius": { "type": "number", "exclusiveMinimum": 0 },
+    "invincibilitySeconds": { "type": "number", "minimum": 0, "default": 1 }
+  }
+}

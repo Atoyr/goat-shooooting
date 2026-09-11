@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bullet Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "speed", "damage", "radius", "lifetime"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "speed": { "type": "number", "exclusiveMinimum": 0 },
+    "damage": { "type": "integer", "minimum": 1 },
+    "radius": { "type": "number", "exclusiveMinimum": 0 },
+    "lifetime": { "type": "number", "exclusiveMinimum": 0 }
+  }
+}

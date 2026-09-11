@@ -125,12 +125,39 @@ public sealed class SimulationIntegrationTests
         Assert.Equal(2, simulation.Elapsed);
     }
 
+    [Fact]
+    public void RuntimeAppliesValidHotReloadAndKeepsLastGoodDefinitionsOnError()
+    {
+        var repository = new StubReloadableRepository(
+            CreateDefinitions(spawnTime: 10, enemyHp: 10, enemySpeed: 0, playerSpeed: 200));
+        var simulation = new ShootingSimulation(repository, new MutableInputState());
+        var originalWorld = simulation.World;
+
+        repository.Next = new DefinitionReloadResult(
+            CreateDefinitions(spawnTime: 10, enemyHp: 10, enemySpeed: 0, playerSpeed: 350),
+            null);
+        simulation.Update(0);
+
+        Assert.Equal(1, simulation.DefinitionReloadCount);
+        Assert.NotSame(originalWorld, simulation.World);
+        Assert.Equal(350, simulation.Player.Get<PlayerComponent>().Speed);
+        Assert.Null(simulation.DefinitionReloadError);
+
+        var lastGoodWorld = simulation.World;
+        repository.Next = new DefinitionReloadResult(null, "enemy hp is invalid");
+        simulation.Update(0);
+
+        Assert.Same(lastGoodWorld, simulation.World);
+        Assert.Equal("enemy hp is invalid", simulation.DefinitionReloadError);
+    }
+
     private static DefinitionCatalog CreateDefinitions(
         float spawnTime,
         int enemyHp,
         float enemySpeed,
         int playerHp = 100,
-        string? enemyWeaponId = null)
+        string? enemyWeaponId = null,
+        float playerSpeed = 200)
     {
         return new DefinitionCatalog(
             new GameDefinition { PlayerId = "player", StageId = "stage", Width = 800, Height = 600 },
@@ -138,7 +165,7 @@ public sealed class SimulationIntegrationTests
             {
                 new PlayerDefinition
                 {
-                    Id = "player", Hp = playerHp, Speed = 200, WeaponId = "weapon",
+                    Id = "player", Hp = playerHp, Speed = playerSpeed, WeaponId = "weapon",
                     X = 0, Y = 300, Radius = 10
                 }
             },
@@ -172,5 +199,19 @@ public sealed class SimulationIntegrationTests
                     }
                 }
             });
+    }
+
+    private sealed class StubReloadableRepository(DefinitionCatalog initial) : IReloadableDefinitionRepository
+    {
+        public DefinitionReloadResult? Next { get; set; }
+
+        public DefinitionCatalog Load() => initial;
+
+        public DefinitionReloadResult? PollChanges()
+        {
+            var result = Next;
+            Next = null;
+            return result;
+        }
     }
 }

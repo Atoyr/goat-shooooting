@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\goat-shooooting.Definitions\goat-shooooting.Definitions.csproj" />
+    <Content Include="..\..\schemas\*.schema.json" Link="schemas\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="editor.html" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

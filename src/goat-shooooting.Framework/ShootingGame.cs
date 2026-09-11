@@ -62,7 +62,9 @@ public sealed class ShootingGame : Game
             _shakeRemaining = Math.Max(_shakeRemaining, 0.12f);
         }
 
-        Window.Title = _simulation.IsPaused
+        Window.Title = _simulation.DefinitionReloadError is not null
+            ? $"goat-shooooting — DEFINITION ERROR — {_simulation.DefinitionReloadError}"
+            : _simulation.IsPaused
             ? $"goat-shooooting — PAUSED — HP {_simulation.Player.Get<HealthComponent>().Current} — P to resume"
             : _simulation.Status switch
             {

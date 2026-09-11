@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace GoatShooooting.Definitions;
 
@@ -8,7 +9,9 @@ public sealed class JsonDefinitionRepository(string rootDirectory) : IDefinition
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        ReadCommentHandling = JsonCommentHandling.Skip
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow
     };
 
     private readonly string _rootDirectory = Path.GetFullPath(rootDirectory ?? throw new ArgumentNullException(nameof(rootDirectory)));
@@ -62,7 +65,11 @@ public sealed class JsonDefinitionRepository(string rootDirectory) : IDefinition
         }
         catch (JsonException exception)
         {
-            throw new DefinitionValidationException($"Definition file '{path}' is invalid JSON: {exception.Message}");
+            var line = (exception.LineNumber ?? 0) + 1;
+            var position = (exception.BytePositionInLine ?? 0) + 1;
+            throw new DefinitionValidationException(
+                $"Definition file '{path}' is invalid at JSON path '{exception.Path ?? "$"}', " +
+                $"line {line}, byte {position}: {exception.Message}");
         }
     }
 }

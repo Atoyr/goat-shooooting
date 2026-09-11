@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>goat-shooooting Definition Editor</title>
+  <style>
+    :root { color-scheme: dark; font: 14px/1.5 system-ui, sans-serif; background: #080d1a; color: #e8eefc; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    header { height: 58px; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #26324d; }
+    header strong { font-size: 17px; margin-right: auto; }
+    button, input { border: 1px solid #405177; border-radius: 5px; background: #16213a; color: inherit; padding: 7px 10px; }
+    button:hover { background: #24365d; }
+    main { display: grid; grid-template-columns: 240px minmax(420px, 1fr) 300px; height: calc(100vh - 98px); }
+    aside { overflow: auto; padding: 12px; border-right: 1px solid #26324d; }
+    aside:last-child { border: 0; border-left: 1px solid #26324d; }
+    #files button { width: 100%; border: 0; background: transparent; text-align: left; overflow-wrap: anywhere; }
+    #files button.active { background: #214a78; }
+    section { display: flex; flex-direction: column; padding: 12px; min-width: 0; }
+    textarea { flex: 1; resize: none; width: 100%; border: 1px solid #405177; border-radius: 5px; background: #0d1426; color: #dce8ff; padding: 14px; font: 14px/1.55 Consolas, monospace; tab-size: 2; }
+    .schema-field { border-bottom: 1px solid #26324d; padding: 8px 0; }
+    .schema-field code { color: #72d6ff; }
+    .required { color: #ff9f7a; }
+    footer { height: 40px; padding: 9px 16px; border-top: 1px solid #26324d; color: #aebbd5; }
+    footer.ok { color: #77e39b; }
+    footer.error { color: #ff8c8c; }
+    @media (max-width: 900px) { main { grid-template-columns: 190px 1fr; } aside:last-child { display: none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Definition Editor</strong>
+    <input id="path" aria-label="JSON path" placeholder="enemies/new-enemy.json">
+    <button id="new">New</button>
+    <button id="reload">Reload</button>
+    <button id="validate">Validate</button>
+    <button id="save">Save</button>
+  </header>
+  <main>
+    <aside><div id="files"></div></aside>
+    <section><textarea id="content" spellcheck="false" aria-label="JSON content"></textarea></section>
+    <aside><h3 id="schemaTitle">Schema</h3><div id="schema"></div></aside>
+  </main>
+  <footer id="status">Choose a definition file.</footer>
+  <script>
+    const files = document.querySelector('#files');
+    const pathInput = document.querySelector('#path');
+    const content = document.querySelector('#content');
+    const status = document.querySelector('#status');
+    let currentPath = '';
+
+    function setStatus(message, success = null) {
+      status.textContent = message;
+      status.className = success === true ? 'ok' : success === false ? 'error' : '';
+    }
+
+    async function api(url, options) {
+      const response = await fetch(url, options);
+      const value = response.headers.get('content-type')?.includes('json') ? await response.json() : await response.text();
+      if (!response.ok) throw new Error(value.error || value.message || value);
+      return value;
+    }
+
+    async function loadFiles() {
+      const list = await api('/api/files');
+      files.replaceChildren(...list.map(file => {
+        const button = document.createElement('button');
+        button.textContent = file;
+        button.className = file === currentPath ? 'active' : '';
+        button.onclick = () => openFile(file);
+        return button;
+      }));
+    }
+
+    async function openFile(file) {
+      currentPath = file;
+      pathInput.value = file;
+      content.value = await api(`/api/file?path=${encodeURIComponent(file)}`);
+      await loadSchema(file);
+      await loadFiles();
+      setStatus(`Loaded ${file}.`);
+    }
+
+    async function loadSchema(file) {
+      const schema = await api(`/api/schema?path=${encodeURIComponent(file)}`);
+      document.querySelector('#schemaTitle').textContent = schema.title || 'Schema';
+      const required = new Set(schema.required || []);
+      document.querySelector('#schema').replaceChildren(...Object.entries(schema.properties || {}).map(([name, property]) => {
+        const row = document.createElement('div');
+        row.className = 'schema-field';
+        const type = Array.isArray(property.type) ? property.type.join(' | ') : property.type;
+        row.innerHTML = `<code>${name}</code> ${required.has(name) ? '<span class="required">required</span>' : ''}<br>`;
+        row.append(`${type || 'value'}${property.description ? ` — ${property.description}` : ''}`);
+        return row;
+      }));
+    }
+
+    function request() {
+      const file = pathInput.value.trim();
+      if (!file) throw new Error('Enter a relative JSON path.');
+      return { path: file, content: content.value };
+    }
+
+    document.querySelector('#new').onclick = async () => {
+      currentPath = pathInput.value.trim();
+      content.value = '{\n  \n}\n';
+      if (currentPath) await loadSchema(currentPath);
+      setStatus('New unsaved definition.');
+    };
+    document.querySelector('#reload').onclick = () => currentPath ? openFile(currentPath) : loadFiles();
+    document.querySelector('#validate').onclick = async () => {
+      try {
+        const result = await api('/api/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request()) });
+        setStatus(result.message, result.success);
+      } catch (error) { setStatus(error.message, false); }
+    };
+    document.querySelector('#save').onclick = async () => {
+      try {
+        const result = await api('/api/file', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request()) });
+        setStatus(result.message, result.success);
+        if (result.success) { currentPath = pathInput.value.trim(); await loadFiles(); }
+      } catch (error) { setStatus(error.message, false); }
+    };
+
+    loadFiles().catch(error => setStatus(error.message, false));
+  </script>
+</body>
+</html>

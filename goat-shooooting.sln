@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -20,6 +20,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "goat-shooooting.Framework.Tests", "tests\goat-shooooting.Framework.Tests\goat-shooooting.Framework.Tests.csproj", "{852201DB-3D90-4931-B681-DF24904F837C}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "goat-shooooting.IntegrationTests", "tests\goat-shooooting.IntegrationTests\goat-shooooting.IntegrationTests.csproj", "{1E4DDF85-757C-432F-9954-147B17A7A8F8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{B580B127-E99F-4BD8-89D1-6F5B68D52B89}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "goat-shooooting.Tooling", "src\goat-shooooting.Tooling\goat-shooooting.Tooling.csproj", "{8EF7A45C-5824-4F60-BD54-66D352E765E2}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{5E3D6486-027D-42E0-9EC7-5A8F52490327}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "goat-shooooting.Tooling.Tests", "tests\goat-shooooting.Tooling.Tests\goat-shooooting.Tooling.Tests.csproj", "{967DFEFB-EC3E-4D28-AEF9-9CBAA43C4BE0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,5 +71,17 @@ Global
 		{1E4DDF85-757C-432F-9954-147B17A7A8F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1E4DDF85-757C-432F-9954-147B17A7A8F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1E4DDF85-757C-432F-9954-147B17A7A8F8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8EF7A45C-5824-4F60-BD54-66D352E765E2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8EF7A45C-5824-4F60-BD54-66D352E765E2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8EF7A45C-5824-4F60-BD54-66D352E765E2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8EF7A45C-5824-4F60-BD54-66D352E765E2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{967DFEFB-EC3E-4D28-AEF9-9CBAA43C4BE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{967DFEFB-EC3E-4D28-AEF9-9CBAA43C4BE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{967DFEFB-EC3E-4D28-AEF9-9CBAA43C4BE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{967DFEFB-EC3E-4D28-AEF9-9CBAA43C4BE0}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8EF7A45C-5824-4F60-BD54-66D352E765E2} = {B580B127-E99F-4BD8-89D1-6F5B68D52B89}
+		{967DFEFB-EC3E-4D28-AEF9-9CBAA43C4BE0} = {5E3D6486-027D-42E0-9EC7-5A8F52490327}
 	EndGlobalSection
 EndGlobal

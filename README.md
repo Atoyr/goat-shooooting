@@ -22,6 +22,15 @@ dotnet test
 
 テストには ECS の基本操作、各 System の単体テスト、JSON 検証、Definition 変更テスト、ゲーム全経路の End-to-End Integration Test が含まれます。
 
+Definitionだけを検証する場合:
+
+```bash
+dotnet run --project src/goat-shooooting.Tooling -- validate games/sample
+dotnet run --project src/goat-shooooting.Tooling -- validate games/gauntlet
+```
+
+成功時はコンテンツ数を表示してexit code 0、不正な参照・値・未知のプロパティ・JSON構文エラーはファイル、JSON Path、行・バイト位置を可能な範囲で表示してexit code 1を返します。
+
 ## SampleGame
 
 通常起動:
@@ -65,13 +74,16 @@ src/
   goat-shooooting.Runtime       Factory、System、headless ShootingSimulation
   goat-shooooting.Framework     MonoGame の Keyboard／描画 adapter と Game host
   goat-shooooting.SampleGame    通常起動と production smoke-test の entry point
+  goat-shooooting.Tooling       Definition検証CLIとブラウザEditor
 tests/
   goat-shooooting.Core.Tests
   goat-shooooting.Runtime.Tests
   goat-shooooting.Framework.Tests
   goat-shooooting.IntegrationTests
+  goat-shooooting.Tooling.Tests
 games/sample/                  60秒の標準コンテンツパック
 games/gauntlet/                高速・縦長の第2コンテンツパック
+schemas/                       各DefinitionのJSON Schema
 ```
 
 依存の向きは次のとおりです。
@@ -84,6 +96,18 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
 ```
 
 `Core` と `Runtime` は MonoGame に依存しません。Runtime はファイル API や `JsonSerializer` を直接使わず、`IDefinitionRepository` だけを参照します。Entity と Component は update／draw ロジックを持たず、処理は System にあります。
+
+## Definition Editorとホットリロード
+
+ブラウザベースのEditorを起動します。既定では `http://127.0.0.1:5078` を開きます。
+
+```bash
+dotnet run --project src/goat-shooooting.Tooling -- editor games/sample
+```
+
+Editorはファイル一覧、JSON編集、保存前検証、ファイル種別ごとのJSON Schemaフィールドリファレンスを提供します。新規ファイルは相対パスを入力して`New`を選びます。保存候補は一時コピー上でコンテンツパック全体を検証し、参照を含めて正常な場合だけ実ファイルと置き換えます。`../`などでゲームディレクトリ外へアクセスすることはできません。
+
+Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内容のハッシュを毎フレーム確認します。Editorなどで正常な変更を保存するとDefinitionとWorldを自動的に再構築し、不正な変更の場合は最後に正常だった状態で動作を継続してウィンドウタイトルへエラーを表示します。
 
 ## Definition の追加・変更
 
@@ -133,4 +157,4 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
 - **Runtime**: `ShootingSimulation.Update(deltaTime)` が production実行順序、Pause、`Running`／`StageClear`／`GameOver` の状態遷移、リトライ時のWorld再構築を統括します。1フレーム単位の `SimulationFeedback` は描画APIに依存しません。
 - **Framework**: `KeyboardInputState`、`ShootingGame`、手続き生成音を扱う`GameAudio`だけがMonoGame APIを扱います。RenderSystemはrenderer-neutralなsnapshotを返し、Frameworkがフラッシュ、爆発、画面揺れ、HPバーと状態表示へ変換します。
 
-現在の範囲は Player／Enemyによる射撃、単純な下方向 Enemy 移動、円 Collider による命中、Damage／Death、勝敗とリトライまでです。Editor、networking、save、boss や高度な ECS 最適化は含みません。
+現在の範囲はPlayer／Enemyによる射撃、直進／サイン移動、Waveと扇状射撃、Damage／Death、勝敗とリトライ、Definition制作支援までです。networking、save、独自Script言語や高度なECS最適化は含みません。

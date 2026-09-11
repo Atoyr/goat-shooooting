@@ -12,7 +12,10 @@ public static class Program
         try
         {
             var gameId = GetGameId(args);
-            var definitions = new JsonDefinitionRepository(Path.Combine(AppContext.BaseDirectory, "games", gameId));
+            var gameDirectory = Path.Combine(AppContext.BaseDirectory, "games", gameId);
+            IDefinitionRepository definitions = args.Contains("--smoke-test", StringComparer.Ordinal)
+                ? new JsonDefinitionRepository(gameDirectory)
+                : new ReloadableJsonDefinitionRepository(gameDirectory);
             if (args.Contains("--smoke-test", StringComparer.Ordinal))
             {
                 return RunSmokeTest(definitions);

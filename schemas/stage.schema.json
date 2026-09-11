@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stage Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "events"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["time", "type", "enemyId", "x", "y"],
+        "properties": {
+          "time": { "type": "number", "minimum": 0 },
+          "type": { "const": "spawn-enemy" },
+          "enemyId": { "type": "string", "minLength": 1 },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "count": { "type": "integer", "minimum": 1, "default": 1 },
+          "spawnInterval": { "type": "number", "minimum": 0, "default": 0 },
+          "spacingX": { "type": "number", "default": 0 }
+        }
+      }
+    }
+  }
+}

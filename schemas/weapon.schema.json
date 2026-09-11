@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Weapon Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "bulletId", "cooldown"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "bulletId": { "type": "string", "minLength": 1 },
+    "cooldown": { "type": "number", "minimum": 0 },
+    "projectileCount": { "type": "integer", "minimum": 1, "default": 1 },
+    "spreadDegrees": { "type": "number", "minimum": 0, "maximum": 180, "default": 0 }
+  }
+}
