@@ -59,6 +59,22 @@ public sealed class DefinitionEditorServiceTests
         }
     }
 
+    [Fact]
+    public void PublishedEditorProvidesVisualAndJsonAuthoringModes()
+    {
+        var editorPath = Path.Combine(AppContext.BaseDirectory, "editor.html");
+
+        var editor = File.ReadAllText(editorPath);
+
+        Assert.Contains("id=\"visualMode\"", editor, StringComparison.Ordinal);
+        Assert.Contains("canvas.dataset.editor = 'stage-canvas'", editor, StringComparison.Ordinal);
+        Assert.Contains("timeline.dataset.editor = 'stage-timeline'", editor, StringComparison.Ordinal);
+        Assert.Contains("addEventListener('pointermove'", editor, StringComparison.Ordinal);
+        Assert.Contains("id=\"jsonMode\"", editor, StringComparison.Ordinal);
+        Assert.Contains("/api/validate", editor, StringComparison.Ordinal);
+        Assert.Contains("/api/file", editor, StringComparison.Ordinal);
+    }
+
     private sealed class DefinitionFixture : IDisposable
     {
         private DefinitionFixture(string path) => Path = path;

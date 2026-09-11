@@ -1,129 +1,246 @@
 <!doctype html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>goat-shooooting Definition Editor</title>
+  <title>goat-shooooting Visual Editor</title>
   <style>
-    :root { color-scheme: dark; font: 14px/1.5 system-ui, sans-serif; background: #080d1a; color: #e8eefc; }
+    :root { color-scheme: dark; font: 14px/1.5 Inter, "Yu Gothic UI", system-ui, sans-serif; background: #070b14; color: #e9f0ff; --panel: #101827; --line: #283650; --muted: #91a0ba; --accent: #55d6be; --danger: #ff7185; --warning: #ffd166; }
     * { box-sizing: border-box; }
-    body { margin: 0; }
-    header { height: 58px; display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #26324d; }
-    header strong { font-size: 17px; margin-right: auto; }
-    button, input { border: 1px solid #405177; border-radius: 5px; background: #16213a; color: inherit; padding: 7px 10px; }
-    button:hover { background: #24365d; }
-    main { display: grid; grid-template-columns: 240px minmax(420px, 1fr) 300px; height: calc(100vh - 98px); }
-    aside { overflow: auto; padding: 12px; border-right: 1px solid #26324d; }
-    aside:last-child { border: 0; border-left: 1px solid #26324d; }
-    #files button { width: 100%; border: 0; background: transparent; text-align: left; overflow-wrap: anywhere; }
-    #files button.active { background: #214a78; }
-    section { display: flex; flex-direction: column; padding: 12px; min-width: 0; }
-    textarea { flex: 1; resize: none; width: 100%; border: 1px solid #405177; border-radius: 5px; background: #0d1426; color: #dce8ff; padding: 14px; font: 14px/1.55 Consolas, monospace; tab-size: 2; }
-    .schema-field { border-bottom: 1px solid #26324d; padding: 8px 0; }
+    body { margin: 0; height: 100vh; overflow: hidden; }
+    button, input, select, textarea { font: inherit; }
+    button, input, select { border: 1px solid #3a4b6b; border-radius: 7px; background: #172238; color: inherit; padding: 7px 10px; }
+    button { cursor: pointer; }
+    button:hover { background: #223353; border-color: #57709d; }
+    button.primary { color: #071312; background: var(--accent); border-color: var(--accent); font-weight: 700; }
+    button.danger { color: #ffdfe4; border-color: #7b3545; }
+    header { height: 64px; display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #0b111e; border-bottom: 1px solid var(--line); }
+    .brand { margin-right: auto; }
+    .brand strong { display: block; font-size: 17px; letter-spacing: .02em; }
+    .brand small { color: var(--muted); }
+    #path { width: min(320px, 25vw); }
+    .mode-switch { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 9px; background: #090f1b; }
+    .mode-switch button { border: 0; background: transparent; padding: 5px 12px; }
+    .mode-switch button.active { background: #294568; color: white; }
+    main { display: grid; grid-template-columns: 230px minmax(440px, 1fr) 320px; height: calc(100vh - 104px); }
+    aside { min-width: 0; overflow: auto; padding: 14px; background: var(--panel); }
+    #library { border-right: 1px solid var(--line); }
+    #inspector { border-left: 1px solid var(--line); }
+    h2, h3, p { margin-top: 0; }
+    h2 { margin-bottom: 4px; font-size: 16px; }
+    h3 { margin: 18px 0 7px; color: #b8c7df; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    .file-group { margin-bottom: 14px; }
+    .file-group-title { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; margin: 8px 7px 4px; text-transform: uppercase; }
+    .file-button { width: 100%; display: flex; gap: 8px; align-items: center; border: 0; background: transparent; text-align: left; overflow: hidden; }
+    .file-button.active { background: #23466b; }
+    .file-button span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .kind-icon { width: 21px; text-align: center; color: var(--accent); }
+    .new-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; margin-bottom: 14px; }
+    #workspace { position: relative; min-width: 0; overflow: auto; background: radial-gradient(circle at 50% 20%, #16213a, #080d18 65%); }
+    #visualView { min-height: 100%; padding: 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    #visualView.hidden, #jsonView.hidden { display: none; }
+    .canvas-shell { width: min(100%, 920px); min-height: 420px; flex: 1; display: flex; align-items: center; justify-content: center; position: relative; border: 1px solid #344766; border-radius: 12px; overflow: hidden; background: #050812; box-shadow: 0 18px 60px #0008; }
+    canvas { display: block; width: 100%; height: 100%; min-height: 420px; touch-action: none; }
+    .canvas-help { position: absolute; left: 12px; bottom: 10px; color: #a9bad5; background: #070b14cc; border-radius: 6px; padding: 4px 8px; pointer-events: none; }
+    .stage-tools { width: min(100%, 920px); display: flex; align-items: center; gap: 8px; }
+    .stage-tools strong { margin-right: auto; }
+    #timeline { width: min(100%, 920px); height: 74px; position: relative; border: 1px solid var(--line); border-radius: 9px; background: #0d1524; overflow: hidden; }
+    #timeline::before { content: "0s"; position: absolute; left: 7px; bottom: 3px; color: var(--muted); font-size: 10px; }
+    #timelineEnd { position: absolute; right: 7px; bottom: 3px; color: var(--muted); font-size: 10px; }
+    .timeline-event { position: absolute; top: 15px; width: 18px; height: 33px; padding: 0; transform: translateX(-50%); border-radius: 5px; background: #2f7bbb; border-color: #73baff; }
+    .timeline-event.active { background: var(--warning); border-color: #fff0a5; box-shadow: 0 0 0 3px #ffd16638; }
+    #jsonView { height: 100%; padding: 14px; }
+    #content { resize: none; width: 100%; height: 100%; border: 1px solid #405177; border-radius: 8px; background: #080e1b; color: #dce8ff; padding: 16px; font: 14px/1.6 Consolas, monospace; tab-size: 2; }
+    .empty-state { margin: auto; max-width: 440px; padding: 28px; color: var(--muted); text-align: center; }
+    .empty-state strong { color: white; display: block; font-size: 19px; margin-bottom: 8px; }
+    #inspectorHeader { color: var(--muted); margin-bottom: 14px; overflow-wrap: anywhere; }
+    .field { margin-bottom: 13px; }
+    .field label { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 5px; color: #cad6e9; font-weight: 650; }
+    .field label small { color: var(--muted); font-weight: 400; }
+    .field input, .field select { width: 100%; }
+    .field .description { color: var(--muted); font-size: 11px; margin-top: 4px; }
+    .event-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 16px 0; }
+    .required { color: var(--warning); }
+    details { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 10px; }
+    summary { cursor: pointer; color: var(--muted); }
+    .schema-field { border-bottom: 1px solid #26324d; padding: 8px 0; color: var(--muted); font-size: 12px; }
     .schema-field code { color: #72d6ff; }
-    .required { color: #ff9f7a; }
-    footer { height: 40px; padding: 9px 16px; border-top: 1px solid #26324d; color: #aebbd5; }
+    footer { height: 40px; display: flex; align-items: center; padding: 0 16px; border-top: 1px solid var(--line); background: #0b111e; color: var(--muted); }
     footer.ok { color: #77e39b; }
     footer.error { color: #ff8c8c; }
-    @media (max-width: 900px) { main { grid-template-columns: 190px 1fr; } aside:last-child { display: none; } }
+    .dirty::after { content: " ●"; color: var(--warning); }
+    @media (max-width: 980px) { main { grid-template-columns: 190px 1fr; } #inspector { position: fixed; z-index: 5; right: 0; top: 64px; bottom: 40px; width: 300px; box-shadow: -10px 0 30px #0008; } #workspace { margin-right: 300px; } }
   </style>
 </head>
 <body>
   <header>
-    <strong>Definition Editor</strong>
+    <div class="brand"><strong>goat-shooooting Visual Editor</strong><small>見て、動かして、ゲームを作る</small></div>
+    <div class="mode-switch" aria-label="編集モード"><button id="visualMode" class="active">ビジュアル</button><button id="jsonMode">JSON</button></div>
     <input id="path" aria-label="JSON path" placeholder="enemies/new-enemy.json">
-    <button id="new">New</button>
-    <button id="reload">Reload</button>
-    <button id="validate">Validate</button>
-    <button id="save">Save</button>
+    <button id="reload">再読込</button><button id="validate">検証</button><button id="save" class="primary">保存</button>
   </header>
   <main>
-    <aside><div id="files"></div></aside>
-    <section><textarea id="content" spellcheck="false" aria-label="JSON content"></textarea></section>
-    <aside><h3 id="schemaTitle">Schema</h3><div id="schema"></div></aside>
+    <aside id="library">
+      <h2>ゲーム素材</h2><p style="color:var(--muted);font-size:12px">編集する素材を選択</p>
+      <div class="new-row"><select id="newType" aria-label="新規Definition種別"><option value="enemy">敵</option><option value="bullet">弾</option><option value="weapon">武器</option><option value="stage">ステージ</option></select><button id="new">＋ 新規</button></div>
+      <div id="files"></div>
+    </aside>
+    <section id="workspace"><div id="visualView"><div class="empty-state"><strong>素材を選んでください</strong>左の一覧からPlayer、Enemy、Weapon、Bullet、Stageを選ぶと、ここにプレビューが表示されます。</div></div><div id="jsonView" class="hidden"><textarea id="content" spellcheck="false" aria-label="JSON content"></textarea></div></section>
+    <aside id="inspector"><h2 id="inspectorTitle">プロパティ</h2><div id="inspectorHeader">素材を選択すると、設定項目が表示されます。</div><div id="form"></div><details><summary>フィールド仕様</summary><div id="schema"></div></details></aside>
   </main>
-  <footer id="status">Choose a definition file.</footer>
+  <footer id="status">Definitionを選択してください。</footer>
   <script>
-    const files = document.querySelector('#files');
-    const pathInput = document.querySelector('#path');
-    const content = document.querySelector('#content');
-    const status = document.querySelector('#status');
-    let currentPath = '';
+    const ids = ['files', 'path', 'content', 'status', 'visualView', 'jsonView', 'visualMode', 'jsonMode', 'inspectorTitle', 'inspectorHeader', 'form', 'schema'];
+    const ui = Object.fromEntries(ids.map(id => [id, document.querySelector(`#${id}`)]));
+    const labels = { id: 'ID', playerId: 'プレイヤー', stageId: '開始ステージ', width: '画面幅', height: '画面高さ', hp: 'HP', speed: '速度', weaponId: '武器', x: 'X座標', y: 'Y座標', radius: '当たり判定半径', invincibilitySeconds: '無敵時間（秒）', score: 'スコア', movementPattern: '移動パターン', movementAmplitude: '左右の振れ幅', movementFrequency: '振動数', bulletId: '弾', cooldown: '発射間隔（秒）', projectileCount: '同時発射数', spreadDegrees: '拡散角度', damage: 'ダメージ', lifetime: '寿命（秒）', time: '出現時刻（秒）', enemyId: '敵', count: '出現数', spawnInterval: '出現間隔（秒）', spacingX: '横間隔' };
+    const groupLabels = { game: 'ゲーム', player: 'プレイヤー', enemy: '敵', weapon: '武器', bullet: '弾', stage: 'ステージ' };
+    const icons = { game: '▣', player: '▲', enemy: '◆', weapon: '⌁', bullet: '●', stage: '▤' };
+    const referenceKinds = { playerId: 'player', stageId: 'stage', weaponId: 'weapon', bulletId: 'bullet', enemyId: 'enemy' };
+    const defaults = { enemy: { id: 'new-enemy', hp: 10, speed: 50, radius: 12, score: 100, movementPattern: 'straight' }, bullet: { id: 'new-bullet', speed: 300, damage: 10, radius: 4, lifetime: 4 }, weapon: { id: 'new-weapon', bulletId: '', cooldown: 0.3, projectileCount: 1, spreadDegrees: 0 }, stage: { id: 'new-stage', events: [] } };
+    let currentPath = '', currentKind = '', definition = null, schema = null, selectedEventIndex = -1, dirty = false, mode = 'visual', catalog = [], dragging = false;
 
-    function setStatus(message, success = null) {
-      status.textContent = message;
-      status.className = success === true ? 'ok' : success === false ? 'error' : '';
+    function kindForPath(path) {
+      const normalized = path.replaceAll('\\', '/').toLowerCase();
+      if (normalized.endsWith('/game.json') || normalized === 'game.json') return 'game';
+      if (normalized.endsWith('/player.json') || normalized === 'player.json' || normalized.startsWith('players/')) return 'player';
+      for (const kind of ['enemy', 'bullet', 'weapon', 'stage']) if (normalized.startsWith(`${kind}s/`)) return kind;
+      return '';
     }
+    function setStatus(message, success = null) { ui.status.textContent = message; ui.status.className = success === true ? 'ok' : success === false ? 'error' : ''; }
+    function setDirty(value = true) { dirty = value; ui.inspectorTitle.classList.toggle('dirty', value); }
+    async function api(url, options) { const response = await fetch(url, options); const value = response.headers.get('content-type')?.includes('json') ? await response.json() : await response.text(); if (!response.ok) throw new Error(value.error || value.message || value); return value; }
+    async function readDefinition(path) { const loaded = await api(`/api/file?path=${encodeURIComponent(path)}`); const value = typeof loaded === 'string' ? JSON.parse(loaded) : loaded; return { value, text: `${JSON.stringify(value, null, 2)}\n` }; }
 
-    async function api(url, options) {
-      const response = await fetch(url, options);
-      const value = response.headers.get('content-type')?.includes('json') ? await response.json() : await response.text();
-      if (!response.ok) throw new Error(value.error || value.message || value);
-      return value;
+    async function refreshCatalog() {
+      const paths = await api('/api/files');
+      catalog = await Promise.all(paths.map(async path => { try { const { value } = await readDefinition(path); return { path, kind: kindForPath(path), id: value.id || path, value }; } catch { return { path, kind: kindForPath(path), id: path, value: null }; } }));
+      renderFiles();
+      if (!currentPath && catalog.length) await openFile((catalog.find(item => item.kind === 'stage') || catalog[0]).path);
     }
-
-    async function loadFiles() {
-      const list = await api('/api/files');
-      files.replaceChildren(...list.map(file => {
-        const button = document.createElement('button');
-        button.textContent = file;
-        button.className = file === currentPath ? 'active' : '';
-        button.onclick = () => openFile(file);
-        return button;
-      }));
+    function renderFiles() {
+      ui.files.replaceChildren();
+      for (const kind of ['game', 'player', 'enemy', 'weapon', 'bullet', 'stage']) {
+        const entries = catalog.filter(item => item.kind === kind); if (!entries.length) continue;
+        const group = document.createElement('div'); group.className = 'file-group';
+        const title = document.createElement('div'); title.className = 'file-group-title'; title.textContent = groupLabels[kind]; group.append(title);
+        for (const item of entries) {
+          const button = document.createElement('button'); button.className = `file-button${item.path === currentPath ? ' active' : ''}`; button.title = item.path;
+          const icon = document.createElement('span'); icon.className = 'kind-icon'; icon.textContent = icons[kind];
+          const name = document.createElement('span'); name.textContent = item.id; button.append(icon, name); button.onclick = () => openFile(item.path); group.append(button);
+        }
+        ui.files.append(group);
+      }
     }
-
-    async function openFile(file) {
-      currentPath = file;
-      pathInput.value = file;
-      content.value = await api(`/api/file?path=${encodeURIComponent(file)}`);
-      await loadSchema(file);
-      await loadFiles();
-      setStatus(`Loaded ${file}.`);
-    }
-
-    async function loadSchema(file) {
-      const schema = await api(`/api/schema?path=${encodeURIComponent(file)}`);
-      document.querySelector('#schemaTitle').textContent = schema.title || 'Schema';
-      const required = new Set(schema.required || []);
-      document.querySelector('#schema').replaceChildren(...Object.entries(schema.properties || {}).map(([name, property]) => {
-        const row = document.createElement('div');
-        row.className = 'schema-field';
-        const type = Array.isArray(property.type) ? property.type.join(' | ') : property.type;
-        row.innerHTML = `<code>${name}</code> ${required.has(name) ? '<span class="required">required</span>' : ''}<br>`;
-        row.append(`${type || 'value'}${property.description ? ` — ${property.description}` : ''}`);
-        return row;
-      }));
-    }
-
-    function request() {
-      const file = pathInput.value.trim();
-      if (!file) throw new Error('Enter a relative JSON path.');
-      return { path: file, content: content.value };
-    }
-
-    document.querySelector('#new').onclick = async () => {
-      currentPath = pathInput.value.trim();
-      content.value = '{\n  \n}\n';
-      if (currentPath) await loadSchema(currentPath);
-      setStatus('New unsaved definition.');
-    };
-    document.querySelector('#reload').onclick = () => currentPath ? openFile(currentPath) : loadFiles();
-    document.querySelector('#validate').onclick = async () => {
+    async function openFile(path) {
+      if (dirty && !confirm('保存していない変更を破棄しますか？')) return;
       try {
-        const result = await api('/api/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request()) });
-        setStatus(result.message, result.success);
-      } catch (error) { setStatus(error.message, false); }
-    };
-    document.querySelector('#save').onclick = async () => {
-      try {
-        const result = await api('/api/file', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request()) });
-        setStatus(result.message, result.success);
-        if (result.success) { currentPath = pathInput.value.trim(); await loadFiles(); }
-      } catch (error) { setStatus(error.message, false); }
-    };
+        const loaded = await readDefinition(path); currentPath = path; currentKind = kindForPath(path); ui.path.value = path; ui.content.value = loaded.text; definition = loaded.value;
+        schema = await api(`/api/schema?path=${encodeURIComponent(path)}`); selectedEventIndex = currentKind === 'stage' && definition.events.length ? 0 : -1;
+        setDirty(false); renderFiles(); render(); setStatus(`${path} を読み込みました。`);
+      } catch (error) { showMode('json'); setStatus(error.message, false); }
+    }
+    function showMode(nextMode) {
+      if (nextMode === 'visual' && mode === 'json') { try { definition = JSON.parse(ui.content.value); } catch (error) { setStatus(`JSONを直してください: ${error.message}`, false); return; } }
+      mode = nextMode; ui.visualView.classList.toggle('hidden', mode !== 'visual'); ui.jsonView.classList.toggle('hidden', mode !== 'json'); ui.visualMode.classList.toggle('active', mode === 'visual'); ui.jsonMode.classList.toggle('active', mode === 'json'); if (mode === 'visual') render();
+    }
+    function syncJson(markDirty = true) { ui.content.value = `${JSON.stringify(definition, null, 2)}\n`; if (markDirty) setDirty(); }
+    function render() {
+      renderSchemaReference(); if (!definition || !currentKind) return;
+      ui.inspectorTitle.textContent = `${icons[currentKind]} ${groupLabels[currentKind]}設定`; ui.inspectorHeader.textContent = currentPath; ui.visualView.replaceChildren();
+      if (currentKind === 'stage') renderStage(); else renderDefinitionPreview(); renderInspector();
+    }
+    function createCanvas(help) {
+      const shell = document.createElement('div'); shell.className = 'canvas-shell'; const canvas = document.createElement('canvas'); canvas.width = 960; canvas.height = 640; shell.append(canvas);
+      if (help) { const hint = document.createElement('div'); hint.className = 'canvas-help'; hint.textContent = help; shell.append(hint); }
+      ui.visualView.append(shell); return canvas;
+    }
+    function gameSize() { const game = catalog.find(item => item.kind === 'game')?.value; return { width: Number(game?.width) || 800, height: Number(game?.height) || 720 }; }
+    function setupScene(ctx, title, subtitle) {
+      const { width, height } = ctx.canvas; const gradient = ctx.createLinearGradient(0, 0, 0, height); gradient.addColorStop(0, '#121d38'); gradient.addColorStop(1, '#050812'); ctx.fillStyle = gradient; ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#ffffff10'; for (let i = 0; i < 90; i++) ctx.fillRect((i * 83) % width, (i * 137) % height, i % 4 === 0 ? 2 : 1, i % 4 === 0 ? 2 : 1);
+      ctx.fillStyle = '#eaf2ff'; ctx.font = '700 24px system-ui'; ctx.fillText(title, 25, 40); ctx.fillStyle = '#91a0ba'; ctx.font = '14px system-ui'; ctx.fillText(subtitle, 25, 64);
+    }
+    function drawPlayer(ctx, x, y, radius, color = '#55d6be') { ctx.save(); ctx.translate(x, y); ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 20; ctx.beginPath(); ctx.moveTo(0, -radius * 1.4); ctx.lineTo(radius, radius); ctx.lineTo(0, radius * .55); ctx.lineTo(-radius, radius); ctx.closePath(); ctx.fill(); ctx.restore(); }
+    function drawEnemy(ctx, x, y, radius, active = false) { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillStyle = active ? '#ffd166' : '#ff5d73'; ctx.strokeStyle = active ? '#fff5bd' : '#ff9aaa'; ctx.lineWidth = active ? 5 : 2; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = active ? 22 : 10; ctx.fillRect(-radius, -radius, radius * 2, radius * 2); ctx.strokeRect(-radius, -radius, radius * 2, radius * 2); ctx.restore(); }
+    function renderDefinitionPreview() {
+      const canvas = createCanvas('右側の値を変えるとプレビューへ即時反映されます'); paintDefinitionPreview(canvas);
+    }
+    function paintDefinitionPreview(canvas) {
+      const ctx = canvas.getContext('2d'); ctx.clearRect(0, 0, canvas.width, canvas.height); setupScene(ctx, definition.id || groupLabels[currentKind], currentPath);
+      if (currentKind === 'player') { const scale = Math.max(1, Math.min(3, Number(definition.radius) / 8)); drawPlayer(ctx, 480, 340, 28 * scale); drawStatBars(ctx, [['HP', definition.hp, 200], ['SPEED', definition.speed, 500], ['INVINCIBLE', definition.invincibilitySeconds ?? 1, 3]]); }
+      else if (currentKind === 'enemy') {
+        const amplitude = Number(definition.movementAmplitude) || 0; ctx.strokeStyle = '#ff718566'; ctx.lineWidth = 3; ctx.beginPath();
+        for (let y = 120; y < 570; y += 4) { const x = definition.movementPattern === 'sine' ? 480 + Math.sin(y * .035 * (Number(definition.movementFrequency) || .2) * 5) * amplitude * 2 : 480; if (y === 120) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+        ctx.stroke(); drawEnemy(ctx, 480, 280, Math.max(14, Math.min(65, Number(definition.radius) * 2)), true); drawStatBars(ctx, [['HP', definition.hp, 200], ['SPEED', definition.speed, 300], ['SCORE', definition.score ?? 100, 2000]]);
+      } else if (currentKind === 'bullet') { ctx.strokeStyle = '#58a6ff66'; ctx.lineWidth = Math.max(2, Number(definition.radius) * 2); ctx.beginPath(); ctx.moveTo(480, 500); ctx.lineTo(480, 180); ctx.stroke(); ctx.fillStyle = '#78c4ff'; ctx.shadowColor = '#58a6ff'; ctx.shadowBlur = 28; ctx.beginPath(); ctx.arc(480, 180, Math.max(5, Number(definition.radius) * 2), 0, Math.PI * 2); ctx.fill(); drawStatBars(ctx, [['DAMAGE', definition.damage, 100], ['SPEED', definition.speed, 800], ['LIFETIME', definition.lifetime, 10]]); }
+      else if (currentKind === 'weapon') {
+        drawPlayer(ctx, 480, 480, 28); const count = Math.max(1, Number(definition.projectileCount) || 1); const spread = Number(definition.spreadDegrees) || 0;
+        for (let i = 0; i < count; i++) { const angle = count === 1 ? 0 : (-spread / 2 + spread * i / (count - 1)) * Math.PI / 180; const endX = 480 + Math.sin(angle) * 300; const endY = 440 - Math.cos(angle) * 300; ctx.strokeStyle = '#58a6ff88'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(480, 440); ctx.lineTo(endX, endY); ctx.stroke(); ctx.fillStyle = '#8ed0ff'; ctx.beginPath(); ctx.arc(endX, endY, 7, 0, Math.PI * 2); ctx.fill(); }
+        drawStatBars(ctx, [['PROJECTILES', count, 12], ['SPREAD', spread, 180], ['COOLDOWN', definition.cooldown, 2]]);
+      } else if (currentKind === 'game') {
+        const ratio = Number(definition.width) / Number(definition.height); const h = 430, w = Math.min(600, h * ratio), x = (960 - w) / 2, y = 100; ctx.fillStyle = '#081020'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#55d6be'; ctx.lineWidth = 3; ctx.strokeRect(x, y, w, h); drawPlayer(ctx, x + w / 2, y + h * .85, 15); drawEnemy(ctx, x + w / 2, y + h * .18, 13); ctx.fillStyle = '#b8c7df'; ctx.font = '16px system-ui'; ctx.textAlign = 'center'; ctx.fillText(`${definition.width} × ${definition.height}`, 480, 560); ctx.textAlign = 'start';
+      }
+    }
+    function drawStatBars(ctx, stats) { let y = 535; for (const [name, value, max] of stats) { const numeric = Number(value) || 0; ctx.fillStyle = '#91a0ba'; ctx.font = '12px system-ui'; ctx.fillText(`${name}  ${numeric}`, 25, y); ctx.fillStyle = '#1c2a42'; ctx.fillRect(145, y - 10, 180, 8); ctx.fillStyle = '#55d6be'; ctx.fillRect(145, y - 10, 180 * Math.min(1, numeric / max), 8); y += 25; } }
 
-    loadFiles().catch(error => setStatus(error.message, false));
+    function renderStage() {
+      const tools = document.createElement('div'); tools.className = 'stage-tools'; const caption = document.createElement('strong'); caption.textContent = `${definition.events.length} 出現イベント`; const add = document.createElement('button'); add.textContent = '＋ 敵を追加'; add.onclick = addStageEvent; tools.append(caption, add); ui.visualView.append(tools);
+      const canvas = createCanvas('敵をクリックして選択・ドラッグして配置'); canvas.dataset.editor = 'stage-canvas'; drawStage(canvas); canvas.addEventListener('pointerdown', event => stagePointerDown(event, canvas)); canvas.addEventListener('pointermove', event => stagePointerMove(event, canvas)); canvas.addEventListener('pointerup', () => { dragging = false; }); canvas.addEventListener('pointercancel', () => { dragging = false; });
+      const timeline = document.createElement('div'); timeline.id = 'timeline'; timeline.dataset.editor = 'stage-timeline'; const maxTime = stageMaxTime();
+      definition.events.forEach((stageEvent, index) => { const marker = document.createElement('button'); marker.className = `timeline-event${index === selectedEventIndex ? ' active' : ''}`; marker.style.left = `${4 + 92 * Number(stageEvent.time) / maxTime}%`; marker.title = `${stageEvent.time}s: ${stageEvent.enemyId}`; marker.onclick = () => { selectedEventIndex = index; render(); }; timeline.append(marker); });
+      const end = document.createElement('span'); end.id = 'timelineEnd'; end.textContent = `${maxTime}s`; timeline.append(end); ui.visualView.append(timeline);
+    }
+    function stageMaxTime() { return Math.max(10, Math.ceil(Math.max(0, ...definition.events.map(event => Number(event.time) || 0)) / 10) * 10); }
+    function stageTransform(canvas) { const size = gameSize(), padding = 55, scale = Math.min((canvas.width - padding * 2) / size.width, (canvas.height - padding * 2) / size.height); return { size, scale, left: (canvas.width - size.width * scale) / 2, top: (canvas.height - size.height * scale) / 2 }; }
+    function drawStage(canvas) {
+      const ctx = canvas.getContext('2d'); setupScene(ctx, definition.id || 'Stage', '出現位置プレビュー'); const t = stageTransform(canvas); ctx.fillStyle = '#080f1e'; ctx.fillRect(t.left, t.top, t.size.width * t.scale, t.size.height * t.scale); ctx.strokeStyle = '#263958'; ctx.lineWidth = 1;
+      for (let x = 0; x <= t.size.width; x += 100) { ctx.beginPath(); ctx.moveTo(t.left + x * t.scale, t.top); ctx.lineTo(t.left + x * t.scale, t.top + t.size.height * t.scale); ctx.stroke(); }
+      for (let y = 0; y <= t.size.height; y += 100) { ctx.beginPath(); ctx.moveTo(t.left, t.top + y * t.scale); ctx.lineTo(t.left + t.size.width * t.scale, t.top + y * t.scale); ctx.stroke(); }
+      definition.events.forEach((stageEvent, index) => { const count = Math.max(1, Number(stageEvent.count) || 1); for (let copy = 0; copy < count; copy++) { const x = t.left + (Number(stageEvent.x) + copy * (Number(stageEvent.spacingX) || 0)) * t.scale; const y = t.top + Number(stageEvent.y) * t.scale; drawEnemy(ctx, x, y, index === selectedEventIndex ? 10 : 7, index === selectedEventIndex); } const x = t.left + Number(stageEvent.x) * t.scale, y = t.top + Number(stageEvent.y) * t.scale; ctx.fillStyle = index === selectedEventIndex ? '#fff1ad' : '#b6c7de'; ctx.font = '11px system-ui'; ctx.fillText(`${stageEvent.time}s ${stageEvent.enemyId}`, x + 14, y - 10); });
+      ctx.strokeStyle = '#55d6be'; ctx.lineWidth = 2; ctx.strokeRect(t.left, t.top, t.size.width * t.scale, t.size.height * t.scale);
+    }
+    function pointerPosition(event, canvas) { const rect = canvas.getBoundingClientRect(); return { x: (event.clientX - rect.left) * canvas.width / rect.width, y: (event.clientY - rect.top) * canvas.height / rect.height }; }
+    function stagePointerDown(event, canvas) {
+      const point = pointerPosition(event, canvas), t = stageTransform(canvas); let best = -1, distance = 32;
+      definition.events.forEach((stageEvent, index) => { const count = Math.max(1, Number(stageEvent.count) || 1); for (let copy = 0; copy < count; copy++) { const dx = point.x - (t.left + (Number(stageEvent.x) + copy * (Number(stageEvent.spacingX) || 0)) * t.scale), dy = point.y - (t.top + Number(stageEvent.y) * t.scale), candidate = Math.hypot(dx, dy); if (candidate < distance) { distance = candidate; best = index; } } });
+      if (best >= 0) { selectedEventIndex = best; dragging = true; canvas.setPointerCapture(event.pointerId); drawStage(canvas); updateTimeline(); renderInspector(); }
+    }
+    function stagePointerMove(event, canvas) {
+      if (!dragging || selectedEventIndex < 0) return; const point = pointerPosition(event, canvas), t = stageTransform(canvas), stageEvent = definition.events[selectedEventIndex]; stageEvent.x = Math.round(Math.max(0, Math.min(t.size.width, (point.x - t.left) / t.scale))); stageEvent.y = Math.round(Math.max(0, Math.min(t.size.height, (point.y - t.top) / t.scale))); syncJson(); drawStage(canvas); renderInspector();
+    }
+
+    function renderInspector() {
+      ui.form.replaceChildren();
+      if (currentKind === 'stage') {
+        ui.form.append(createField('id', schema.properties.id, definition, false)); const heading = document.createElement('h3'); heading.textContent = selectedEventIndex < 0 ? '出現イベント' : `出現イベント ${selectedEventIndex + 1}`; ui.form.append(heading);
+        if (selectedEventIndex >= 0) { const properties = schema.properties.events.items.properties, stageEvent = definition.events[selectedEventIndex]; for (const name of ['time', 'enemyId', 'x', 'y', 'count', 'spawnInterval', 'spacingX']) ui.form.append(createField(name, properties[name], stageEvent, true)); const actions = document.createElement('div'); actions.className = 'event-actions'; const duplicate = document.createElement('button'); duplicate.textContent = '複製'; duplicate.onclick = duplicateStageEvent; const remove = document.createElement('button'); remove.className = 'danger'; remove.textContent = '削除'; remove.onclick = removeStageEvent; actions.append(duplicate, remove); ui.form.append(actions); }
+        else { const empty = document.createElement('p'); empty.style.color = 'var(--muted)'; empty.textContent = '「敵を追加」で最初のイベントを作成できます。'; ui.form.append(empty); }
+        return;
+      }
+      for (const [name, property] of Object.entries(schema.properties || {})) ui.form.append(createField(name, property, definition, false));
+    }
+    function createField(name, property, target, isStageEvent) {
+      const wrapper = document.createElement('div'); wrapper.className = 'field'; const label = document.createElement('label'), labelText = document.createElement('span'), valueText = document.createElement('small'); labelText.textContent = labels[name] || name; valueText.textContent = target[name] ?? property.default ?? '未設定'; label.append(labelText, valueText); wrapper.append(label); let input; const referenceKind = referenceKinds[name];
+      if (referenceKind || property.enum) { input = document.createElement('select'); if (Array.isArray(property.type) && property.type.includes('null')) input.append(new Option('なし', '')); const values = property.enum || catalog.filter(item => item.kind === referenceKind).map(item => item.id); for (const value of values) input.append(new Option(value === 'straight' ? '直進' : value === 'sine' ? 'サイン移動' : value, value)); if (!values.includes(target[name]) && target[name]) input.append(new Option(target[name], target[name])); input.value = target[name] ?? ''; }
+      else { input = document.createElement('input'); const type = Array.isArray(property.type) ? property.type.find(value => value !== 'null') : property.type; input.type = type === 'number' || type === 'integer' ? 'number' : 'text'; if (input.type === 'number') { input.step = type === 'integer' ? '1' : smartStep(name); if (property.minimum !== undefined) input.min = property.minimum; if (property.exclusiveMinimum !== undefined) input.min = Number(property.exclusiveMinimum) + Number(input.step); if (property.maximum !== undefined) input.max = property.maximum; } input.value = target[name] ?? property.default ?? ''; }
+      input.dataset.field = name; input.oninput = () => { const type = Array.isArray(property.type) ? property.type.find(value => value !== 'null') : property.type; if (input.value === '') delete target[name]; else target[name] = type === 'number' || type === 'integer' ? Number(input.value) : input.value; valueText.textContent = target[name] ?? '未設定'; syncJson(); renderPreviewOnly(); if (isStageEvent) updateTimeline(); };
+      wrapper.append(input); if (property.description) { const description = document.createElement('div'); description.className = 'description'; description.textContent = property.description; wrapper.append(description); } return wrapper;
+    }
+    function smartStep(name) { return ['cooldown', 'lifetime', 'invincibilitySeconds', 'spawnInterval', 'movementFrequency', 'time'].includes(name) ? '0.1' : '1'; }
+    function renderPreviewOnly() { const canvas = ui.visualView.querySelector('canvas'); if (!canvas) return; if (currentKind === 'stage') drawStage(canvas); else paintDefinitionPreview(canvas); }
+    function updateTimeline() { const timeline = ui.visualView.querySelector('#timeline'); if (!timeline) return; const maxTime = stageMaxTime(); timeline.querySelectorAll('.timeline-event').forEach((marker, index) => { const stageEvent = definition.events[index]; marker.classList.toggle('active', index === selectedEventIndex); marker.style.left = `${4 + 92 * Number(stageEvent.time) / maxTime}%`; marker.title = `${stageEvent.time}s: ${stageEvent.enemyId}`; }); timeline.querySelector('#timelineEnd').textContent = `${maxTime}s`; }
+    function addStageEvent() { const firstEnemy = catalog.find(item => item.kind === 'enemy')?.id || ''; definition.events.push({ time: Math.max(0, ...definition.events.map(event => Number(event.time) || 0)) + 5, type: 'spawn-enemy', enemyId: firstEnemy, x: Math.round(gameSize().width / 2), y: 100 }); selectedEventIndex = definition.events.length - 1; syncJson(); render(); }
+    function duplicateStageEvent() { const copy = structuredClone(definition.events[selectedEventIndex]); copy.time = Number(copy.time) + 1; definition.events.splice(selectedEventIndex + 1, 0, copy); selectedEventIndex += 1; syncJson(); render(); }
+    function removeStageEvent() { if (selectedEventIndex < 0 || !confirm('選択中の出現イベントを削除しますか？')) return; definition.events.splice(selectedEventIndex, 1); selectedEventIndex = Math.min(selectedEventIndex, definition.events.length - 1); syncJson(); render(); }
+    function renderSchemaReference() { ui.schema.replaceChildren(); if (!schema) return; const required = new Set(schema.required || []); for (const [name, property] of Object.entries(schema.properties || {})) { const row = document.createElement('div'); row.className = 'schema-field'; const code = document.createElement('code'); code.textContent = name; row.append(code); if (required.has(name)) { const mark = document.createElement('span'); mark.className = 'required'; mark.textContent = ' 必須'; row.append(mark); } const type = document.createElement('div'); type.textContent = Array.isArray(property.type) ? property.type.join(' | ') : property.type || 'value'; row.append(type); ui.schema.append(row); } }
+    function requestBody() { const path = ui.path.value.trim(); if (!path) throw new Error('JSONの保存先を入力してください。'); if (mode === 'visual') syncJson(false); else definition = JSON.parse(ui.content.value); return { path, content: ui.content.value }; }
+
+    document.querySelector('#new').onclick = async () => { if (dirty && !confirm('保存していない変更を破棄しますか？')) return; const kind = document.querySelector('#newType').value, id = prompt(`${groupLabels[kind]}のIDを入力してください`, defaults[kind].id); if (!id) return; currentKind = kind; currentPath = `${kind}s/${id}.json`; definition = structuredClone(defaults[kind]); definition.id = id; if (kind === 'weapon') definition.bulletId = catalog.find(item => item.kind === 'bullet')?.id || ''; ui.path.value = currentPath; schema = await api(`/api/schema?path=${encodeURIComponent(currentPath)}`); selectedEventIndex = -1; syncJson(); showMode('visual'); render(); setStatus(`新しい${groupLabels[kind]}を編集中です。保存するまでファイルは作成されません。`); };
+    document.querySelector('#reload').onclick = () => currentPath ? openFile(currentPath) : refreshCatalog();
+    document.querySelector('#validate').onclick = async () => { try { const result = await api('/api/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody()) }); setStatus(result.message, result.success); } catch (error) { setStatus(error.message, false); } };
+    document.querySelector('#save').onclick = async () => { try { const result = await api('/api/file', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody()) }); setStatus(result.message, result.success); if (result.success) { currentPath = ui.path.value.trim(); setDirty(false); await refreshCatalog(); } } catch (error) { setStatus(error.message, false); } };
+    ui.visualMode.onclick = () => showMode('visual'); ui.jsonMode.onclick = () => { if (definition) syncJson(false); showMode('json'); }; ui.content.addEventListener('input', () => setDirty()); window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
+    refreshCatalog().catch(error => setStatus(error.message, false));
   </script>
 </body>
 </html>
