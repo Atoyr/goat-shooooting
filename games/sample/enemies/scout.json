@@ -1,0 +1,8 @@
+{
+  "id": "scout",
+  "hp": 10,
+  "speed": 45,
+  "weaponId": "enemy-basic",
+  "radius": 10,
+  "score": 100
+}

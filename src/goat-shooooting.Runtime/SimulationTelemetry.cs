@@ -12,4 +12,5 @@ public sealed class SimulationTelemetry
     public int DamageEventsApplied { get; internal set; }
     public int PlayerDamageEventsApplied { get; internal set; }
     public int EnemiesKilled { get; internal set; }
+    public int Score { get; internal set; }
 }

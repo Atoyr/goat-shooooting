@@ -52,6 +52,7 @@ public sealed class DefinitionCatalog
             EnsurePositive(enemy.Hp, $"Enemy '{enemy.Id}' hp");
             EnsureNonNegative(enemy.Speed, $"Enemy '{enemy.Id}' speed");
             EnsurePositive(enemy.Radius, $"Enemy '{enemy.Id}' radius");
+            EnsurePositive(enemy.Score, $"Enemy '{enemy.Id}' score");
             if (!string.IsNullOrWhiteSpace(enemy.WeaponId))
             {
                 _ = GetWeapon(enemy.WeaponId);

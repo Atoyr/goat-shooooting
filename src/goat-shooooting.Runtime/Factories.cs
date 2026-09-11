@@ -33,7 +33,8 @@ public sealed class EnemyFactory
             .Add(new VelocityComponent(new Vector2(0, definition.Speed)))
             .Add(new HealthComponent(definition.Hp))
             .Add(new ColliderComponent(definition.Radius, CollisionLayer.Enemy))
-            .Add(new EnemyComponent(definition.Id));
+            .Add(new EnemyComponent(definition.Id))
+            .Add(new ScoreValueComponent(definition.Score));
 
         if (!string.IsNullOrWhiteSpace(definition.WeaponId))
         {

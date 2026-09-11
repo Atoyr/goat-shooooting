@@ -33,16 +33,31 @@ public static class Program
         var input = new MutableInputState { Fire = true };
         var simulation = new ShootingSimulation(definitions, input);
         const float deltaTime = 1f / 60f;
-        const int maximumFrames = 60 * 12;
+        const int maximumFrames = 60 * 90;
 
-        for (var frame = 0; frame < maximumFrames && simulation.Telemetry.EnemiesKilled == 0; frame++)
+        for (var frame = 0; frame < maximumFrames && simulation.Status == SimulationStatus.Running; frame++)
         {
+            var target = simulation.World.Query<EnemyComponent>()
+                .OrderByDescending(static enemy => enemy.Get<TransformComponent>().Position.Y)
+                .FirstOrDefault();
+            if (target is null)
+            {
+                input.MoveX = 0;
+            }
+            else
+            {
+                var deltaX = target.Get<TransformComponent>().Position.X
+                    - simulation.Player.Get<TransformComponent>().Position.X;
+                input.MoveX = Math.Abs(deltaX) < 4 ? 0 : Math.Sign(deltaX);
+            }
+
             simulation.Update(deltaTime);
         }
 
         var telemetry = simulation.Telemetry;
         Require(simulation.Player.Has<PlayerComponent>(), "Player was not created.");
         Require(telemetry.EnemiesSpawned > 0, "No enemy was spawned from the stage definition.");
+        Require(telemetry.EnemiesSpawned >= 10, "The complete multi-wave stage was not simulated.");
         Require(telemetry.EnemyMovementFrames > 0, "No enemy movement was observed.");
         Require(telemetry.BulletsSpawned > 0, "No bullet was spawned by the weapon system.");
         Require(telemetry.EnemyBulletsSpawned > 0, "No enemy bullet was spawned by the weapon system.");
@@ -50,6 +65,12 @@ public static class Program
         Require(telemetry.CollisionsDetected > 0, "No bullet/enemy collision was detected.");
         Require(telemetry.DamageEventsApplied > 0, "No damage was applied.");
         Require(telemetry.EnemiesKilled > 0, "No enemy reached zero HP.");
+        Require(
+            telemetry.EnemiesKilled == telemetry.EnemiesSpawned,
+            $"Not every spawned enemy was defeated (spawned={telemetry.EnemiesSpawned}, killed={telemetry.EnemiesKilled}, " +
+            $"status={simulation.Status}, hp={simulation.Player.Get<HealthComponent>().Current}).");
+        Require(telemetry.Score == 4200, "The expected score was not awarded for the complete stage.");
+        Require(simulation.Elapsed >= 60, "The simulation did not run through the final wave.");
         Require(!simulation.World.Query<EnemyComponent>().Any(), "A dead enemy remained in the world.");
         Require(simulation.Status == SimulationStatus.StageClear, "The simulation did not reach Stage Clear.");
 

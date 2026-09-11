@@ -27,6 +27,7 @@ public sealed record EnemyDefinition
     public float Speed { get; init; }
     public string? WeaponId { get; init; }
     public float Radius { get; init; }
+    public int Score { get; init; } = 100;
 }
 
 public sealed record BulletDefinition

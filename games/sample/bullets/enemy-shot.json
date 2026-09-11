@@ -1,7 +1,7 @@
 {
   "id": "enemy-shot",
-  "speed": 160,
-  "damage": 25,
+  "speed": 120,
+  "damage": 2,
   "radius": 6,
-  "lifetime":  5
+  "lifetime": 6
 }

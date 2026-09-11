@@ -1,0 +1,8 @@
+{
+  "id": "midboss",
+  "hp": 150,
+  "speed": 8,
+  "weaponId": "enemy-basic",
+  "radius": 28,
+  "score": 2000
+}

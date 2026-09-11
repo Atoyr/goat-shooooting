@@ -49,9 +49,9 @@ public sealed class ShootingGame : Game
         _simulation.Update((float)gameTime.ElapsedGameTime.TotalSeconds);
         Window.Title = _simulation.Status switch
         {
-            SimulationStatus.GameOver => "goat-shooooting — GAME OVER — R/Enter to retry, Esc to quit",
-            SimulationStatus.StageClear => "goat-shooooting — STAGE CLEAR — R/Enter to retry, Esc to quit",
-            _ => $"goat-shooooting — HP {_simulation.Player.Get<HealthComponent>().Current} — Z/Space fire"
+            SimulationStatus.GameOver => $"goat-shooooting — GAME OVER — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
+            SimulationStatus.StageClear => $"goat-shooooting — STAGE CLEAR — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
+            _ => $"goat-shooooting — HP {_simulation.Player.Get<HealthComponent>().Current} — SCORE {_simulation.Telemetry.Score}"
         };
         base.Update(gameTime);
     }
@@ -68,7 +68,8 @@ public sealed class ShootingGame : Game
         var pixel = _pixel ?? throw new InvalidOperationException("Content has not been loaded.");
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-        foreach (var item in _renderSystem.Capture(_simulation.World))
+        var items = _renderSystem.Capture(_simulation.World);
+        foreach (var item in items)
         {
             var color = item.Kind switch
             {
@@ -86,6 +87,15 @@ public sealed class ShootingGame : Game
                 var barWidth = Math.Max(1, (int)MathF.Round(bounds.Width * item.HealthFraction));
                 spriteBatch.Draw(pixel, new Rectangle(bounds.X, bounds.Y - 5, barWidth, 3), Color.LimeGreen);
             }
+        }
+
+        var player = items.FirstOrDefault(static item => item.Kind == RenderKind.Player);
+        if (player.EntityId != 0)
+        {
+            const int healthBarWidth = 200;
+            spriteBatch.Draw(pixel, new Rectangle(16, 16, healthBarWidth, 12), new Color(45, 55, 70));
+            var currentWidth = (int)MathF.Round(healthBarWidth * player.HealthFraction);
+            spriteBatch.Draw(pixel, new Rectangle(16, 16, currentWidth, 12), new Color(68, 210, 255));
         }
 
         spriteBatch.End();

@@ -250,6 +250,7 @@ public sealed class DamageSystem
                 if (damageEvent.Target.Has<EnemyComponent>())
                 {
                     telemetry.EnemiesKilled++;
+                    telemetry.Score += damageEvent.Target.Get<ScoreValueComponent>().Value;
                 }
             }
         }

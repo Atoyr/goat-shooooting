@@ -37,7 +37,7 @@ dotnet run --project src/goat-shooooting.SampleGame
 - R / Enter: Game Over／Stage Clear後にリトライ
 - Esc: 終了
 
-開始 5 秒後に Enemy が Stage definition から出現します。Enemyは下方向へ射撃し、PlayerのHPが0になるとGame Overです。Player BulletでEnemyをすべて倒すとStage Clearになります。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。現在HPと終了状態、リトライ操作はウィンドウタイトルにも表示されます。
+約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Enemyは下方向へ射撃し、PlayerのHPが0になるとGame Overです。Player BulletでEnemyをすべて倒すとStage Clearになります。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。HPバーは画面左上、現在HP・スコア・終了状態・リトライ操作はウィンドウタイトルに表示されます。
 
 画面を使わない smoke test:
 
@@ -82,7 +82,7 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
 
 - `game.json`: 使用する `playerId`、`stageId`、画面サイズ
 - `player.json`: HP、移動速度、初期位置、Collider 半径、Weapon 参照
-- `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、任意の Weapon 参照
+- `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照
 - `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime
 - `weapons/*.json`: Bullet 参照と cooldown
 - `stages/*.json`: 時刻付き `spawn-enemy` event と出現位置

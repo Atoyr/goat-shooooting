@@ -28,6 +28,7 @@ public sealed class SimulationIntegrationTests
         Assert.True(simulation.Telemetry.CollisionsDetected > 0);
         Assert.True(simulation.Telemetry.DamageEventsApplied > 0);
         Assert.Equal(1, simulation.Telemetry.EnemiesKilled);
+        Assert.Equal(100, simulation.Telemetry.Score);
         Assert.Empty(simulation.World.Query<EnemyComponent>());
         Assert.Equal(SimulationStatus.StageClear, simulation.Status);
     }

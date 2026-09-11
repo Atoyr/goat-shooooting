@@ -48,6 +48,11 @@ public sealed class EnemyComponent(string definitionId)
     public string DefinitionId { get; } = definitionId;
 }
 
+public sealed class ScoreValueComponent(int value)
+{
+    public int Value { get; } = value > 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));
+}
+
 public sealed class BulletComponent(string definitionId, CollisionLayer targetLayer)
 {
     public string DefinitionId { get; } = definitionId;

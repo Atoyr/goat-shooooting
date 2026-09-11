@@ -32,6 +32,7 @@ public sealed class CollisionAndDamageTests
         Assert.True(enemy.Has<PendingDestroyComponent>());
         Assert.Equal(1, telemetry.DamageEventsApplied);
         Assert.Equal(1, telemetry.EnemiesKilled);
+        Assert.Equal(250, telemetry.Score);
 
         new CleanupSystem().Update(world);
         Assert.Empty(world.Query<EnemyComponent>());
@@ -75,7 +76,8 @@ public sealed class CollisionAndDamageTests
             .Add(new TransformComponent(new Vector2(10, 0)))
             .Add(new ColliderComponent(10, CollisionLayer.Enemy))
             .Add(new HealthComponent(10))
-            .Add(new EnemyComponent("enemy"));
+            .Add(new EnemyComponent("enemy"))
+            .Add(new ScoreValueComponent(250));
         return world;
     }
 }

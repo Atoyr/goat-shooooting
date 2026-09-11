@@ -2,11 +2,102 @@
   "id": "stage-01",
   "events": [
     {
-      "time": 5.0,
+      "time": 3.0,
+      "type": "spawn-enemy",
+      "enemyId": "scout",
+      "x": 240,
+      "y": 120
+    },
+    {
+      "time": 3.0,
+      "type": "spawn-enemy",
+      "enemyId": "scout",
+      "x": 560,
+      "y": 120
+    },
+    {
+      "time": 10.0,
       "type": "spawn-enemy",
       "enemyId": "fighter-a",
       "x": 400,
-      "y": 180
+      "y": 100
+    },
+    {
+      "time": 18.0,
+      "type": "spawn-enemy",
+      "enemyId": "scout",
+      "x": 200,
+      "y": 120
+    },
+    {
+      "time": 18.0,
+      "type": "spawn-enemy",
+      "enemyId": "scout",
+      "x": 400,
+      "y": 80
+    },
+    {
+      "time": 18.0,
+      "type": "spawn-enemy",
+      "enemyId": "scout",
+      "x": 600,
+      "y": 120
+    },
+    {
+      "time": 28.0,
+      "type": "spawn-enemy",
+      "enemyId": "fighter-a",
+      "x": 300,
+      "y": 100
+    },
+    {
+      "time": 28.0,
+      "type": "spawn-enemy",
+      "enemyId": "fighter-a",
+      "x": 500,
+      "y": 100
+    },
+    {
+      "time": 40.0,
+      "type": "spawn-enemy",
+      "enemyId": "scout",
+      "x": 180,
+      "y": 90
+    },
+    {
+      "time": 40.0,
+      "type": "spawn-enemy",
+      "enemyId": "fighter-a",
+      "x": 400,
+      "y": 70
+    },
+    {
+      "time": 40.0,
+      "type": "spawn-enemy",
+      "enemyId": "scout",
+      "x": 620,
+      "y": 90
+    },
+    {
+      "time": 50.0,
+      "type": "spawn-enemy",
+      "enemyId": "fighter-a",
+      "x": 260,
+      "y": 90
+    },
+    {
+      "time": 50.0,
+      "type": "spawn-enemy",
+      "enemyId": "fighter-a",
+      "x": 540,
+      "y": 90
+    },
+    {
+      "time": 60.0,
+      "type": "spawn-enemy",
+      "enemyId": "midboss",
+      "x": 400,
+      "y": 90
     }
   ]
 }
