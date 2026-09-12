@@ -32,6 +32,8 @@ Steam Depotへ配置できるwin-x64 self-contained成果物、ZIP、SHA-256、�
 
 成果物は`artifacts/publish/win-x64`、配布ZIPは`artifacts/packages`へ生成されます。スクリプトはReleaseの全テスト、両Definition検証、公開exeからの両smoke test、開発ファイル混入チェックを実行します。
 
+SteamworksのAppIDとDepot ID取得後の非公開beta投入手順、認証情報を保存しないSteamCMD実行方法、手動QA項目は[Steam非公開betaの投入とQA](deploy/steam/README.md)を参照してください。
+
 テストには ECS の基本操作、各 System の単体テスト、JSON 検証、Definition 変更テスト、ゲーム全経路の End-to-End Integration Test が含まれます。
 
 Definitionだけを検証する場合:

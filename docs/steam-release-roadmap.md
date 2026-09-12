@@ -310,6 +310,7 @@ deploy/steam/
 ```
 
 - `ContentRoot` は `artifacts/publish/win-x64` を指す。
+- AppID未取得時は実IDをコミットせず、`app_build.template.vdf` と `depot_build.template.vdf` を使用する。実ID入りVDFは `artifacts/steam` に生成する。
 - Steamアカウント、パスワード、Steam Guardコードはリポジトリへ保存しない。
 - 初回はSteamPipeの非公開beta branchへ投入し、Steamクライアントからインストールして確認する。
 - Default branchへの反映はテスト済みBuildIDをSteamworks管理画面から手動で行う。
@@ -434,4 +435,3 @@ deploy/steam/
 - Steam Deck／Linux native buildまたはProton正式確認
 - プレイ途中の再開、リプレイ保存、クラッシュレポート送信
 - BGM音量、言語、色覚・弾視認性など追加アクセシビリティ設定
-
