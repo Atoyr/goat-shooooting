@@ -7,6 +7,9 @@ public sealed record GameDefinition
     public string StageId { get; init; } = string.Empty;
     public int Width { get; init; } = 800;
     public int Height { get; init; } = 720;
+    public string ScreenLayout { get; init; } = "full";
+    public int HudPanelWidth { get; init; } = 200;
+    public string ScorePosition { get; init; } = "playfield-top-right";
 }
 
 public sealed record PlayerDefinition

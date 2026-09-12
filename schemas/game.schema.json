@@ -7,7 +7,26 @@
   "properties": {
     "playerId": { "type": "string", "minLength": 1, "description": "Player definition id." },
     "stageId": { "type": "string", "minLength": 1, "description": "Initial stage definition id." },
-    "width": { "type": "integer", "minimum": 1, "description": "Viewport width in pixels." },
-    "height": { "type": "integer", "minimum": 1, "description": "Viewport height in pixels." }
+    "width": { "type": "integer", "minimum": 1, "description": "Playfield width in pixels." },
+    "height": { "type": "integer", "minimum": 1, "description": "Playfield height in pixels." },
+    "screenLayout": {
+      "type": "string",
+      "enum": ["full", "touhou", "donpachi"],
+      "default": "full",
+      "description": "fullは全画面、touhouはプレイ領域＋右パネル、donpachiは左パネル＋プレイ領域＋右パネルです。"
+    },
+    "hudPanelWidth": {
+      "type": "integer",
+      "minimum": 120,
+      "maximum": 600,
+      "default": 200,
+      "description": "左右HUDパネルの幅です。widthは常にプレイ領域の幅として維持されます。"
+    },
+    "scorePosition": {
+      "type": "string",
+      "enum": ["playfield-top-left", "playfield-top-right", "left-panel", "right-panel"],
+      "default": "playfield-top-right",
+      "description": "スコアを表示する領域を選びます。left-panelはdonpachi、right-panelはtouhouまたはdonpachiで使用できます。"
+    }
   }
 }

@@ -2,5 +2,8 @@
   "playerId": "gauntlet-player",
   "stageId": "gauntlet-01",
   "width": 640,
-  "height": 800
+  "height": 800,
+  "screenLayout": "donpachi",
+  "hudPanelWidth": 200,
+  "scorePosition": "left-panel"
 }

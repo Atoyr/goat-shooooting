@@ -75,6 +75,9 @@ public sealed class DefinitionEditorServiceTests
         Assert.Contains("/api/file", editor, StringComparison.Ordinal);
         Assert.Contains("double-washing-machine", editor, StringComparison.Ordinal);
         Assert.Contains("homingTurnDegreesPerSecond", editor, StringComparison.Ordinal);
+        Assert.Contains("左右2分割（東方型）", editor, StringComparison.Ordinal);
+        Assert.Contains("左・中央・右3分割（怒首領蜂型）", editor, StringComparison.Ordinal);
+        Assert.Contains("scorePosition", editor, StringComparison.Ordinal);
     }
 
     [Fact]

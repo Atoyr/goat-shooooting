@@ -13,6 +13,7 @@ public sealed class ShootingGame : Game
     private readonly KeyboardInputState _input = new();
     private readonly ShootingSimulation _simulation;
     private readonly RenderSystem _renderSystem = new();
+    private GameScreenLayout _layout;
     private SpriteBatch? _spriteBatch;
     private Texture2D? _pixel;
     private GameAudio? _audio;
@@ -21,10 +22,11 @@ public sealed class ShootingGame : Game
     public ShootingGame(IDefinitionRepository definitionRepository)
     {
         _simulation = new ShootingSimulation(definitionRepository, _input);
+        _layout = PrimitiveRenderLayout.CreateGameScreenLayout(_simulation.Definitions.Game);
         _graphics = new GraphicsDeviceManager(this)
         {
-            PreferredBackBufferWidth = _simulation.Definitions.Game.Width,
-            PreferredBackBufferHeight = _simulation.Definitions.Game.Height,
+            PreferredBackBufferWidth = _layout.Window.Width,
+            PreferredBackBufferHeight = _layout.Window.Height,
             SynchronizeWithVerticalRetrace = true
         };
         Content.RootDirectory = "Content";
@@ -51,6 +53,7 @@ public sealed class ShootingGame : Game
 
         var deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
         _simulation.Update(deltaTime);
+        ApplyLayoutChanges();
         _audio?.Play(_simulation.Feedback);
         _shakeRemaining = Math.Max(0, _shakeRemaining - deltaTime);
         if (_simulation.Feedback.PlayerHits > 0)
@@ -92,9 +95,13 @@ public sealed class ShootingGame : Game
                 (Random.Shared.NextSingle() * 2 - 1) * shakeMagnitude,
                 (Random.Shared.NextSingle() * 2 - 1) * shakeMagnitude)
             : Vector2.Zero;
+
         spriteBatch.Begin(
             samplerState: SamplerState.PointClamp,
-            transformMatrix: Matrix.CreateTranslation(shakeOffset.X, shakeOffset.Y, 0));
+            transformMatrix: Matrix.CreateTranslation(
+                _layout.Playfield.X + shakeOffset.X,
+                shakeOffset.Y,
+                0));
         var items = _renderSystem.Capture(_simulation.World);
         foreach (var item in items)
         {
@@ -117,26 +124,82 @@ public sealed class ShootingGame : Game
             }
         }
 
+        spriteBatch.End();
+
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        if (_layout.LeftPanel is { } leftPanel)
+        {
+            DrawSidePanel(spriteBatch, pixel, leftPanel);
+        }
+
+        if (_layout.RightPanel is { } rightPanel)
+        {
+            DrawSidePanel(spriteBatch, pixel, rightPanel);
+        }
+
         var player = items.FirstOrDefault(static item => item.Kind == RenderKind.Player);
         if (player.EntityId != 0)
         {
             const int healthBarWidth = 200;
-            spriteBatch.Draw(pixel, new Rectangle(16, 16, healthBarWidth, 12), new Color(45, 55, 70));
+            var healthBarX = _layout.Playfield.Left + 16;
+            spriteBatch.Draw(pixel, new Rectangle(healthBarX, 16, healthBarWidth, 12), new Color(45, 55, 70));
             var currentWidth = (int)MathF.Round(healthBarWidth * player.HealthFraction);
-            spriteBatch.Draw(pixel, new Rectangle(16, 16, currentWidth, 12), new Color(68, 210, 255));
+            spriteBatch.Draw(pixel, new Rectangle(healthBarX, 16, currentWidth, 12), new Color(68, 210, 255));
         }
 
         var scoreText = $"SCORE {_simulation.Telemetry.Score:D8}";
+        var scoreScale = GetScoreScale(scoreText);
+        var scoreAnchor = PrimitiveRenderLayout.GetScoreAnchor(
+            _simulation.Definitions.Game,
+            _layout,
+            scoreText,
+            scoreScale);
         foreach (var scorePixel in PrimitiveRenderLayout.ToPixelTextRectangles(
                      scoreText,
-                     _simulation.Definitions.Game.Width - 16,
-                     16))
+                     scoreAnchor.Right,
+                     scoreAnchor.Top,
+                     scoreScale))
         {
             spriteBatch.Draw(pixel, scorePixel, new Color(255, 235, 84));
         }
 
         spriteBatch.End();
         base.Draw(gameTime);
+    }
+
+    private void ApplyLayoutChanges()
+    {
+        var nextLayout = PrimitiveRenderLayout.CreateGameScreenLayout(_simulation.Definitions.Game);
+        if (nextLayout == _layout)
+        {
+            return;
+        }
+
+        _layout = nextLayout;
+        _graphics.PreferredBackBufferWidth = _layout.Window.Width;
+        _graphics.PreferredBackBufferHeight = _layout.Window.Height;
+        _graphics.ApplyChanges();
+    }
+
+    private int GetScoreScale(string scoreText)
+    {
+        var scoreRegionWidth = _simulation.Definitions.Game.ScorePosition switch
+        {
+            "left-panel" => _layout.LeftPanel?.Width,
+            "right-panel" => _layout.RightPanel?.Width,
+            _ => _layout.Playfield.Width
+        };
+        var availableWidth = scoreRegionWidth ?? _layout.Playfield.Width;
+        return PrimitiveRenderLayout.MeasurePixelText(scoreText).X > availableWidth - 32
+            ? 1
+            : 2;
+    }
+
+    private static void DrawSidePanel(SpriteBatch spriteBatch, Texture2D pixel, Rectangle panel)
+    {
+        spriteBatch.Draw(pixel, panel, new Color(12, 22, 42));
+        spriteBatch.Draw(pixel, new Rectangle(panel.Left, panel.Top, 2, panel.Height), new Color(55, 80, 115));
+        spriteBatch.Draw(pixel, new Rectangle(panel.Right - 2, panel.Top, 2, panel.Height), new Color(55, 80, 115));
     }
 
     protected override void Dispose(bool disposing)

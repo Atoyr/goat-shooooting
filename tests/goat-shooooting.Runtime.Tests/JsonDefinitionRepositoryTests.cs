@@ -77,6 +77,39 @@ public sealed class JsonDefinitionRepositoryTests
     }
 
     [Fact]
+    public void UnsupportedScreenLayoutProducesValidationError()
+    {
+        var baseline = TestDefinitions.Create();
+
+        var exception = Assert.Throws<DefinitionValidationException>(() => new DefinitionCatalog(
+            baseline.Game with { ScreenLayout = "arcade-cabinet" },
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            baseline.Bullets.Values,
+            baseline.Weapons.Values,
+            baseline.Stages.Values));
+
+        Assert.Contains("arcade-cabinet", exception.Message);
+    }
+
+    [Fact]
+    public void ScorePositionRequiresMatchingSidePanel()
+    {
+        var baseline = TestDefinitions.Create();
+
+        var exception = Assert.Throws<DefinitionValidationException>(() => new DefinitionCatalog(
+            baseline.Game with { ScreenLayout = "touhou", ScorePosition = "left-panel" },
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            baseline.Bullets.Values,
+            baseline.Weapons.Values,
+            baseline.Stages.Values));
+
+        Assert.Contains("left-panel", exception.Message);
+        Assert.Contains("donpachi", exception.Message);
+    }
+
+    [Fact]
     public void UnknownJsonPropertyReportsFilePathAndLocation()
     {
         using var directory = DefinitionDirectory.Create();

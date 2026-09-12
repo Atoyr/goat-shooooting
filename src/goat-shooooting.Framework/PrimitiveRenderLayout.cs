@@ -1,7 +1,16 @@
 using Microsoft.Xna.Framework;
+using GoatShooooting.Definitions;
 using GoatShooooting.Runtime;
 
 namespace GoatShooooting.Framework;
+
+public readonly record struct GameScreenLayout(
+    Rectangle Window,
+    Rectangle Playfield,
+    Rectangle? LeftPanel,
+    Rectangle? RightPanel);
+
+public readonly record struct ScoreHudAnchor(int Right, int Top);
 
 public static class PrimitiveRenderLayout
 {
@@ -37,6 +46,80 @@ public static class PrimitiveRenderLayout
             diameter);
     }
 
+    public static GameScreenLayout CreateGameScreenLayout(GameDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        var playfield = string.Equals(definition.ScreenLayout, "donpachi", StringComparison.Ordinal)
+            ? new Rectangle(definition.HudPanelWidth, 0, definition.Width, definition.Height)
+            : new Rectangle(0, 0, definition.Width, definition.Height);
+
+        return definition.ScreenLayout switch
+        {
+            "full" => new GameScreenLayout(
+                playfield,
+                playfield,
+                null,
+                null),
+            "touhou" => new GameScreenLayout(
+                new Rectangle(0, 0, definition.Width + definition.HudPanelWidth, definition.Height),
+                playfield,
+                null,
+                new Rectangle(definition.Width, 0, definition.HudPanelWidth, definition.Height)),
+            "donpachi" => new GameScreenLayout(
+                new Rectangle(0, 0, definition.Width + (definition.HudPanelWidth * 2), definition.Height),
+                playfield,
+                new Rectangle(0, 0, definition.HudPanelWidth, definition.Height),
+                new Rectangle(
+                    definition.HudPanelWidth + definition.Width,
+                    0,
+                    definition.HudPanelWidth,
+                    definition.Height)),
+            _ => throw new ArgumentException(
+                $"Unsupported screen layout '{definition.ScreenLayout}'.",
+                nameof(definition))
+        };
+    }
+
+    public static ScoreHudAnchor GetScoreAnchor(
+        GameDefinition definition,
+        GameScreenLayout layout,
+        string scoreText,
+        int scale = 2)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        var scoreSize = MeasurePixelText(scoreText, scale);
+        return definition.ScorePosition switch
+        {
+            "playfield-top-left" => new ScoreHudAnchor(
+                layout.Playfield.Left + 16 + scoreSize.X,
+                40),
+            "playfield-top-right" => new ScoreHudAnchor(layout.Playfield.Right - 16, 16),
+            "left-panel" => new ScoreHudAnchor(
+                layout.LeftPanel?.Right - 16 ?? throw MissingPanel(definition.ScorePosition),
+                24),
+            "right-panel" => new ScoreHudAnchor(
+                layout.RightPanel?.Right - 16 ?? throw MissingPanel(definition.ScorePosition),
+                24),
+            _ => throw new ArgumentException(
+                $"Unsupported score position '{definition.ScorePosition}'.",
+                nameof(definition))
+        };
+    }
+
+    public static Point MeasurePixelText(string text, int scale = 2)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        if (scale <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(scale));
+        }
+
+        var width = text.Length == 0
+            ? 0
+            : (text.Length * (GlyphWidth + 1) * scale) - scale;
+        return new Point(width, GlyphHeight * scale);
+    }
+
     public static IReadOnlyList<Rectangle> ToPixelTextRectangles(
         string text,
         int right,
@@ -50,7 +133,7 @@ public static class PrimitiveRenderLayout
         }
 
         var glyphAdvance = (GlyphWidth + 1) * scale;
-        var left = right - Math.Max(0, (text.Length * glyphAdvance) - scale);
+        var left = right - MeasurePixelText(text, scale).X;
         var rectangles = new List<Rectangle>();
         for (var characterIndex = 0; characterIndex < text.Length; characterIndex++)
         {
@@ -78,4 +161,7 @@ public static class PrimitiveRenderLayout
 
         return rectangles;
     }
+
+    private static InvalidOperationException MissingPanel(string scorePosition) => new(
+        $"Score position '{scorePosition}' refers to a panel that is not available in the screen layout.");
 }

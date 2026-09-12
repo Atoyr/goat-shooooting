@@ -53,7 +53,7 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 - R / Enter: Game Over／Stage Clear後にリトライ
 - Esc: 終了
 
-約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Scoutは直進弾、Fighterは追尾弾、Midbossは二層式洗濯機弾幕を使用します。PlayerのHPが0になるとGame Over、Player BulletでEnemyをすべて倒すとStage Clearです。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。HPバーは画面左上、スコアは画面右上へ常時表示され、現在HP・スコア・Pause／終了状態はウィンドウタイトルにも表示されます。
+約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Scoutは直進弾、Fighterは追尾弾、Midbossは二層式洗濯機弾幕を使用します。PlayerのHPが0になるとGame Over、Player BulletでEnemyをすべて倒すとStage Clearです。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。HPバーはプレイ領域左上、スコアは設定した位置へ常時表示され、現在HP・スコア・Pause／終了状態はウィンドウタイトルにも表示されます。
 
 画面を使わない smoke test:
 
@@ -115,7 +115,7 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 
 サンプルの定義は [`games/sample`](games/sample) にあります。
 
-- `game.json`: 使用する `playerId`、`stageId`、画面サイズ
+- `game.json`: 使用する `playerId`、`stageId`、プレイ領域サイズ、画面レイアウト、スコア位置
 - `player.json`: HP、移動速度、初期位置、Collider 半径、被弾後の無敵時間、Weapon 参照
 - `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照、`straight`／`sine`移動
 - `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime、`straight`／`homing`移動
@@ -164,6 +164,26 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 ```
 
 Enemy の `weaponId` にこの Weapon ID を指定するだけで、敵ごとに弾種と弾幕を切り替えられます。
+
+画面レイアウトは `game.json` で選択できます。`width` と `height` はどのレイアウトでもプレイ領域の大きさなので、レイアウトを切り替えてもStageの座標や当たり判定は変わりません。
+
+- `full`: パネルなしの従来レイアウト
+- `touhou`: プレイ領域＋右HUDパネルの左右2分割
+- `donpachi`: 左HUDパネル＋中央プレイ領域＋右HUDパネルの3分割
+
+```json
+{
+  "playerId": "player-one",
+  "stageId": "stage-01",
+  "width": 800,
+  "height": 720,
+  "screenLayout": "touhou",
+  "hudPanelWidth": 220,
+  "scorePosition": "right-panel"
+}
+```
+
+`scorePosition` は `playfield-top-left`、`playfield-top-right`、`left-panel`、`right-panel` から選択します。`left-panel` は `donpachi`、`right-panel` は `touhou` または `donpachi` で使用できます。Definition Editorではレイアウトとスコア位置をプレビューしながら選べます。
 
 ```json
 {

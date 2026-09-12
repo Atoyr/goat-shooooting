@@ -19,6 +19,10 @@ public sealed class ContentPackIntegrationTests
         Assert.Equal("gauntlet-01", gauntlet.Definitions.Game.StageId);
         Assert.Equal("player-basic", sample.Player.Get<WeaponHolderComponent>().WeaponId);
         Assert.Equal("rapid-fire", gauntlet.Player.Get<WeaponHolderComponent>().WeaponId);
+        Assert.Equal("touhou", sample.Definitions.Game.ScreenLayout);
+        Assert.Equal("right-panel", sample.Definitions.Game.ScorePosition);
+        Assert.Equal("donpachi", gauntlet.Definitions.Game.ScreenLayout);
+        Assert.Equal("left-panel", gauntlet.Definitions.Game.ScorePosition);
         Assert.Equal("homing", sample.Definitions.GetBullet("enemy-homing-shot").MovementPattern);
         Assert.Equal("double-washing-machine", sample.Definitions.GetWeapon("enemy-double-washer").FirePattern);
         Assert.Equal("washing-machine", gauntlet.Definitions.GetWeapon("gauntlet-washer").FirePattern);

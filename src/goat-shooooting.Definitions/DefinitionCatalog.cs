@@ -36,6 +36,39 @@ public sealed class DefinitionCatalog
     {
         EnsurePositive(Game.Width, "Game width");
         EnsurePositive(Game.Height, "Game height");
+        if (!string.Equals(Game.ScreenLayout, "full", StringComparison.Ordinal) &&
+            !string.Equals(Game.ScreenLayout, "touhou", StringComparison.Ordinal) &&
+            !string.Equals(Game.ScreenLayout, "donpachi", StringComparison.Ordinal))
+        {
+            throw new DefinitionValidationException(
+                $"Game has unsupported screen layout '{Game.ScreenLayout}'.");
+        }
+
+        EnsureRange(Game.HudPanelWidth, 120, 600, "Game HUD panel width");
+
+        if (!string.Equals(Game.ScorePosition, "playfield-top-left", StringComparison.Ordinal) &&
+            !string.Equals(Game.ScorePosition, "playfield-top-right", StringComparison.Ordinal) &&
+            !string.Equals(Game.ScorePosition, "left-panel", StringComparison.Ordinal) &&
+            !string.Equals(Game.ScorePosition, "right-panel", StringComparison.Ordinal))
+        {
+            throw new DefinitionValidationException(
+                $"Game has unsupported score position '{Game.ScorePosition}'.");
+        }
+
+        if (string.Equals(Game.ScorePosition, "left-panel", StringComparison.Ordinal) &&
+            !string.Equals(Game.ScreenLayout, "donpachi", StringComparison.Ordinal))
+        {
+            throw new DefinitionValidationException(
+                "Game score position 'left-panel' requires the 'donpachi' screen layout.");
+        }
+
+        if (string.Equals(Game.ScorePosition, "right-panel", StringComparison.Ordinal) &&
+            string.Equals(Game.ScreenLayout, "full", StringComparison.Ordinal))
+        {
+            throw new DefinitionValidationException(
+                "Game score position 'right-panel' requires the 'touhou' or 'donpachi' screen layout.");
+        }
+
         _ = GetPlayer(Game.PlayerId);
         _ = GetStage(Game.StageId);
 

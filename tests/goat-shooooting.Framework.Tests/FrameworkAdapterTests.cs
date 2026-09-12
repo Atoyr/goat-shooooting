@@ -1,5 +1,6 @@
 using System.Numerics;
 using Microsoft.Xna.Framework.Input;
+using GoatShooooting.Definitions;
 using GoatShooooting.Framework;
 using GoatShooooting.Runtime;
 using Xunit;
@@ -49,5 +50,55 @@ public sealed class FrameworkAdapterTests
             Assert.Equal(2, rectangle.Width);
             Assert.Equal(2, rectangle.Height);
         });
+    }
+
+    [Fact]
+    public void TouhouLayoutPlacesPlayfieldLeftAndHudPanelRight()
+    {
+        var definition = new GameDefinition
+        {
+            Width = 800,
+            Height = 720,
+            ScreenLayout = "touhou",
+            HudPanelWidth = 220,
+            ScorePosition = "right-panel"
+        };
+
+        var layout = PrimitiveRenderLayout.CreateGameScreenLayout(definition);
+        var scoreAnchor = PrimitiveRenderLayout.GetScoreAnchor(
+            definition,
+            layout,
+            "SCORE 00000100");
+
+        Assert.Equal(new Microsoft.Xna.Framework.Rectangle(0, 0, 1020, 720), layout.Window);
+        Assert.Equal(new Microsoft.Xna.Framework.Rectangle(0, 0, 800, 720), layout.Playfield);
+        Assert.Null(layout.LeftPanel);
+        Assert.Equal(new Microsoft.Xna.Framework.Rectangle(800, 0, 220, 720), layout.RightPanel);
+        Assert.Equal(new ScoreHudAnchor(1004, 24), scoreAnchor);
+    }
+
+    [Fact]
+    public void DonpachiLayoutPlacesPlayfieldBetweenTwoHudPanels()
+    {
+        var definition = new GameDefinition
+        {
+            Width = 640,
+            Height = 800,
+            ScreenLayout = "donpachi",
+            HudPanelWidth = 200,
+            ScorePosition = "left-panel"
+        };
+
+        var layout = PrimitiveRenderLayout.CreateGameScreenLayout(definition);
+        var scoreAnchor = PrimitiveRenderLayout.GetScoreAnchor(
+            definition,
+            layout,
+            "SCORE 00000100");
+
+        Assert.Equal(new Microsoft.Xna.Framework.Rectangle(0, 0, 1040, 800), layout.Window);
+        Assert.Equal(new Microsoft.Xna.Framework.Rectangle(200, 0, 640, 800), layout.Playfield);
+        Assert.Equal(new Microsoft.Xna.Framework.Rectangle(0, 0, 200, 800), layout.LeftPanel);
+        Assert.Equal(new Microsoft.Xna.Framework.Rectangle(840, 0, 200, 800), layout.RightPanel);
+        Assert.Equal(new ScoreHudAnchor(184, 24), scoreAnchor);
     }
 }
