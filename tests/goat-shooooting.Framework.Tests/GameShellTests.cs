@@ -53,6 +53,19 @@ public sealed class GameShellTests
         Assert.Equal(0, shell.SelectionIndex);
     }
 
+    [Fact]
+    public void TitleCyclesAvailableGamesFromTheStartItem()
+    {
+        var shell = new GameShell(new GameSettings(), ["sample", "gauntlet"], "sample");
+
+        var command = shell.Update(new MenuInput(right: true));
+
+        Assert.Equal(GameShellCommand.GameSelectionChanged, command);
+        Assert.Equal("gauntlet", shell.SelectedGameId);
+        Assert.Equal(GameShellCommand.GameSelectionChanged, shell.Update(new MenuInput(right: true)));
+        Assert.Equal("sample", shell.SelectedGameId);
+    }
+
     private sealed class MenuInput : IMenuInput
     {
         public MenuInput(

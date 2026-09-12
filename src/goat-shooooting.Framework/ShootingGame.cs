@@ -15,8 +15,13 @@ public sealed class ShootingGame : Game
     private readonly GameInputState _input;
     private readonly GameShell _shell;
     private readonly IUserDataStore? _userDataStore;
-    private readonly ShootingSimulation _simulation;
+    private readonly IReadOnlyDictionary<string, IDefinitionRepository> _definitionRepositories;
+    private readonly PlayerProfileService _profileService = new();
+    private readonly RunCompletionTracker _runCompletionTracker = new();
     private readonly RenderSystem _renderSystem = new();
+    private ShootingSimulation _simulation;
+    private PlayerProfile _profile;
+    private string _gameId;
     private GameScreenLayout _layout;
     private SpriteBatch? _spriteBatch;
     private Texture2D? _pixel;
@@ -39,10 +44,38 @@ public sealed class ShootingGame : Game
         IDefinitionRepository definitionRepository,
         IUserDataStore? userDataStore,
         GameSettings settings)
+        : this(
+            new Dictionary<string, IDefinitionRepository>(StringComparer.Ordinal)
+            {
+                ["sample"] = definitionRepository
+            },
+            "sample",
+            userDataStore,
+            settings,
+            new PlayerProfile())
+    {
+    }
+
+    public ShootingGame(
+        IReadOnlyDictionary<string, IDefinitionRepository> definitionRepositories,
+        string gameId,
+        IUserDataStore? userDataStore,
+        GameSettings settings,
+        PlayerProfile profile)
     {
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(definitionRepositories);
+        ArgumentNullException.ThrowIfNull(profile);
+        if (!definitionRepositories.TryGetValue(gameId, out var definitionRepository))
+        {
+            throw new ArgumentException($"Game id '{gameId}' is not available.", nameof(gameId));
+        }
+
+        _definitionRepositories = definitionRepositories;
+        _gameId = gameId;
+        _profile = profile;
         _input = new GameInputState(settings.Input);
-        _shell = new GameShell(settings);
+        _shell = new GameShell(settings, definitionRepositories.Keys, gameId);
         _appliedSettings = settings;
         _userDataStore = userDataStore;
         _simulation = new ShootingSimulation(definitionRepository, _input);
@@ -168,6 +201,7 @@ public sealed class ShootingGame : Game
         }
         else if (_simulation.Status != SimulationStatus.Running)
         {
+            RecordRunCompletion();
             _shell.ShowResult();
         }
 
@@ -180,7 +214,7 @@ public sealed class ShootingGame : Game
         Window.Title = _showControllerDisconnectedMessage
             ? "goat-shooooting — CONTROLLER DISCONNECTED — reconnect or use keyboard"
             : _shell.State == GameShellState.Title
-            ? "goat-shooooting — TITLE"
+            ? $"goat-shooooting — TITLE — {_gameId}"
             : _shell.State == GameShellState.Options
             ? "goat-shooooting — OPTIONS"
             : _simulation.DefinitionReloadError is not null
@@ -206,6 +240,7 @@ public sealed class ShootingGame : Game
             case GameShellCommand.StartRun:
             case GameShellCommand.RetryRun:
                 _simulation.Restart();
+                _runCompletionTracker.StartRun();
                 _showControllerDisconnectedMessage = false;
                 break;
             case GameShellCommand.ResumeRun:
@@ -214,6 +249,9 @@ public sealed class ShootingGame : Game
                 break;
             case GameShellCommand.SettingsChanged:
                 ApplySettings(_shell.Settings);
+                break;
+            case GameShellCommand.GameSelectionChanged:
+                SelectGame(_shell.SelectedGameId);
                 break;
             case GameShellCommand.SaveSettings:
                 _userDataStore?.SaveSettings(_appliedSettings);
@@ -226,6 +264,37 @@ public sealed class ShootingGame : Game
             default:
                 break;
         }
+    }
+
+    private void SelectGame(string gameId)
+    {
+        if (!_definitionRepositories.TryGetValue(gameId, out var repository))
+        {
+            return;
+        }
+
+        _gameId = gameId;
+        _simulation = new ShootingSimulation(repository, _input);
+        _runCompletionTracker.StartRun();
+        _profile = _profileService.SelectGame(_profile, gameId);
+        _userDataStore?.SaveProfile(_profile);
+        ApplyLayoutChanges();
+    }
+
+    private void RecordRunCompletion()
+    {
+        var completion = _runCompletionTracker.Observe(_simulation.Status, _simulation.Telemetry.Score);
+        if (completion is null)
+        {
+            return;
+        }
+
+        _profile = _profileService.RecordCompletedRun(
+            _profile,
+            _gameId,
+            completion.Value.Score,
+            completion.Value.Cleared);
+        _userDataStore?.SaveProfile(_profile);
     }
 
     private bool ApplySettings(GameSettings requested)
@@ -460,9 +529,34 @@ public sealed class ShootingGame : Game
             new Color(68, 210, 255));
         DrawCenteredPixelText(spriteBatch, pixel, title, centerX, panelTop + 28, isOptions ? 2 : 3, Color.White);
 
+        if (_shell.State == GameShellState.Title)
+        {
+            _profile.HighScores.TryGetValue(_gameId, out var highScore);
+            DrawCenteredPixelText(
+                spriteBatch,
+                pixel,
+                $"GAME  {_gameId.ToUpperInvariant()}  LEFT RIGHT CHANGE",
+                centerX,
+                panelTop + 76,
+                1,
+                new Color(68, 210, 255));
+            DrawCenteredPixelText(
+                spriteBatch,
+                pixel,
+                $"HIGH SCORE {highScore:D8}",
+                centerX,
+                panelTop + 94,
+                1,
+                new Color(255, 235, 84));
+        }
+
         var items = _shell.MenuItems;
         var itemSpacing = isOptions ? 23 : 46;
-        var itemsTop = isOptions ? panelTop + 78 : centerY - ((items.Count - 1) * itemSpacing / 2);
+        var itemsTop = isOptions
+            ? panelTop + 78
+            : _shell.State == GameShellState.Title
+            ? centerY - 24
+            : centerY - ((items.Count - 1) * itemSpacing / 2);
         for (var index = 0; index < items.Count; index++)
         {
             var value = isOptions ? OptionsMenu.GetValue(_shell.Settings, index) : string.Empty;

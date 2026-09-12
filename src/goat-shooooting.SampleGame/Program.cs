@@ -12,19 +12,31 @@ public static class Program
     {
         try
         {
-            var gameId = GetGameId(args);
-            var gameDirectory = Path.Combine(AppContext.BaseDirectory, "games", gameId);
-            IDefinitionRepository definitions = args.Contains("--smoke-test", StringComparer.Ordinal)
-                ? new JsonDefinitionRepository(gameDirectory)
-                : new ReloadableJsonDefinitionRepository(gameDirectory);
+            var requestedGameId = GetRequestedGameId(args);
             if (args.Contains("--smoke-test", StringComparer.Ordinal))
             {
-                return RunSmokeTest(definitions);
+                var smokeGameId = requestedGameId ?? "sample";
+                var gameDirectory = Path.Combine(AppContext.BaseDirectory, "games", smokeGameId);
+                return RunSmokeTest(new JsonDefinitionRepository(gameDirectory));
             }
 
             var userDataStore = new JsonUserDataStore(UserDataPathResolver.GetDefaultDirectory());
             var settings = userDataStore.LoadSettings().Value;
-            using var game = new ShootingGame(definitions, userDataStore, settings);
+            var profile = userDataStore.LoadProfile().Value;
+            var definitions = GetAvailableGames();
+            var gameId = requestedGameId ?? profile.LastGameId;
+            if (!definitions.ContainsKey(gameId))
+            {
+                gameId = definitions.ContainsKey("sample") ? "sample" : definitions.Keys.First();
+            }
+
+            if (!string.Equals(profile.LastGameId, gameId, StringComparison.Ordinal))
+            {
+                profile = new PlayerProfileService().SelectGame(profile, gameId);
+                userDataStore.SaveProfile(profile);
+            }
+
+            using var game = new ShootingGame(definitions, gameId, userDataStore, settings, profile);
             game.Run();
             return 0;
         }
@@ -150,10 +162,36 @@ public static class Program
         }
     }
 
-    private static string GetGameId(string[] args)
+    private static IReadOnlyDictionary<string, IDefinitionRepository> GetAvailableGames()
+    {
+        var gamesDirectory = Path.Combine(AppContext.BaseDirectory, "games");
+        var definitions = Directory
+            .EnumerateDirectories(gamesDirectory)
+            .Where(directory => File.Exists(Path.Combine(directory, "game.json")))
+            .Select(directory => new
+            {
+                Id = Path.GetFileName(directory),
+                Repository = (IDefinitionRepository)new ReloadableJsonDefinitionRepository(directory)
+            })
+            .OrderBy(static item => item.Id, StringComparer.Ordinal)
+            .ToDictionary(static item => item.Id, static item => item.Repository, StringComparer.Ordinal);
+        if (definitions.Count == 0)
+        {
+            throw new DirectoryNotFoundException($"No game content packs were found under '{gamesDirectory}'.");
+        }
+
+        return definitions;
+    }
+
+    private static string? GetRequestedGameId(string[] args)
     {
         var optionIndex = Array.FindIndex(args, static argument => string.Equals(argument, "--game", StringComparison.Ordinal));
-        var gameId = optionIndex >= 0 && optionIndex + 1 < args.Length ? args[optionIndex + 1] : "sample";
+        if (optionIndex < 0)
+        {
+            return null;
+        }
+
+        var gameId = optionIndex + 1 < args.Length ? args[optionIndex + 1] : string.Empty;
         if (string.IsNullOrWhiteSpace(gameId) ||
             !string.Equals(gameId, Path.GetFileName(gameId), StringComparison.Ordinal) ||
             gameId.Any(static character => !char.IsLetterOrDigit(character) && character is not '-' and not '_'))

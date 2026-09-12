@@ -18,6 +18,7 @@ public enum GameShellCommand
     ResumeRun,
     RetryRun,
     ReturnToTitle,
+    GameSelectionChanged,
     SettingsChanged,
     SaveSettings,
     Quit
@@ -30,15 +31,32 @@ public sealed class GameShell
     private static readonly string[] PauseItems = ["RESUME", "OPTIONS", "RETRY", "TITLE"];
     private static readonly string[] ResultItems = ["RETRY", "TITLE"];
     private GameShellState _optionsReturnState;
+    private readonly string[] _gameIds;
     private int _selectionIndex;
 
     public GameShell(GameSettings settings)
+        : this(settings, ["sample"], "sample")
+    {
+    }
+
+    public GameShell(GameSettings settings, IEnumerable<string> gameIds, string selectedGameId)
     {
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        ArgumentNullException.ThrowIfNull(gameIds);
+        _gameIds = gameIds.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (_gameIds.Length == 0)
+        {
+            throw new ArgumentException("At least one game id is required.", nameof(gameIds));
+        }
+
+        SelectedGameId = _gameIds.Contains(selectedGameId, StringComparer.Ordinal)
+            ? selectedGameId
+            : _gameIds[0];
     }
 
     public GameShellState State { get; private set; } = GameShellState.Title;
     public GameSettings Settings { get; private set; }
+    public string SelectedGameId { get; private set; }
     public int SelectionIndex => _selectionIndex;
     public IReadOnlyList<string> MenuItems => State switch
     {
@@ -64,6 +82,15 @@ public sealed class GameShell
         if (input.CancelPressed)
         {
             return Cancel();
+        }
+
+        if (State == GameShellState.Title && _selectionIndex == 0 &&
+            (input.LeftPressed || input.RightPressed))
+        {
+            var direction = input.LeftPressed ? -1 : 1;
+            var gameIndex = Array.IndexOf(_gameIds, SelectedGameId);
+            SelectedGameId = _gameIds[(gameIndex + direction + _gameIds.Length) % _gameIds.Length];
+            return GameShellCommand.GameSelectionChanged;
         }
 
         var items = MenuItems;
