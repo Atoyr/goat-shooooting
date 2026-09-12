@@ -120,7 +120,7 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 
 - `game.json`: 使用する `playerId`、`stageId`、プレイ領域サイズ、画面レイアウト、スコア位置
 - `player.json`: 残機、ボム数と威力、移動速度、初期位置、Collider 半径、被弾後の無敵時間、Weapon 参照
-- `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照、`straight`／`sine`移動
+- `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照、`straight`／`sine`／`zigzag`移動
 - `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime、`straight`／`homing`移動
 - `weapons/*.json`: Bullet 参照、cooldown、弾数と`spread`／`washing-machine`／`double-washing-machine`弾幕
 - `stages/*.json`: 時刻付き `spawn-enemy` event、出現位置、個数、出現間隔、横方向の間隔

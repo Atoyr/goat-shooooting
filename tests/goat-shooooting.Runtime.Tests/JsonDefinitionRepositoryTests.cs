@@ -42,6 +42,18 @@ public sealed class JsonDefinitionRepositoryTests
     }
 
     [Fact]
+    public void ZigzagMovementRequiresPositiveAmplitudeAndFrequency()
+    {
+        var amplitudeException = Assert.Throws<DefinitionValidationException>(
+            () => TestDefinitions.Create(movementPattern: "zigzag", movementFrequency: 1));
+        var frequencyException = Assert.Throws<DefinitionValidationException>(
+            () => TestDefinitions.Create(movementPattern: "zigzag", movementAmplitude: 10));
+
+        Assert.Contains("movement amplitude", amplitudeException.Message);
+        Assert.Contains("movement frequency", frequencyException.Message);
+    }
+
+    [Fact]
     public void HomingBulletRequiresPositiveTurnSpeed()
     {
         var baseline = TestDefinitions.Create();

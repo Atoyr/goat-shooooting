@@ -36,6 +36,48 @@ public sealed class MovementSystemTests
     }
 
     [Fact]
+    public void ZigzagPatternMovesLinearlyBetweenItsDefinitionDrivenExtremes()
+    {
+        var world = new World();
+        var entity = world.CreateEntity()
+            .Add(new TransformComponent(new Vector2(100, 50)))
+            .Add(new ZigzagMovementComponent(originX: 100, amplitude: 40, frequency: 1));
+        var system = new MovementPatternSystem();
+
+        system.Update(world, 0.25f);
+        Assert.Equal(140, entity.Get<TransformComponent>().Position.X, precision: 3);
+
+        system.Update(world, 0.25f);
+        Assert.Equal(100, entity.Get<TransformComponent>().Position.X, precision: 3);
+        Assert.Equal(50, entity.Get<TransformComponent>().Position.Y);
+    }
+
+    [Fact]
+    public void EnemyFactoryAddsZigzagBehaviorFromDefinition()
+    {
+        var world = new World();
+
+        var enemy = new EnemyFactory().Create(
+            world,
+            new EnemyDefinition
+            {
+                Id = "zigzag-enemy",
+                Hp = 10,
+                Speed = 20,
+                Radius = 5,
+                MovementPattern = "zigzag",
+                MovementAmplitude = 30,
+                MovementFrequency = 0.5f
+            },
+            new Vector2(200, 50));
+
+        var pattern = enemy.Get<ZigzagMovementComponent>();
+        Assert.Equal(200, pattern.OriginX);
+        Assert.Equal(30, pattern.Amplitude);
+        Assert.Equal(0.5f, pattern.Frequency);
+    }
+
+    [Fact]
     public void HomingBulletTurnsTowardNearestTargetWithoutChangingSpeed()
     {
         var world = new World();

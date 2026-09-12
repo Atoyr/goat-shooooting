@@ -298,6 +298,22 @@ dotnet build goat-shooooting.sln</code></pre>
       <section class="searchable" id="enemy-definition">
         <div class="section-kicker">07 / ENEMY</div>
         <h2>Enemyを設定する</h2>
+        <p class="lead">移動パターンはEnemyごとに選べます。どのパターンも<code>speed</code>で下へ進み、<code>sine</code>と<code>zigzag</code>は生成位置を中心に左右へ動きます。</p>
+        <div class="pattern-cards three">
+          <article>
+            <a class="pattern-gif" href="./assets/patterns/enemy-straight.gif" aria-label="敵の直進移動GIFを原寸で開く"><img src="./assets/patterns/enemy-straight.gif" width="384" height="432" loading="lazy" alt="敵が出現位置から真下へ進むstraight移動のGIF"></a>
+            <h3>straight</h3><p>横方向へ曲がらず、基本速度で真下へ進みます。既定値です。</p>
+          </article>
+          <article>
+            <a class="pattern-gif" href="./assets/patterns/enemy-sine.gif" aria-label="敵のサイン移動GIFを原寸で開く"><img src="./assets/patterns/enemy-sine.gif" width="384" height="432" loading="lazy" alt="敵が滑らかな曲線を描きながら左右へ往復するsine移動のGIF"></a>
+            <h3>sine</h3><p>滑らかな曲線で左右へ往復します。</p>
+          </article>
+          <article>
+            <a class="pattern-gif" href="./assets/patterns/enemy-zigzag.gif" aria-label="敵のジグザグ移動GIFを原寸で開く"><img src="./assets/patterns/enemy-zigzag.gif" width="384" height="432" loading="lazy" alt="敵が直線的に左右へ折り返しながら進むzigzag移動のGIF"></a>
+            <h3>zigzag</h3><p>一定の横速度で進み、両端で向きを反転します。</p>
+          </article>
+        </div>
+        <p class="pattern-caption">同じ振れ幅・振動数で比較した5.5秒のループGIFです。クリックすると原寸で動きを確認できます。</p>
         <pre><code class="language-json">{
   "id": "midboss",
   "hp": 150,
@@ -318,9 +334,9 @@ dotnet build goat-shooooting.sln</code></pre>
             <tr><td><code>weaponId</code></td><td>いいえ</td><td>省略すると射撃しない</td></tr>
             <tr><td><code>radius</code></td><td>はい</td><td>当たり判定半径</td></tr>
             <tr><td><code>score</code></td><td>いいえ</td><td>撃破点。既定値100</td></tr>
-            <tr><td><code>movementPattern</code></td><td>いいえ</td><td><code>straight</code> または <code>sine</code></td></tr>
-            <tr><td><code>movementAmplitude</code></td><td>sine時</td><td>左右の振れ幅</td></tr>
-            <tr><td><code>movementFrequency</code></td><td>sine時</td><td>1秒あたりの振動回数</td></tr>
+            <tr><td><code>movementPattern</code></td><td>いいえ</td><td><code>straight</code>、<code>sine</code>、<code>zigzag</code></td></tr>
+            <tr><td><code>movementAmplitude</code></td><td>sine/zigzag時</td><td>左右の振れ幅</td></tr>
+            <tr><td><code>movementFrequency</code></td><td>sine/zigzag時</td><td>1秒あたりの往復回数</td></tr>
           </tbody>
         </table></div>
         <aside class="callout tip"><strong>調整の順番</strong><span>まず <code>speed: 0</code> で弾幕だけを調整し、その後に移動を足すと難易度を把握しやすくなります。</span></aside>
@@ -580,7 +596,7 @@ Input → ShootingSimulation → System更新 → RenderSystem snapshot → Mono
         <div class="section-kicker">18 / TROUBLESHOOTING</div>
         <h2>困ったとき</h2>
         <details><summary>Unknown definition id と表示される</summary><p><code>weaponId</code>、<code>bulletId</code>、<code>enemyId</code> などの参照先が存在しません。大文字・小文字も区別されます。対象フォルダーのJSONに同じ <code>id</code> があるか確認してください。</p></details>
-        <details><summary>unsupported movement / fire pattern と表示される</summary><p>対応する文字列と完全一致していません。Bulletは <code>straight</code> / <code>homing</code>、Weaponは <code>spread</code> / <code>washing-machine</code> / <code>double-washing-machine</code> です。</p></details>
+        <details><summary>unsupported movement / fire pattern と表示される</summary><p>対応する文字列と完全一致していません。Enemyは <code>straight</code> / <code>sine</code> / <code>zigzag</code>、Bulletは <code>straight</code> / <code>homing</code>、Weaponは <code>spread</code> / <code>washing-machine</code> / <code>double-washing-machine</code> です。</p></details>
         <details><summary>スコア位置とレイアウトのエラーが出る</summary><p><code>left-panel</code> は <code>donpachi</code> だけ、<code>right-panel</code> は <code>touhou</code> または <code>donpachi</code> で使用できます。パネルなしならプレイ領域の左右上を選びます。</p></details>
         <details><summary>弾がすぐ消える</summary><p>画面外へ完全に出た弾は削除されます。<code>lifetime</code> が短すぎないか、Weaponが意図した方向へ発射しているかも確認してください。</p></details>
         <details><summary>二層式で弾が多すぎる</summary><p>二層式の同時弾数は腕数の2倍です。<code>projectileCount</code> を1へ下げるか、<code>cooldown</code> を長くしてください。</p></details>

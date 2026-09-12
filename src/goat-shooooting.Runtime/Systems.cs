@@ -236,6 +236,17 @@ public sealed class MovementPatternSystem
                 pattern.OriginX + (pattern.Amplitude * MathF.Sin(2 * MathF.PI * pattern.Frequency * pattern.Elapsed)),
                 entity.Get<TransformComponent>().Position.Y);
         }
+
+        foreach (var entity in world.Query<TransformComponent, ZigzagMovementComponent>())
+        {
+            var pattern = entity.Get<ZigzagMovementComponent>();
+            pattern.Elapsed += deltaTime;
+            var phase = 2 * MathF.PI * pattern.Frequency * pattern.Elapsed;
+            var triangleWave = (2 / MathF.PI) * MathF.Asin(MathF.Sin(phase));
+            entity.Get<TransformComponent>().Position = new Vector2(
+                pattern.OriginX + (pattern.Amplitude * triangleWave),
+                entity.Get<TransformComponent>().Position.Y);
+        }
     }
 }
 

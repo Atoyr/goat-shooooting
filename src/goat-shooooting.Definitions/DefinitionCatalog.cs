@@ -89,7 +89,8 @@ public sealed class DefinitionCatalog
             EnsureNonNegative(enemy.Speed, $"Enemy '{enemy.Id}' speed");
             EnsurePositive(enemy.Radius, $"Enemy '{enemy.Id}' radius");
             EnsurePositive(enemy.Score, $"Enemy '{enemy.Id}' score");
-            if (string.Equals(enemy.MovementPattern, "sine", StringComparison.Ordinal))
+            if (string.Equals(enemy.MovementPattern, "sine", StringComparison.Ordinal) ||
+                string.Equals(enemy.MovementPattern, "zigzag", StringComparison.Ordinal))
             {
                 EnsurePositive(enemy.MovementAmplitude, $"Enemy '{enemy.Id}' movement amplitude");
                 EnsurePositive(enemy.MovementFrequency, $"Enemy '{enemy.Id}' movement frequency");

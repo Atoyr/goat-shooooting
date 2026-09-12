@@ -56,6 +56,13 @@ public sealed class EnemyFactory
                 definition.MovementAmplitude,
                 definition.MovementFrequency));
         }
+        else if (string.Equals(definition.MovementPattern, "zigzag", StringComparison.Ordinal))
+        {
+            entity.Add(new ZigzagMovementComponent(
+                position.X,
+                definition.MovementAmplitude,
+                definition.MovementFrequency));
+        }
 
         return entity;
     }

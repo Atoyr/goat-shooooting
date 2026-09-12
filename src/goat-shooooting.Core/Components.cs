@@ -78,6 +78,14 @@ public sealed class SineMovementComponent(float originX, float amplitude, float 
     public float Elapsed { get; set; }
 }
 
+public sealed class ZigzagMovementComponent(float originX, float amplitude, float frequency)
+{
+    public float OriginX { get; } = originX;
+    public float Amplitude { get; } = amplitude > 0 ? amplitude : throw new ArgumentOutOfRangeException(nameof(amplitude));
+    public float Frequency { get; } = frequency > 0 ? frequency : throw new ArgumentOutOfRangeException(nameof(frequency));
+    public float Elapsed { get; set; }
+}
+
 public sealed class BulletComponent(string definitionId, CollisionLayer targetLayer)
 {
     public string DefinitionId { get; } = definitionId;

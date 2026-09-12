@@ -4,5 +4,8 @@
   "speed": 22,
   "weaponId": "enemy-homing",
   "radius": 16,
-  "score": 250
+  "score": 250,
+  "movementPattern": "zigzag",
+  "movementAmplitude": 80,
+  "movementFrequency": 0.15
 }

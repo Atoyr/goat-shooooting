@@ -11,7 +11,7 @@
     "weaponId": { "type": ["string", "null"] },
     "radius": { "type": "number", "exclusiveMinimum": 0 },
     "score": { "type": "integer", "minimum": 1, "default": 100 },
-    "movementPattern": { "type": "string", "enum": ["straight", "sine"], "default": "straight" },
+    "movementPattern": { "type": "string", "enum": ["straight", "sine", "zigzag"], "default": "straight" },
     "movementAmplitude": { "type": "number", "minimum": 0, "default": 0 },
     "movementFrequency": { "type": "number", "minimum": 0, "default": 0 }
   }
