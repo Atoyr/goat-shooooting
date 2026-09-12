@@ -2,6 +2,8 @@
 
 goat-shooooting は、JSON で定義した Player、Enemy、Weapon、Bullet、Stage を読み込み、MonoGame 上で動作させる小さな 2D シューティング基盤です。プレイヤーと敵の双方が射撃でき、被弾による Game Over、敵全滅による Stage Clear、リトライまでを1プレイとして実行できます。ゲームロジックは描画から独立しており、同じ Production Runtime を headless simulation、統合テスト、smoke test、通常ゲームのすべてで使用します。
 
+遊び方から独自の弾・敵・ボス・Wave・画面レイアウトの作り方、エンジン拡張までをまとめた[制作マニュアル](https://atoyr.github.io/goat-shooooting/)を公開しています。
+
 ## 必要環境
 
 - .NET 8 SDK（`global.json` は 8.0 系の利用可能な最新 feature band を選択）

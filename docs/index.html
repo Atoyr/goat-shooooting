@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="goat-shooootingの遊び方、Definition制作、弾幕・画面レイアウト設定、エンジン拡張を解説する公式マニュアル。">
+  <meta name="theme-color" content="#07101f">
+  <title>goat-shooooting 制作マニュアル</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#manual">本文へ移動</a>
+  <header class="topbar">
+    <button class="menu-button" type="button" aria-label="メニューを開く" aria-expanded="false">☰</button>
+    <a class="brand" href="#top" aria-label="goat-shooooting マニュアルの先頭へ">
+      <span class="brand-mark">▲</span>
+      <span>GOAT<span>SHOOOOTING</span></span>
+    </a>
+    <div class="topbar-actions">
+      <label class="search">
+        <span aria-hidden="true">⌕</span>
+        <span class="sr-only">マニュアルを検索</span>
+        <input id="manualSearch" type="search" placeholder="ページ内を絞り込み" autocomplete="off">
+      </label>
+      <a class="github-link" href="https://github.com/Atoyr/goat-shooooting">GitHub ↗</a>
+    </div>
+  </header>
+
+  <div class="page-shell" id="top">
+    <aside class="sidebar" aria-label="マニュアル目次">
+      <nav>
+        <p class="nav-label">はじめる</p>
+        <a href="#overview">この基盤でできること</a>
+        <a href="#setup">セットアップ</a>
+        <a href="#play">起動と操作</a>
+        <a href="#workflow">制作の基本手順</a>
+
+        <p class="nav-label">Definition</p>
+        <a href="#definition-map">全体のつながり</a>
+        <a href="#game-definition">画面レイアウト</a>
+        <a href="#player-definition">Player</a>
+        <a href="#enemy-definition">Enemy</a>
+        <a href="#bullet-definition">Bullet</a>
+        <a href="#weapon-definition">Weapon・弾幕</a>
+        <a href="#stage-definition">Stage・Wave</a>
+
+        <p class="nav-label">実践</p>
+        <a href="#boss-tutorial">ボスを1体作る</a>
+        <a href="#editor">Definition Editor</a>
+        <a href="#hot-reload">ホットリロード</a>
+        <a href="#quality">検証とテスト</a>
+
+        <p class="nav-label">開発者向け</p>
+        <a href="#architecture">アーキテクチャ</a>
+        <a href="#extend">新しい挙動を追加する</a>
+        <a href="#history">ここまでに追加した機能</a>
+        <a href="#troubleshooting">トラブルシューティング</a>
+        <a href="#pages">このサイトの公開方法</a>
+      </nav>
+    </aside>
+
+    <main id="manual">
+      <section class="hero searchable" id="overview">
+        <div class="eyebrow">GAME CREATION MANUAL / JSON-FIRST SHOOTING KIT</div>
+        <h1>弾幕を考えたら、<br><span>JSONに落としてすぐ試す。</span></h1>
+        <p class="hero-copy">goat-shooootingは、敵・弾・武器・Wave・画面構成をDefinitionとして組み替えられる、小さな2Dシューティング基盤です。このマニュアルは、初回起動から独自ボスの制作、エンジン拡張、公開までを順番に案内します。</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#setup">5分で起動する</a>
+          <a class="button secondary" href="#boss-tutorial">ボスを作る</a>
+        </div>
+        <div class="status-grid" aria-label="対応機能">
+          <div><strong>3</strong><span>画面レイアウト</span></div>
+          <div><strong>3</strong><span>弾幕パターン</span></div>
+          <div><strong>2</strong><span>弾の移動方式</span></div>
+          <div><strong>0</strong><span>必須画像アセット</span></div>
+        </div>
+      </section>
+
+      <section class="searchable" id="setup">
+        <div class="section-kicker">01 / SETUP</div>
+        <h2>セットアップ</h2>
+        <p class="lead">必要なのは.NET 8 SDKです。画像や音声素材を追加しなくても、図形描画と手続き生成音だけでゲームが動きます。</p>
+
+        <div class="step-list">
+          <article class="step-card">
+            <span class="step-number">1</span>
+            <div>
+              <h3>リポジトリへ移動</h3>
+              <pre><code>cd goat-shooooting</code></pre>
+              <p><code>global.json</code> が利用するSDKを.NET 8へ固定しています。</p>
+            </div>
+          </article>
+          <article class="step-card">
+            <span class="step-number">2</span>
+            <div>
+              <h3>依存関係を取得してビルド</h3>
+              <pre><code>dotnet restore
+dotnet build goat-shooooting.sln</code></pre>
+              <p>警告もエラーとして扱われます。成功すればRuntimeとMonoGame版の両方が使用できます。</p>
+            </div>
+          </article>
+          <article class="step-card">
+            <span class="step-number">3</span>
+            <div>
+              <h3>画面を開かず動作確認</h3>
+              <pre><code>dotnet run --project src/goat-shooooting.SampleGame -- --smoke-test</code></pre>
+              <p>敵の出現、射撃、移動、衝突、撃破、Stage Clear、リトライまでを自動で確認します。</p>
+            </div>
+          </article>
+        </div>
+
+        <aside class="callout info"><strong>対応環境</strong><span>通常ゲームにはOpenGL 2.0以上を利用できるデスクトップ環境が必要です。headlessテストとDefinition検証はウィンドウを開きません。</span></aside>
+      </section>
+
+      <section class="searchable" id="play">
+        <div class="section-kicker">02 / PLAY</div>
+        <h2>起動と操作</h2>
+        <div class="two-column">
+          <div>
+            <h3>Sampleを起動</h3>
+            <pre><code>dotnet run --project src/goat-shooooting.SampleGame</code></pre>
+            <h3>Gauntletを起動</h3>
+            <pre><code>dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet</code></pre>
+          </div>
+          <div class="control-panel">
+            <div><kbd>WASD</kbd><span>移動</span></div>
+            <div><kbd>↑ ↓ ← →</kbd><span>移動</span></div>
+            <div><kbd>Z</kbd> <kbd>Space</kbd><span>発射</span></div>
+            <div><kbd>P</kbd><span>ポーズ／再開</span></div>
+            <div><kbd>R</kbd> <kbd>Enter</kbd><span>リトライ</span></div>
+            <div><kbd>Esc</kbd><span>終了</span></div>
+          </div>
+        </div>
+        <p>SampleではScoutが直進弾、Fighterが追尾弾、Midbossが二層式洗濯機弾幕を使います。Gauntletでは別の画面比率と洗濯機弾幕を確認できます。</p>
+      </section>
+
+      <section class="searchable" id="workflow">
+        <div class="section-kicker">03 / WORKFLOW</div>
+        <h2>制作の基本手順</h2>
+        <p class="lead">「弾を作る → 武器へ載せる → 敵へ持たせる → Stageへ出す」の順番を守ると、参照関係で迷いません。</p>
+        <div class="flow" aria-label="Definition制作フロー">
+          <div><span>01</span><strong>Bullet</strong><small>速度・威力・軌道</small></div>
+          <i>→</i>
+          <div><span>02</span><strong>Weapon</strong><small>弾幕・発射間隔</small></div>
+          <i>→</i>
+          <div><span>03</span><strong>Enemy</strong><small>HP・武器・移動</small></div>
+          <i>→</i>
+          <div><span>04</span><strong>Stage</strong><small>時刻・位置・編隊</small></div>
+        </div>
+        <ol class="check-list">
+          <li><code>games/sample</code> をコピーして新しいコンテンツパックを作る。</li>
+          <li>各Definitionの <code>id</code> を重複しない名前に変える。</li>
+          <li>Definition EditorまたはJSONで値を調整する。</li>
+          <li><code>validate</code> で参照と値を検証する。</li>
+          <li>ゲームを起動したまま保存し、ホットリロードで手触りを確かめる。</li>
+          <li>全テストとsmoke testを通してからコミットする。</li>
+        </ol>
+      </section>
+
+      <section class="searchable" id="definition-map">
+        <div class="section-kicker">04 / DEFINITION MAP</div>
+        <h2>Definition全体のつながり</h2>
+        <div class="relationship-map">
+          <div class="map-node game-node"><strong>game.json</strong><span>Player / Stage / Layout</span></div>
+          <div class="map-row">
+            <div class="map-node"><strong>Player</strong><span>weaponId</span></div>
+            <div class="map-node"><strong>Stage</strong><span>enemyId</span></div>
+          </div>
+          <div class="map-row">
+            <div class="map-node"><strong>Weapon</strong><span>bulletId</span></div>
+            <div class="map-node"><strong>Enemy</strong><span>weaponId</span></div>
+          </div>
+          <div class="map-node accent-node"><strong>Bullet</strong><span>速度 / Damage / 軌道</span></div>
+        </div>
+        <p>Runtimeはファイルを直接読みません。<code>IDefinitionRepository</code> がJSONを読み込み、<code>DefinitionCatalog</code> が全ID参照と値を検証してから、FactoryがEntityとComponentを生成します。</p>
+        <div class="file-tree" aria-label="ゲームDefinitionの配置">
+          <code>games/my-game/</code>
+          <span>├─ game.json</span>
+          <span>├─ player.json</span>
+          <span>├─ bullets/*.json</span>
+          <span>├─ weapons/*.json</span>
+          <span>├─ enemies/*.json</span>
+          <span>└─ stages/*.json</span>
+        </div>
+      </section>
+
+      <section class="searchable" id="game-definition">
+        <div class="section-kicker">05 / GAME &amp; LAYOUT</div>
+        <h2>画面レイアウトとスコア位置</h2>
+        <p class="lead"><code>width</code> と <code>height</code> は常にプレイ領域のサイズです。HUDパネルはその外側に加わるため、レイアウトを変更しても敵の座標や当たり判定は変化しません。</p>
+
+        <div class="layout-gallery">
+          <article>
+            <div class="layout-preview full-layout"><span>PLAYFIELD</span></div>
+            <h3>full</h3><p>パネルなし。従来どおり画面全体をプレイ領域にします。</p>
+          </article>
+          <article>
+            <div class="layout-preview touhou-layout"><span>PLAYFIELD</span><i>HUD</i></div>
+            <h3>touhou</h3><p>プレイ領域＋右パネル。東方Projectのような左右2分割です。</p>
+          </article>
+          <article>
+            <div class="layout-preview donpachi-layout"><i>HUD</i><span>PLAYFIELD</span><i>HUD</i></div>
+            <h3>donpachi</h3><p>左パネル＋中央プレイ領域＋右パネル。怒首領蜂型の3分割です。</p>
+          </article>
+        </div>
+
+        <pre><code class="language-json">{
+  "playerId": "player-one",
+  "stageId": "stage-01",
+  "width": 800,
+  "height": 720,
+  "screenLayout": "touhou",
+  "hudPanelWidth": 220,
+  "scorePosition": "right-panel"
+}</code></pre>
+
+        <div class="table-wrap"><table>
+          <thead><tr><th>フィールド</th><th>値</th><th>意味</th></tr></thead>
+          <tbody>
+            <tr><td><code>playerId</code></td><td>Player ID</td><td>開始時に生成するプレイヤー</td></tr>
+            <tr><td><code>stageId</code></td><td>Stage ID</td><td>開始するステージ</td></tr>
+            <tr><td><code>width / height</code></td><td>1以上</td><td>プレイ領域のピクセルサイズ</td></tr>
+            <tr><td><code>screenLayout</code></td><td><code>full</code> / <code>touhou</code> / <code>donpachi</code></td><td>画面分割方式</td></tr>
+            <tr><td><code>hudPanelWidth</code></td><td>120〜600</td><td>1枚あたりのサイドパネル幅</td></tr>
+            <tr><td><code>scorePosition</code></td><td>下記4種</td><td>スコアの表示先</td></tr>
+          </tbody>
+        </table></div>
+        <div class="token-row">
+          <code>playfield-top-left</code><code>playfield-top-right</code><code>left-panel</code><code>right-panel</code>
+        </div>
+        <aside class="callout warning"><strong>組み合わせ制限</strong><span><code>left-panel</code> は <code>donpachi</code> 専用です。<code>right-panel</code> は <code>touhou</code> または <code>donpachi</code> で使用します。不正な組み合わせは起動前に検出されます。</span></aside>
+      </section>
+
+      <section class="searchable" id="player-definition">
+        <div class="section-kicker">06 / PLAYER</div>
+        <h2>Playerを設定する</h2>
+        <div class="definition-grid">
+          <pre><code class="language-json">{
+  "id": "player-one",
+  "hp": 100,
+  "speed": 260,
+  "weaponId": "player-basic",
+  "x": 400,
+  "y": 650,
+  "radius": 14,
+  "invincibilitySeconds": 1
+}</code></pre>
+          <div>
+            <dl class="field-list">
+              <div><dt>hp</dt><dd>最大HP。1以上。</dd></div>
+              <div><dt>speed</dt><dd>1秒あたりの移動距離。</dd></div>
+              <div><dt>weaponId</dt><dd>プレイヤーが使うWeapon。</dd></div>
+              <div><dt>x / y</dt><dd>開始位置。左上が原点。</dd></div>
+              <div><dt>radius</dt><dd>円形Colliderの半径。</dd></div>
+              <div><dt>invincibilitySeconds</dt><dd>被弾後の無敵時間。0も可。</dd></div>
+            </dl>
+          </div>
+        </div>
+      </section>
+
+      <section class="searchable" id="enemy-definition">
+        <div class="section-kicker">07 / ENEMY</div>
+        <h2>Enemyを設定する</h2>
+        <pre><code class="language-json">{
+  "id": "midboss",
+  "hp": 150,
+  "speed": 8,
+  "weaponId": "enemy-double-washer",
+  "radius": 28,
+  "score": 2000,
+  "movementPattern": "sine",
+  "movementAmplitude": 120,
+  "movementFrequency": 0.08
+}</code></pre>
+        <div class="table-wrap"><table>
+          <thead><tr><th>フィールド</th><th>必須</th><th>意味</th></tr></thead>
+          <tbody>
+            <tr><td><code>id</code></td><td>はい</td><td>コンテンツパック内で一意のID</td></tr>
+            <tr><td><code>hp</code></td><td>はい</td><td>耐久力</td></tr>
+            <tr><td><code>speed</code></td><td>はい</td><td>下方向への基本速度。0で停止</td></tr>
+            <tr><td><code>weaponId</code></td><td>いいえ</td><td>省略すると射撃しない</td></tr>
+            <tr><td><code>radius</code></td><td>はい</td><td>当たり判定半径</td></tr>
+            <tr><td><code>score</code></td><td>いいえ</td><td>撃破点。既定値100</td></tr>
+            <tr><td><code>movementPattern</code></td><td>いいえ</td><td><code>straight</code> または <code>sine</code></td></tr>
+            <tr><td><code>movementAmplitude</code></td><td>sine時</td><td>左右の振れ幅</td></tr>
+            <tr><td><code>movementFrequency</code></td><td>sine時</td><td>1秒あたりの振動回数</td></tr>
+          </tbody>
+        </table></div>
+        <aside class="callout tip"><strong>調整の順番</strong><span>まず <code>speed: 0</code> で弾幕だけを調整し、その後に移動を足すと難易度を把握しやすくなります。</span></aside>
+      </section>
+
+      <section class="searchable" id="bullet-definition">
+        <div class="section-kicker">08 / BULLET</div>
+        <h2>Bulletの性能と軌道</h2>
+        <div class="pattern-cards">
+          <article><div class="trajectory straight-shot"><i></i></div><h3>straight</h3><p>生成時の方向を保って直進します。既定値です。</p></article>
+          <article><div class="trajectory homing-shot"><i></i><b>◇</b></div><h3>homing</h3><p>対象レイヤーで最も近いEntityへ、最大旋回速度の範囲で向きを変えます。</p></article>
+        </div>
+        <pre><code class="language-json">{
+  "id": "enemy-homing-shot",
+  "speed": 90,
+  "damage": 2,
+  "radius": 7,
+  "lifetime": 8,
+  "movementPattern": "homing",
+  "homingTurnDegreesPerSecond": 75
+}</code></pre>
+        <div class="table-wrap"><table>
+          <thead><tr><th>フィールド</th><th>範囲</th><th>調整の効果</th></tr></thead>
+          <tbody>
+            <tr><td><code>speed</code></td><td>0より大きい</td><td>弾速。速い追尾弾は避けにくい</td></tr>
+            <tr><td><code>damage</code></td><td>1以上</td><td>命中時のダメージ</td></tr>
+            <tr><td><code>radius</code></td><td>0より大きい</td><td>当たり判定と描画サイズ</td></tr>
+            <tr><td><code>lifetime</code></td><td>0より大きい</td><td>画面内に残れる秒数</td></tr>
+            <tr><td><code>movementPattern</code></td><td><code>straight</code> / <code>homing</code></td><td>移動方式</td></tr>
+            <tr><td><code>homingTurnDegreesPerSecond</code></td><td>0超〜1440</td><td>小さいほど緩く、大きいほど強く曲がる</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section class="searchable" id="weapon-definition">
+        <div class="section-kicker">09 / WEAPON</div>
+        <h2>Weaponと弾幕パターン</h2>
+        <p class="lead">Weaponは「どのBulletを、何秒おきに、どの方向へ何発出すか」を決めます。同じBulletでもWeaponを分ければ、別の弾幕として再利用できます。</p>
+        <div class="pattern-cards three">
+          <article><div class="burst fan"><i></i><i></i><i></i></div><h3>spread</h3><p>基準方向を中心に扇状へ等間隔で発射。</p></article>
+          <article><div class="burst washer"><i></i><i></i><i></i></div><h3>washing-machine</h3><p>渦の腕を回転し、一定回数で左右を反転。</p></article>
+          <article><div class="burst double-washer"><i></i><i></i><i></i><b></b><b></b><b></b></div><h3>double-washing-machine</h3><p>互いに逆回転する二層を同時発射。</p></article>
+        </div>
+
+        <h3>扇状弾</h3>
+        <pre><code class="language-json">{
+  "id": "enemy-fan",
+  "bulletId": "enemy-shot",
+  "cooldown": 1,
+  "projectileCount": 5,
+  "spreadDegrees": 60,
+  "firePattern": "spread"
+}</code></pre>
+
+        <h3>二層式洗濯機</h3>
+        <pre><code class="language-json">{
+  "id": "enemy-double-washer",
+  "bulletId": "enemy-shot",
+  "cooldown": 0.45,
+  "projectileCount": 2,
+  "firePattern": "double-washing-machine",
+  "rotationDegreesPerShot": 11,
+  "rotationSwitchShots": 18
+}</code></pre>
+
+        <div class="table-wrap"><table>
+          <thead><tr><th>フィールド</th><th>意味</th></tr></thead>
+          <tbody>
+            <tr><td><code>bulletId</code></td><td>発射するBulletのID</td></tr>
+            <tr><td><code>cooldown</code></td><td>発射間隔。0にすると毎フレーム発射するため注意</td></tr>
+            <tr><td><code>projectileCount</code></td><td>spreadでは同時弾数、洗濯機系では渦の腕数</td></tr>
+            <tr><td><code>spreadDegrees</code></td><td>spreadの扇角。0〜180度</td></tr>
+            <tr><td><code>rotationDegreesPerShot</code></td><td>洗濯機系が1回の発射ごとに回る角度</td></tr>
+            <tr><td><code>rotationSwitchShots</code></td><td>回転方向を反転するまでの発射回数</td></tr>
+          </tbody>
+        </table></div>
+        <aside class="callout warning"><strong>二層式の弾数</strong><span>実際の同時発射数は <code>projectileCount × 2</code> です。まず腕数1〜2、cooldown 0.4秒以上から調整してください。</span></aside>
+      </section>
+
+      <section class="searchable" id="stage-definition">
+        <div class="section-kicker">10 / STAGE</div>
+        <h2>StageでWaveを組む</h2>
+        <pre><code class="language-json">{
+  "id": "stage-01",
+  "events": [
+    {
+      "time": 3,
+      "type": "spawn-enemy",
+      "enemyId": "scout",
+      "x": 240,
+      "y": 120,
+      "count": 2,
+      "spawnInterval": 0.25,
+      "spacingX": 320
+    }
+  ]
+}</code></pre>
+        <div class="timeline-demo" aria-label="Stageイベントの時間イメージ">
+          <span>0s</span><i style="--at: 15%">Scout ×2</i><i style="--at: 48%">Fighter</i><i style="--at: 84%">Boss</i><span>60s</span>
+        </div>
+        <dl class="field-list compact">
+          <div><dt>time</dt><dd>ステージ開始から何秒後に出現を始めるか。</dd></div>
+          <div><dt>enemyId</dt><dd>生成するEnemy。</dd></div>
+          <div><dt>x / y</dt><dd>最初の1体の出現座標。</dd></div>
+          <div><dt>count</dt><dd>同じイベントで生成する数。既定値1。</dd></div>
+          <div><dt>spawnInterval</dt><dd>2体目以降を時間差で出す間隔。</dd></div>
+          <div><dt>spacingX</dt><dd>2体目以降へ加算する横間隔。</dd></div>
+        </dl>
+      </section>
+
+      <section class="searchable" id="boss-tutorial">
+        <div class="section-kicker">11 / HANDS-ON</div>
+        <h2>実践：追尾弾を混ぜたボスを作る</h2>
+        <p class="lead">4つのJSONを追加・編集するだけで、新しいボスをStageへ投入できます。</p>
+        <div class="step-list detailed">
+          <article class="step-card"><span class="step-number">1</span><div><h3>Bulletを作る</h3><p><code>games/sample/bullets/boss-homing.json</code> を作り、前章の追尾弾を貼り付けます。最初は <code>speed: 80</code>、旋回速度 <code>60</code> 程度が安全です。</p></div></article>
+          <article class="step-card"><span class="step-number">2</span><div><h3>Weaponへ載せる</h3><pre><code class="language-json">{
+  "id": "boss-homing-fan",
+  "bulletId": "boss-homing",
+  "cooldown": 1.2,
+  "projectileCount": 3,
+  "spreadDegrees": 35
+}</code></pre></div></article>
+          <article class="step-card"><span class="step-number">3</span><div><h3>Enemyへ持たせる</h3><pre><code class="language-json">{
+  "id": "homing-boss",
+  "hp": 250,
+  "speed": 0,
+  "weaponId": "boss-homing-fan",
+  "radius": 30,
+  "score": 5000
+}</code></pre></div></article>
+          <article class="step-card"><span class="step-number">4</span><div><h3>Stageへ配置する</h3><pre><code class="language-json">{
+  "time": 65,
+  "type": "spawn-enemy",
+  "enemyId": "homing-boss",
+  "x": 400,
+  "y": 100
+}</code></pre></div></article>
+          <article class="step-card"><span class="step-number">5</span><div><h3>検証して試す</h3><pre><code>dotnet run --project src/goat-shooooting.Tooling -- validate games/sample
+dotnet run --project src/goat-shooooting.SampleGame</code></pre></div></article>
+        </div>
+      </section>
+
+      <section class="searchable" id="editor">
+        <div class="section-kicker">12 / DEFINITION EDITOR</div>
+        <h2>ブラウザEditorで調整する</h2>
+        <pre><code>dotnet run --project src/goat-shooooting.Tooling -- editor games/sample</code></pre>
+        <p>既定では <code>http://127.0.0.1:5078</code> を開きます。左から素材を選択し、中央のプレビューを見ながら右側のフォームを変更します。</p>
+        <div class="editor-mock" aria-label="Definition Editorの画面構成">
+          <div><strong>LIBRARY</strong><span>Game</span><span>Player</span><span>Enemy</span><span>Weapon</span><span>Bullet</span><span>Stage</span></div>
+          <div><strong>PREVIEW</strong><div class="mini-game"><i></i><b></b></div></div>
+          <div><strong>PROPERTIES</strong><span>値を編集</span><span>参照を選択</span><span>説明を確認</span></div>
+        </div>
+        <ol class="check-list">
+          <li><strong>ビジュアル</strong>：通常の編集。Enemy軌道、弾道、弾幕、画面レイアウトを即時プレビュー。</li>
+          <li><strong>JSON</strong>：細かな編集や一括貼り付けが必要なときだけ使用。</li>
+          <li><strong>検証</strong>：保存せず、コンテンツパック全体の参照と値を確認。</li>
+          <li><strong>保存</strong>：検証成功時だけファイルを安全に置換。</li>
+        </ol>
+        <aside class="callout info"><strong>Stage編集</strong><span>タイムラインの時刻を選ぶと、その時刻のEnemyだけが表示されます。Enemyをドラッグして座標を変更でき、イベントの複製や削除もできます。</span></aside>
+      </section>
+
+      <section class="searchable" id="hot-reload">
+        <div class="section-kicker">13 / HOT RELOAD</div>
+        <h2>起動したままDefinitionを反映</h2>
+        <p>SampleGameはJSON内容のハッシュを毎フレーム確認します。正常な変更を保存するとDefinitionとWorldを再構築し、レイアウト変更時はウィンドウサイズも更新します。</p>
+        <div class="sequence">
+          <div><strong>保存</strong><span>JSON更新</span></div><i>→</i>
+          <div><strong>検知</strong><span>内容ハッシュ比較</span></div><i>→</i>
+          <div><strong>検証</strong><span>全参照を確認</span></div><i>→</i>
+          <div><strong>Restart</strong><span>World再構築</span></div>
+        </div>
+        <p>不正な変更はゲームへ適用されません。最後に正常だったDefinitionで動作を続け、エラー内容をウィンドウタイトルへ表示します。</p>
+      </section>
+
+      <section class="searchable" id="quality">
+        <div class="section-kicker">14 / QUALITY GATE</div>
+        <h2>保存前・コミット前の確認</h2>
+        <div class="command-stack">
+          <div><span>Definition検証</span><pre><code>dotnet run --project src/goat-shooooting.Tooling -- validate games/sample
+dotnet run --project src/goat-shooooting.Tooling -- validate games/gauntlet</code></pre></div>
+          <div><span>全テスト</span><pre><code>dotnet test goat-shooooting.sln</code></pre></div>
+          <div><span>Production経路</span><pre><code>dotnet run --project src/goat-shooooting.SampleGame -- --smoke-test
+dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet --smoke-test</code></pre></div>
+          <div><span>書式</span><pre><code>dotnet format goat-shooooting.sln --verify-no-changes</code></pre></div>
+        </div>
+        <h3>失敗ケースも守る</h3>
+        <p>新しい挙動には成功例だけでなく、不明ID、未対応パターン、0以下の値、不可能なレイアウト組み合わせなどの失敗テストも追加します。テスト名は期待する振る舞いが読める文章にします。</p>
+      </section>
+
+      <section class="searchable" id="architecture">
+        <div class="section-kicker">15 / ARCHITECTURE</div>
+        <h2>コードの責務</h2>
+        <div class="architecture-stack">
+          <article><span>01</span><div><h3>Definitions</h3><p>静的設定のrecord、JSON読込、ID参照と値の検証。Runtime stateを持たない。</p></div></article>
+          <article><span>02</span><div><h3>Core</h3><p>Entity、Component、Worldの状態。MonoGameへ依存しない。</p></div></article>
+          <article><span>03</span><div><h3>Runtime</h3><p>Factory、System、headless-capableなシミュレーション。ファイルAPIを直接使わない。</p></div></article>
+          <article><span>04</span><div><h3>Framework</h3><p>MonoGame入力・描画・音。RuntimeのRenderItemを画面へ変換する。</p></div></article>
+          <article><span>05</span><div><h3>SampleGame / Tooling</h3><p>起動エントリーポイントとDefinition制作支援。</p></div></article>
+        </div>
+        <pre><code>JSON Definition → IDefinitionRepository → DefinitionCatalog
+                                           ↓
+                                      Factory → Entity + Component
+                                                     ↓
+Input → ShootingSimulation → System更新 → RenderSystem snapshot → MonoGame</code></pre>
+        <aside class="callout warning"><strong>依存方向を守る</strong><span>CoreとRuntimeへMonoGame型を入れないでください。RuntimeからDefinitionファイルへ触れるときは、ファイルAPIではなく <code>IDefinitionRepository</code> を経由します。</span></aside>
+      </section>
+
+      <section class="searchable" id="extend">
+        <div class="section-kicker">16 / EXTENDING</div>
+        <h2>新しい弾の挙動を追加する</h2>
+        <p class="lead">例として、時間とともに加速する <code>accelerating</code> Bulletを追加する場合の変更点です。</p>
+        <ol class="extension-steps">
+          <li><strong>DefinitionModels</strong><span><code>BulletDefinition</code> に必要な静的パラメーターを追加する。</span></li>
+          <li><strong>DefinitionCatalog</strong><span>対応名と数値範囲を検証し、未知の値は明示的に失敗させる。</span></li>
+          <li><strong>JSON Schema</strong><span><code>schemas/bullet.schema.json</code> へenum、型、既定値、説明を追加する。</span></li>
+          <li><strong>Component</strong><span>加速度など、弾ごとに変化するRuntime stateをCoreへ置く。</span></li>
+          <li><strong>BulletFactory</strong><span>Definitionから該当ComponentをEntityへ追加する。</span></li>
+          <li><strong>System</strong><span>更新ロジックをRuntimeのSystemへ実装する。Component自身へUpdateを書かない。</span></li>
+          <li><strong>ShootingSimulation</strong><span>意図した順序でSystemを呼ぶ。衝突前か移動前かを明確にする。</span></li>
+          <li><strong>Editor</strong><span>日本語ラベル、選択肢、条件付きフィールド、プレビューを追加する。</span></li>
+          <li><strong>Tests</strong><span>軌道、Factory変換、Definition失敗、サンプル読込を保護する。</span></li>
+          <li><strong>Sample JSON</strong><span>実際に遊べる控えめな値から追加し、smoke testを通す。</span></li>
+        </ol>
+        <p>新しい弾幕形状を増やす場合は、Weapon側の静的設定、<code>WeaponHolderComponent</code> の発射状態、<code>WeaponSystem</code> の方向生成を同じ順序で拡張します。</p>
+      </section>
+
+      <section class="searchable" id="history">
+        <div class="section-kicker">17 / BUILD HISTORY</div>
+        <h2>ここまでに追加した機能</h2>
+        <div class="history-list">
+          <article><time>BASE</time><div><h3>Definition駆動のMVP</h3><p>Player、Enemy、Bullet、Weapon、Stageと、headlessでも動くProduction Runtimeを構築。</p></div></article>
+          <article><time>STEP 1</time><div><h3>弾幕のバリエーション</h3><p>追尾弾、左右反転する洗濯機、逆回転する二層式洗濯機を追加。敵の <code>weaponId</code> だけで使い分け可能に。</p></div></article>
+          <article><time>STEP 2</time><div><h3>スコアHUD</h3><p>画像フォントを必要としない5×7ピクセル文字で、スコアをゲーム画面へ表示。</p></div></article>
+          <article><time>STEP 3</time><div><h3>画面レイアウト</h3><p>full、東方型2分割、怒首領蜂型3分割を追加。プレイ座標を維持したままHUDパネルを外側へ配置。</p></div></article>
+          <article><time>STEP 4</time><div><h3>制作マニュアル</h3><p>操作、Definition、実践手順、拡張方法をGitHub Pagesへまとめ、自動公開を設定。</p></div></article>
+        </div>
+      </section>
+
+      <section class="searchable" id="troubleshooting">
+        <div class="section-kicker">18 / TROUBLESHOOTING</div>
+        <h2>困ったとき</h2>
+        <details><summary>Unknown definition id と表示される</summary><p><code>weaponId</code>、<code>bulletId</code>、<code>enemyId</code> などの参照先が存在しません。大文字・小文字も区別されます。対象フォルダーのJSONに同じ <code>id</code> があるか確認してください。</p></details>
+        <details><summary>unsupported movement / fire pattern と表示される</summary><p>対応する文字列と完全一致していません。Bulletは <code>straight</code> / <code>homing</code>、Weaponは <code>spread</code> / <code>washing-machine</code> / <code>double-washing-machine</code> です。</p></details>
+        <details><summary>スコア位置とレイアウトのエラーが出る</summary><p><code>left-panel</code> は <code>donpachi</code> だけ、<code>right-panel</code> は <code>touhou</code> または <code>donpachi</code> で使用できます。パネルなしならプレイ領域の左右上を選びます。</p></details>
+        <details><summary>弾がすぐ消える</summary><p>画面外へ完全に出た弾は削除されます。<code>lifetime</code> が短すぎないか、Weaponが意図した方向へ発射しているかも確認してください。</p></details>
+        <details><summary>二層式で弾が多すぎる</summary><p>二層式の同時弾数は腕数の2倍です。<code>projectileCount</code> を1へ下げるか、<code>cooldown</code> を長くしてください。</p></details>
+        <details><summary>JSONを保存しても反映されない</summary><p>不正なDefinitionは最後の正常状態へロールバックされます。ウィンドウタイトルのDEFINITION ERROR、またはToolingの <code>validate</code> 結果を確認してください。</p></details>
+        <details><summary>MonoGameのウィンドウを開けない</summary><p>OpenGL対応環境を確認してください。CIやGUIのない環境では <code>--smoke-test</code> を使えます。</p></details>
+      </section>
+
+      <section class="searchable" id="pages">
+        <div class="section-kicker">19 / GITHUB PAGES</div>
+        <h2>このマニュアルを公開・更新する</h2>
+        <p>このサイトは <code>docs/</code> 内のHTML、CSS、JavaScriptだけで動作します。<code>main</code> へpushすると <code>.github/workflows/pages.yml</code> が静的ファイルをartifact化し、GitHub Pagesへデプロイします。</p>
+        <ol class="check-list">
+          <li>GitHubのリポジトリで <strong>Settings → Pages</strong> を開く。</li>
+          <li><strong>Build and deployment → Source</strong> を <strong>GitHub Actions</strong> にする。</li>
+          <li>この変更を <code>main</code> へpushする。</li>
+          <li><strong>Actions → Deploy manual to GitHub Pages</strong> の完了を待つ。</li>
+          <li><code>https://atoyr.github.io/goat-shooooting/</code> を開く。</li>
+        </ol>
+        <pre><code>git add docs .github/workflows/pages.yml README.md
+git commit -m "docs: add game creation manual"
+git push origin main</code></pre>
+        <aside class="callout info"><strong>更新方法</strong><span><code>docs/index.html</code> を編集してmainへpushするだけです。ビルドツールやnpm installは不要です。</span></aside>
+      </section>
+
+      <section class="no-results" hidden>
+        <h2>一致する項目がありません</h2>
+        <p>別のキーワードで検索してください。例：<button type="button" data-search-example="追尾">追尾</button> <button type="button" data-search-example="レイアウト">レイアウト</button> <button type="button" data-search-example="テスト">テスト</button></p>
+      </section>
+
+      <footer class="site-footer">
+        <div><span class="brand-mark">▲</span><strong>goat-shooooting</strong></div>
+        <p>Definition-driven 2D shooting game foundation.</p>
+        <a href="https://github.com/Atoyr/goat-shooooting">Source on GitHub ↗</a>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
