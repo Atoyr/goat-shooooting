@@ -73,6 +73,8 @@ public sealed class DefinitionEditorServiceTests
         Assert.Contains("id=\"jsonMode\"", editor, StringComparison.Ordinal);
         Assert.Contains("/api/validate", editor, StringComparison.Ordinal);
         Assert.Contains("/api/file", editor, StringComparison.Ordinal);
+        Assert.Contains("double-washing-machine", editor, StringComparison.Ordinal);
+        Assert.Contains("homingTurnDegreesPerSecond", editor, StringComparison.Ordinal);
     }
 
     [Fact]

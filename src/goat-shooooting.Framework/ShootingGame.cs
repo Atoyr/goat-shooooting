@@ -126,6 +126,15 @@ public sealed class ShootingGame : Game
             spriteBatch.Draw(pixel, new Rectangle(16, 16, currentWidth, 12), new Color(68, 210, 255));
         }
 
+        var scoreText = $"SCORE {_simulation.Telemetry.Score:D8}";
+        foreach (var scorePixel in PrimitiveRenderLayout.ToPixelTextRectangles(
+                     scoreText,
+                     _simulation.Definitions.Game.Width - 16,
+                     16))
+        {
+            spriteBatch.Draw(pixel, scorePixel, new Color(255, 235, 84));
+        }
+
         spriteBatch.End();
         base.Draw(gameTime);
     }

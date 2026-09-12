@@ -9,6 +9,19 @@
     "speed": { "type": "number", "exclusiveMinimum": 0 },
     "damage": { "type": "integer", "minimum": 1 },
     "radius": { "type": "number", "exclusiveMinimum": 0 },
-    "lifetime": { "type": "number", "exclusiveMinimum": 0 }
+    "lifetime": { "type": "number", "exclusiveMinimum": 0 },
+    "movementPattern": {
+      "type": "string",
+      "enum": ["straight", "homing"],
+      "default": "straight",
+      "description": "straightは直進、homingは最も近い対象を追尾します。"
+    },
+    "homingTurnDegreesPerSecond": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1440,
+      "default": 180,
+      "description": "homing時に1秒間で曲がれる最大角度です。"
+    }
   }
 }

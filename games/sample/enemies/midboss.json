@@ -2,7 +2,7 @@
   "id": "midboss",
   "hp": 150,
   "speed": 8,
-  "weaponId": "enemy-spread",
+  "weaponId": "enemy-double-washer",
   "radius": 28,
   "score": 2000,
   "movementPattern": "sine",

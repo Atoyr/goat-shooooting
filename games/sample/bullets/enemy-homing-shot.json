@@ -1,0 +1,9 @@
+{
+  "id": "enemy-homing-shot",
+  "speed": 90,
+  "damage": 2,
+  "radius": 7,
+  "lifetime": 8,
+  "movementPattern": "homing",
+  "homingTurnDegreesPerSecond": 75
+}

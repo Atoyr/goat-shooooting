@@ -86,12 +86,20 @@ public sealed class BulletFactory
             ? CollisionLayer.PlayerBullet
             : CollisionLayer.EnemyBullet;
 
-        return world.CreateEntity()
+        var entity = world.CreateEntity()
             .Add(new TransformComponent(position))
             .Add(new VelocityComponent(Vector2.Normalize(direction) * definition.Speed))
             .Add(new DamageComponent(definition.Damage))
             .Add(new ColliderComponent(definition.Radius, bulletLayer))
             .Add(new BulletComponent(definition.Id, targetLayer))
             .Add(new LifetimeComponent(definition.Lifetime));
+
+        if (string.Equals(definition.MovementPattern, "homing", StringComparison.Ordinal))
+        {
+            entity.Add(new HomingMovementComponent(
+                definition.HomingTurnDegreesPerSecond * (MathF.PI / 180)));
+        }
+
+        return entity;
     }
 }

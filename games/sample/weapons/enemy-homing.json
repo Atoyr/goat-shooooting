@@ -1,0 +1,5 @@
+{
+  "id": "enemy-homing",
+  "bulletId": "enemy-homing-shot",
+  "cooldown": 1.5
+}

@@ -1,0 +1,9 @@
+{
+  "id": "gauntlet-washer",
+  "bulletId": "gauntlet-shot",
+  "cooldown": 0.55,
+  "projectileCount": 3,
+  "firePattern": "washing-machine",
+  "rotationDegreesPerShot": 9,
+  "rotationSwitchShots": 20
+}

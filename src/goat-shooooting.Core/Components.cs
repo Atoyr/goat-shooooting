@@ -67,10 +67,20 @@ public sealed class BulletComponent(string definitionId, CollisionLayer targetLa
     public CollisionLayer TargetLayer { get; } = targetLayer;
 }
 
+public sealed class HomingMovementComponent(float turnRadiansPerSecond)
+{
+    public float TurnRadiansPerSecond { get; } = turnRadiansPerSecond > 0
+        ? turnRadiansPerSecond
+        : throw new ArgumentOutOfRangeException(nameof(turnRadiansPerSecond));
+}
+
 public sealed class WeaponHolderComponent(string weaponId)
 {
     public string WeaponId { get; } = weaponId;
     public float CooldownRemaining { get; set; }
+    public float PatternAngleDegrees { get; set; }
+    public int PatternDirection { get; set; } = 1;
+    public int ShotsSinceDirectionChange { get; set; }
 }
 
 public sealed class LifetimeComponent(float seconds)

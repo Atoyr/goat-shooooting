@@ -9,6 +9,25 @@
     "bulletId": { "type": "string", "minLength": 1 },
     "cooldown": { "type": "number", "minimum": 0 },
     "projectileCount": { "type": "integer", "minimum": 1, "default": 1 },
-    "spreadDegrees": { "type": "number", "minimum": 0, "maximum": 180, "default": 0 }
+    "spreadDegrees": { "type": "number", "minimum": 0, "maximum": 180, "default": 0 },
+    "firePattern": {
+      "type": "string",
+      "enum": ["spread", "washing-machine", "double-washing-machine"],
+      "default": "spread",
+      "description": "扇状、左右交互回転、逆回転する二層の弾幕を選びます。"
+    },
+    "rotationDegreesPerShot": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 360,
+      "default": 12,
+      "description": "洗濯機パターンが1回の発射ごとに回転する角度です。"
+    },
+    "rotationSwitchShots": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 24,
+      "description": "洗濯機パターンが回転方向を反転するまでの発射回数です。"
+    }
   }
 }

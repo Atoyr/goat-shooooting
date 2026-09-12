@@ -58,13 +58,8 @@ public sealed class WeaponSystem(BulletFactory bulletFactory)
             var weapon = definitions.GetWeapon(holder.WeaponId);
             var bullet = definitions.GetBullet(weapon.BulletId);
             var baseDirection = ownerLayer == CollisionLayer.Player ? -Vector2.UnitY : Vector2.UnitY;
-            for (var projectileIndex = 0; projectileIndex < weapon.ProjectileCount; projectileIndex++)
+            foreach (var direction in GetDirections(weapon, holder, baseDirection))
             {
-                var normalizedOffset = weapon.ProjectileCount == 1
-                    ? 0
-                    : ((float)projectileIndex / (weapon.ProjectileCount - 1)) - 0.5f;
-                var angle = normalizedOffset * weapon.SpreadDegrees * (MathF.PI / 180);
-                var direction = Rotate(baseDirection, angle);
                 _bulletFactory.Create(
                     world,
                     bullet,
@@ -78,7 +73,123 @@ public sealed class WeaponSystem(BulletFactory bulletFactory)
                 }
             }
 
+            AdvancePattern(weapon, holder);
             holder.CooldownRemaining = weapon.Cooldown;
+        }
+    }
+
+    private static IEnumerable<Vector2> GetDirections(
+        WeaponDefinition weapon,
+        WeaponHolderComponent holder,
+        Vector2 baseDirection)
+    {
+        if (string.Equals(weapon.FirePattern, "spread", StringComparison.Ordinal))
+        {
+            for (var projectileIndex = 0; projectileIndex < weapon.ProjectileCount; projectileIndex++)
+            {
+                var normalizedOffset = weapon.ProjectileCount == 1
+                    ? 0
+                    : ((float)projectileIndex / (weapon.ProjectileCount - 1)) - 0.5f;
+                yield return Rotate(
+                    baseDirection,
+                    normalizedOffset * weapon.SpreadDegrees * (MathF.PI / 180));
+            }
+
+            yield break;
+        }
+
+        var armSpacing = 360f / weapon.ProjectileCount;
+        for (var arm = 0; arm < weapon.ProjectileCount; arm++)
+        {
+            yield return RotateDegrees(baseDirection, holder.PatternAngleDegrees + (arm * armSpacing));
+        }
+
+        if (string.Equals(weapon.FirePattern, "double-washing-machine", StringComparison.Ordinal))
+        {
+            for (var arm = 0; arm < weapon.ProjectileCount; arm++)
+            {
+                yield return RotateDegrees(
+                    baseDirection,
+                    -holder.PatternAngleDegrees + ((arm + 0.5f) * armSpacing));
+            }
+        }
+    }
+
+    private static void AdvancePattern(WeaponDefinition weapon, WeaponHolderComponent holder)
+    {
+        if (string.Equals(weapon.FirePattern, "spread", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        holder.PatternAngleDegrees = NormalizeDegrees(
+            holder.PatternAngleDegrees + (weapon.RotationDegreesPerShot * holder.PatternDirection));
+        holder.ShotsSinceDirectionChange++;
+        if (holder.ShotsSinceDirectionChange >= weapon.RotationSwitchShots)
+        {
+            holder.PatternDirection *= -1;
+            holder.ShotsSinceDirectionChange = 0;
+        }
+    }
+
+    private static Vector2 RotateDegrees(Vector2 vector, float angleDegrees) =>
+        Rotate(vector, angleDegrees * (MathF.PI / 180));
+
+    private static float NormalizeDegrees(float angle)
+    {
+        angle %= 360;
+        return angle < 0 ? angle + 360 : angle;
+    }
+
+    private static Vector2 Rotate(Vector2 vector, float angle)
+    {
+        var cosine = MathF.Cos(angle);
+        var sine = MathF.Sin(angle);
+        return new Vector2(
+            (vector.X * cosine) - (vector.Y * sine),
+            (vector.X * sine) + (vector.Y * cosine));
+    }
+}
+
+public sealed class HomingMovementSystem
+{
+    public void Update(World world, float deltaTime)
+    {
+        var targets = world.Query<TransformComponent, ColliderComponent>()
+            .Where(static entity => !entity.Has<PendingDestroyComponent>())
+            .ToArray();
+
+        foreach (var bullet in world.Query<BulletComponent, HomingMovementComponent>().ToArray())
+        {
+            if (bullet.Has<PendingDestroyComponent>() || !bullet.TryGet<VelocityComponent>(out var velocity))
+            {
+                continue;
+            }
+
+            var bulletState = bullet.Get<BulletComponent>();
+            var position = bullet.Get<TransformComponent>().Position;
+            var target = targets
+                .Where(entity => entity.Get<ColliderComponent>().Layer == bulletState.TargetLayer)
+                .MinBy(entity => Vector2.DistanceSquared(position, entity.Get<TransformComponent>().Position));
+            if (target is null)
+            {
+                continue;
+            }
+
+            var desired = target.Get<TransformComponent>().Position - position;
+            if (desired == Vector2.Zero || velocity.Value == Vector2.Zero)
+            {
+                continue;
+            }
+
+            var speed = velocity.Value.Length();
+            var currentDirection = velocity.Value / speed;
+            var desiredDirection = Vector2.Normalize(desired);
+            var signedAngle = MathF.Atan2(
+                (currentDirection.X * desiredDirection.Y) - (currentDirection.Y * desiredDirection.X),
+                Vector2.Dot(currentDirection, desiredDirection));
+            var maximumTurn = bullet.Get<HomingMovementComponent>().TurnRadiansPerSecond * deltaTime;
+            velocity.Value = Rotate(currentDirection, Math.Clamp(signedAngle, -maximumTurn, maximumTurn)) * speed;
         }
     }
 

@@ -1,0 +1,9 @@
+{
+  "id": "enemy-double-washer",
+  "bulletId": "enemy-shot",
+  "cooldown": 0.45,
+  "projectileCount": 2,
+  "firePattern": "double-washing-machine",
+  "rotationDegreesPerShot": 11,
+  "rotationSwitchShots": 18
+}

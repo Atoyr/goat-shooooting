@@ -41,6 +41,8 @@ public sealed record BulletDefinition
     public int Damage { get; init; }
     public float Radius { get; init; }
     public float Lifetime { get; init; }
+    public string MovementPattern { get; init; } = "straight";
+    public float HomingTurnDegreesPerSecond { get; init; } = 180;
 }
 
 public sealed record WeaponDefinition
@@ -50,6 +52,9 @@ public sealed record WeaponDefinition
     public float Cooldown { get; init; }
     public int ProjectileCount { get; init; } = 1;
     public float SpreadDegrees { get; init; }
+    public string FirePattern { get; init; } = "spread";
+    public float RotationDegreesPerShot { get; init; } = 12;
+    public int RotationSwitchShots { get; init; } = 24;
 }
 
 public sealed record StageDefinition

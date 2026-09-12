@@ -77,6 +77,19 @@ public sealed class DefinitionCatalog
             EnsurePositive(bullet.Damage, $"Bullet '{bullet.Id}' damage");
             EnsurePositive(bullet.Radius, $"Bullet '{bullet.Id}' radius");
             EnsurePositive(bullet.Lifetime, $"Bullet '{bullet.Id}' lifetime");
+            if (string.Equals(bullet.MovementPattern, "homing", StringComparison.Ordinal))
+            {
+                EnsureRange(
+                    bullet.HomingTurnDegreesPerSecond,
+                    float.Epsilon,
+                    1440,
+                    $"Bullet '{bullet.Id}' homing turn degrees per second");
+            }
+            else if (!string.Equals(bullet.MovementPattern, "straight", StringComparison.Ordinal))
+            {
+                throw new DefinitionValidationException(
+                    $"Bullet '{bullet.Id}' has unsupported movement pattern '{bullet.MovementPattern}'.");
+            }
         }
 
         foreach (var weapon in Weapons.Values)
@@ -84,6 +97,22 @@ public sealed class DefinitionCatalog
             EnsureNonNegative(weapon.Cooldown, $"Weapon '{weapon.Id}' cooldown");
             EnsurePositive(weapon.ProjectileCount, $"Weapon '{weapon.Id}' projectile count");
             EnsureRange(weapon.SpreadDegrees, 0, 180, $"Weapon '{weapon.Id}' spread degrees");
+            if (string.Equals(weapon.FirePattern, "washing-machine", StringComparison.Ordinal) ||
+                string.Equals(weapon.FirePattern, "double-washing-machine", StringComparison.Ordinal))
+            {
+                EnsureRange(
+                    weapon.RotationDegreesPerShot,
+                    float.Epsilon,
+                    360,
+                    $"Weapon '{weapon.Id}' rotation degrees per shot");
+                EnsurePositive(weapon.RotationSwitchShots, $"Weapon '{weapon.Id}' rotation switch shots");
+            }
+            else if (!string.Equals(weapon.FirePattern, "spread", StringComparison.Ordinal))
+            {
+                throw new DefinitionValidationException(
+                    $"Weapon '{weapon.Id}' has unsupported fire pattern '{weapon.FirePattern}'.");
+            }
+
             _ = GetBullet(weapon.BulletId);
         }
 

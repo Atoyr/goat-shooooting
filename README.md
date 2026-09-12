@@ -53,7 +53,7 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 - R / Enter: Game Over／Stage Clear後にリトライ
 - Esc: 終了
 
-約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Enemyは下方向へ射撃し、PlayerのHPが0になるとGame Overです。Player BulletでEnemyをすべて倒すとStage Clearになります。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。HPバーは画面左上、現在HP・スコア・Pause／終了状態はウィンドウタイトルに表示されます。
+約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Scoutは直進弾、Fighterは追尾弾、Midbossは二層式洗濯機弾幕を使用します。PlayerのHPが0になるとGame Over、Player BulletでEnemyをすべて倒すとStage Clearです。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。HPバーは画面左上、スコアは画面右上へ常時表示され、現在HP・スコア・Pause／終了状態はウィンドウタイトルにも表示されます。
 
 画面を使わない smoke test:
 
@@ -118,8 +118,8 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 - `game.json`: 使用する `playerId`、`stageId`、画面サイズ
 - `player.json`: HP、移動速度、初期位置、Collider 半径、被弾後の無敵時間、Weapon 参照
 - `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照、`straight`／`sine`移動
-- `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime
-- `weapons/*.json`: Bullet 参照、cooldown、弾数と扇状発射角度
+- `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime、`straight`／`homing`移動
+- `weapons/*.json`: Bullet 参照、cooldown、弾数と`spread`／`washing-machine`／`double-washing-machine`弾幕
 - `stages/*.json`: 時刻付き `spawn-enemy` event、出現位置、個数、出現間隔、横方向の間隔
 
 新しい JSON を対象フォルダーへ追加し、一意な `id` で参照してください。Engine コードの変更は不要です。起動時に全参照と値を検証するため、不明な Player／Stage／Enemy／Weapon／Bullet ID、重複 ID、未対応 event、0 以下の HP などは `DefinitionValidationException` になります。
@@ -135,6 +135,36 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 }
 ```
 
+追尾弾は Bullet 側で設定します。`homingTurnDegreesPerSecond` が小さいほど緩く、大きいほど強く曲がります。
+
+```json
+{
+  "id": "enemy-homing-shot",
+  "speed": 90,
+  "damage": 2,
+  "radius": 7,
+  "lifetime": 8,
+  "movementPattern": "homing",
+  "homingTurnDegreesPerSecond": 75
+}
+```
+
+洗濯機系は Weapon 側で設定します。`projectileCount` は渦の腕数、`rotationDegreesPerShot` は発射ごとの回転角、`rotationSwitchShots` は左右反転までの発射回数です。`double-washing-machine` は逆方向へ回る二つの層を同時に発射するため、実際の同時弾数は `projectileCount` の2倍です。
+
+```json
+{
+  "id": "boss-washer",
+  "bulletId": "enemy-shot",
+  "cooldown": 0.45,
+  "projectileCount": 2,
+  "firePattern": "double-washing-machine",
+  "rotationDegreesPerShot": 11,
+  "rotationSwitchShots": 18
+}
+```
+
+Enemy の `weaponId` にこの Weapon ID を指定するだけで、敵ごとに弾種と弾幕を切り替えられます。
+
 ```json
 {
   "time": 7.5,
@@ -148,7 +178,7 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 }
 ```
 
-同一のRuntimeで両コンテンツパックが使う必要性から、敵のサイン移動、Weaponの扇状射撃、Stage eventの繰り返しSpawnだけをDefinition化しています。未使用のドロップ、複数武器スロット、Stage遷移はまだ抽象化していません。
+同一のRuntimeで両コンテンツパックが使う必要性から、敵のサイン移動、Bulletの追尾、Weaponの扇状／洗濯機／二層式洗濯機射撃、Stage eventの繰り返しSpawnをDefinition化しています。未使用のドロップ、複数武器スロット、Stage遷移はまだ抽象化していません。
 
 ## 現在の Architecture
 
@@ -159,4 +189,4 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 - **Runtime**: `ShootingSimulation.Update(deltaTime)` が production実行順序、Pause、`Running`／`StageClear`／`GameOver` の状態遷移、リトライ時のWorld再構築を統括します。1フレーム単位の `SimulationFeedback` は描画APIに依存しません。
 - **Framework**: `KeyboardInputState`、`ShootingGame`、手続き生成音を扱う`GameAudio`だけがMonoGame APIを扱います。RenderSystemはrenderer-neutralなsnapshotを返し、Frameworkがフラッシュ、爆発、画面揺れ、HPバーと状態表示へ変換します。
 
-現在の範囲はPlayer／Enemyによる射撃、直進／サイン移動、Waveと扇状射撃、Damage／Death、勝敗とリトライ、Definition制作支援までです。networking、save、独自Script言語や高度なECS最適化は含みません。
+現在の範囲はPlayer／Enemyによる射撃、直進／サイン移動、追尾弾、扇状／洗濯機系弾幕、Wave、Damage／Death、勝敗とリトライ、Definition制作支援までです。networking、save、独自Script言語や高度なECS最適化は含みません。

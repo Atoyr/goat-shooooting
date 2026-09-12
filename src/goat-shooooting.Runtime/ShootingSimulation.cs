@@ -17,6 +17,7 @@ public sealed class ShootingSimulation
     private readonly IInputState _input;
     private readonly PlayerInputSystem _playerInputSystem = new();
     private readonly WeaponSystem _weaponSystem = new(new BulletFactory());
+    private readonly HomingMovementSystem _homingMovementSystem = new();
     private readonly MovementSystem _movementSystem = new();
     private readonly MovementPatternSystem _movementPatternSystem = new();
     private readonly PlayerBoundsSystem _playerBoundsSystem = new();
@@ -100,6 +101,7 @@ public sealed class ShootingSimulation
         _stageSystem.Update(World, Definitions, deltaTime, Telemetry);
         _playerInputSystem.Update(World, _input);
         _weaponSystem.Update(World, Definitions, _input, deltaTime, Telemetry);
+        _homingMovementSystem.Update(World, deltaTime);
         _movementSystem.Update(World, deltaTime, Telemetry);
         _movementPatternSystem.Update(World, deltaTime);
         _playerBoundsSystem.Update(World, Definitions.Game.Width, Definitions.Game.Height);

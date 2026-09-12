@@ -39,6 +39,44 @@ public sealed class JsonDefinitionRepositoryTests
     }
 
     [Fact]
+    public void HomingBulletRequiresPositiveTurnSpeed()
+    {
+        var baseline = TestDefinitions.Create();
+        var bullet = baseline.GetBullet("bullet") with
+        {
+            MovementPattern = "homing",
+            HomingTurnDegreesPerSecond = 0
+        };
+
+        var exception = Assert.Throws<DefinitionValidationException>(() => new DefinitionCatalog(
+            baseline.Game,
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            new[] { bullet },
+            baseline.Weapons.Values,
+            baseline.Stages.Values));
+
+        Assert.Contains("homing turn", exception.Message);
+    }
+
+    [Fact]
+    public void UnsupportedFirePatternProducesValidationError()
+    {
+        var baseline = TestDefinitions.Create();
+        var weapon = baseline.GetWeapon("weapon") with { FirePattern = "random" };
+
+        var exception = Assert.Throws<DefinitionValidationException>(() => new DefinitionCatalog(
+            baseline.Game,
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            baseline.Bullets.Values,
+            new[] { weapon },
+            baseline.Stages.Values));
+
+        Assert.Contains("random", exception.Message);
+    }
+
+    [Fact]
     public void UnknownJsonPropertyReportsFilePathAndLocation()
     {
         using var directory = DefinitionDirectory.Create();

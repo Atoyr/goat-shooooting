@@ -85,4 +85,65 @@ public sealed class WeaponSystemTests
         Assert.True(velocities[2].X > 0);
         Assert.All(velocities, static velocity => Assert.True(velocity.Y < 0));
     }
+
+    [Fact]
+    public void WashingMachineRotatesAndReversesAfterConfiguredShots()
+    {
+        var baseline = TestDefinitions.Create(cooldown: 0);
+        var weapon = baseline.GetWeapon("weapon") with
+        {
+            FirePattern = "washing-machine",
+            RotationDegreesPerShot = 30,
+            RotationSwitchShots = 2
+        };
+        var definitions = ReplaceWeapon(baseline, weapon);
+        var world = new World();
+        var player = new PlayerFactory().Create(world, definitions.GetPlayer("player"));
+        var system = new WeaponSystem(new BulletFactory());
+
+        system.Update(world, definitions, new MutableInputState { Fire = true }, 0, new SimulationTelemetry());
+        Assert.Equal(30, player.Get<WeaponHolderComponent>().PatternAngleDegrees);
+
+        system.Update(world, definitions, new MutableInputState { Fire = true }, 0, new SimulationTelemetry());
+        Assert.Equal(60, player.Get<WeaponHolderComponent>().PatternAngleDegrees);
+        Assert.Equal(-1, player.Get<WeaponHolderComponent>().PatternDirection);
+
+        system.Update(world, definitions, new MutableInputState { Fire = true }, 0, new SimulationTelemetry());
+        Assert.Equal(30, player.Get<WeaponHolderComponent>().PatternAngleDegrees);
+    }
+
+    [Fact]
+    public void DoubleWashingMachineCreatesTwoCounterRotatingLayers()
+    {
+        var baseline = TestDefinitions.Create();
+        var weapon = baseline.GetWeapon("weapon") with
+        {
+            FirePattern = "double-washing-machine",
+            ProjectileCount = 3,
+            RotationDegreesPerShot = 10,
+            RotationSwitchShots = 8
+        };
+        var definitions = ReplaceWeapon(baseline, weapon);
+        var world = new World();
+        _ = new PlayerFactory().Create(world, definitions.GetPlayer("player"));
+
+        new WeaponSystem(new BulletFactory()).Update(
+            world,
+            definitions,
+            new MutableInputState { Fire = true },
+            0,
+            new SimulationTelemetry());
+
+        Assert.Equal(6, world.Query<BulletComponent>().Count());
+    }
+
+    private static DefinitionCatalog ReplaceWeapon(
+        DefinitionCatalog baseline,
+        WeaponDefinition weapon) => new(
+            baseline.Game,
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            baseline.Bullets.Values,
+            new[] { weapon },
+            baseline.Stages.Values);
 }

@@ -2,7 +2,7 @@
   "id": "fighter-a",
   "hp": 30,
   "speed": 22,
-  "weaponId": "enemy-basic",
+  "weaponId": "enemy-homing",
   "radius": 16,
   "score": 250
 }

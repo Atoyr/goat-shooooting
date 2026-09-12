@@ -2,7 +2,7 @@
   "id": "ace",
   "hp": 80,
   "speed": 14,
-  "weaponId": "gauntlet-spread",
+  "weaponId": "gauntlet-washer",
   "radius": 24,
   "score": 1500,
   "movementPattern": "sine",
