@@ -304,8 +304,14 @@ dotnet build goat-shooooting.sln</code></pre>
         <div class="section-kicker">08 / BULLET</div>
         <h2>Bulletの性能と軌道</h2>
         <div class="pattern-cards">
-          <article><div class="trajectory straight-shot"><i></i></div><h3>straight</h3><p>生成時の方向を保って直進します。既定値です。</p></article>
-          <article><div class="trajectory homing-shot"><i></i><b>◇</b></div><h3>homing</h3><p>対象レイヤーで最も近いEntityへ、最大旋回速度の範囲で向きを変えます。</p></article>
+          <article>
+            <a class="pattern-gif" href="./assets/patterns/bullet-straight.gif" aria-label="直進弾のGIFを原寸で開く"><img src="./assets/patterns/bullet-straight.gif" width="384" height="432" loading="lazy" alt="敵から発射された弾が向きを変えず真下へ進む直進弾のGIF"></a>
+            <h3>straight</h3><p>生成時の方向を保って直進します。既定値です。</p>
+          </article>
+          <article>
+            <a class="pattern-gif" href="./assets/patterns/bullet-homing.gif" aria-label="追尾弾のGIFを原寸で開く"><img src="./assets/patterns/bullet-homing.gif" width="384" height="432" loading="lazy" alt="画面左上の敵弾が右下のプレイヤーへ曲がりながら接近する追尾弾のGIF"></a>
+            <h3>homing</h3><p>対象レイヤーで最も近いEntityへ、最大旋回速度の範囲で向きを変えます。</p>
+          </article>
         </div>
         <pre><code class="language-json">{
   "id": "enemy-homing-shot",
@@ -334,10 +340,20 @@ dotnet build goat-shooooting.sln</code></pre>
         <h2>Weaponと弾幕パターン</h2>
         <p class="lead">Weaponは「どのBulletを、何秒おきに、どの方向へ何発出すか」を決めます。同じBulletでもWeaponを分ければ、別の弾幕として再利用できます。</p>
         <div class="pattern-cards three">
-          <article><div class="burst fan"><i></i><i></i><i></i></div><h3>spread</h3><p>基準方向を中心に扇状へ等間隔で発射。</p></article>
-          <article><div class="burst washer"><i></i><i></i><i></i></div><h3>washing-machine</h3><p>渦の腕を回転し、一定回数で左右を反転。</p></article>
-          <article><div class="burst double-washer"><i></i><i></i><i></i><b></b><b></b><b></b></div><h3>double-washing-machine</h3><p>互いに逆回転する二層を同時発射。</p></article>
+          <article>
+            <a class="pattern-gif" href="./assets/patterns/pattern-spread.gif" aria-label="扇状弾幕のGIFを原寸で開く"><img src="./assets/patterns/pattern-spread.gif" width="384" height="432" loading="lazy" alt="敵が5発の弾を扇状に繰り返し発射するspread弾幕のGIF"></a>
+            <h3>spread</h3><p>基準方向を中心に扇状へ等間隔で発射。</p>
+          </article>
+          <article>
+            <a class="pattern-gif" href="./assets/patterns/pattern-washing-machine.gif" aria-label="洗濯機弾幕のGIFを原寸で開く"><img src="./assets/patterns/pattern-washing-machine.gif" width="384" height="432" loading="lazy" alt="敵を中心に3本の弾列が回転しながら広がる洗濯機弾幕のGIF"></a>
+            <h3>washing-machine</h3><p>渦の腕を回転し、一定回数で左右を反転。</p>
+          </article>
+          <article>
+            <a class="pattern-gif" href="./assets/patterns/pattern-double-washing-machine.gif" aria-label="二層式洗濯機弾幕のGIFを原寸で開く"><img src="./assets/patterns/pattern-double-washing-machine.gif" width="384" height="432" loading="lazy" alt="互いに逆向きへ回転する二層の弾列が同時に広がる二層式洗濯機弾幕のGIF"></a>
+            <h3>double-washing-machine</h3><p>互いに逆回転する二層を同時発射。</p>
+          </article>
         </div>
+        <p class="pattern-caption">すべて実際のRuntimeから撮影した5.5秒のループGIFです。クリックすると原寸で動きを確認できます。</p>
 
         <h3>扇状弾</h3>
         <pre><code class="language-json">{
