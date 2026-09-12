@@ -113,6 +113,13 @@ pre:hover .copy-button, .copy-button:focus { opacity: 1; }
 .control-panel span { margin-left: auto; color: var(--muted); font-size: .86rem; }
 kbd { display: inline-block; min-width: 29px; padding: .12rem .38rem; border: 1px solid #48698e; border-bottom-width: 3px; border-radius: 4px; background: #13243a; color: white; font-size: .72rem; text-align: center; }
 
+.gameplay-demo { overflow: hidden; margin: 2rem 0; border: 1px solid var(--line-bright); border-radius: 8px; background: var(--surface); }
+.gameplay-demo a { display: block; background: #050c18; }
+.gameplay-demo img { display: block; width: min(100%, 624px); height: auto; margin: auto; image-rendering: auto; }
+.gameplay-demo figcaption { display: grid; grid-template-columns: 190px 1fr; gap: 1rem; padding: 1rem 1.15rem; border-top: 1px solid var(--line); }
+.gameplay-demo figcaption strong { color: var(--yellow); }
+.gameplay-demo figcaption span { color: var(--muted); font-size: .88rem; }
+
 .step-list { display: grid; gap: .85rem; margin-top: 2rem; }
 .step-card { display: grid; grid-template-columns: 44px 1fr; gap: 1rem; padding: 1.25rem; border: 1px solid var(--line); border-radius: 8px; background: linear-gradient(115deg, var(--surface), rgb(13 25 43 / 45%)); }
 .step-card > div { min-width: 0; }
@@ -275,6 +282,7 @@ details[open] summary { color: var(--cyan); }
   .command-stack > div { grid-template-columns: 1fr; gap: 0; }
   .command-stack > div > span { min-height: 42px; }
   .callout { grid-template-columns: 1fr; gap: .3rem; }
+  .gameplay-demo figcaption { grid-template-columns: 1fr; gap: .25rem; }
   .editor-mock { grid-template-columns: 1fr; }
   .editor-mock > div { min-height: 150px; border-right: 0; border-bottom: 1px solid var(--line); }
   .pattern-cards { grid-template-columns: 1fr; }
