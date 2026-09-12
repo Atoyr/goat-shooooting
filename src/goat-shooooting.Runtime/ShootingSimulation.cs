@@ -203,7 +203,7 @@ public sealed class ShootingSimulation
         return true;
     }
 
-    private void Restart()
+    public void Restart()
     {
         World = new World();
         Player = new PlayerFactory().Create(World, Definitions.GetPlayer(Definitions.Game.PlayerId));
@@ -216,6 +216,15 @@ public sealed class ShootingSimulation
         StageNumber = 0;
         LastStageScore = 0;
         StartStage(Definitions.Game.StageId);
+    }
+
+    public void SetPaused(bool isPaused)
+    {
+        if (Status == SimulationStatus.Running)
+        {
+            IsPaused = isPaused;
+            _pauseWasPressed = _input.Pause;
+        }
     }
 
     private void BeginResults()

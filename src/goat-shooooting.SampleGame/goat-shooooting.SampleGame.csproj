@@ -5,6 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\goat-shooooting.Definitions\goat-shooooting.Definitions.csproj" />
     <ProjectReference Include="..\goat-shooooting.Framework\goat-shooooting.Framework.csproj" />
+    <ProjectReference Include="..\goat-shooooting.Platform\goat-shooooting.Platform.csproj" />
     <ProjectReference Include="..\goat-shooooting.Runtime\goat-shooooting.Runtime.csproj" />
     <Content Include="..\..\games\sample\**\*.json" Link="games\sample\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\games\gauntlet\**\*.json" Link="games\gauntlet\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

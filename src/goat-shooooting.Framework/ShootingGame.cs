@@ -1,7 +1,9 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using GoatShooooting.Core;
 using GoatShooooting.Definitions;
+using GoatShooooting.Platform;
 using GoatShooooting.Runtime;
 
 namespace GoatShooooting.Framework;
@@ -10,30 +12,66 @@ namespace GoatShooooting.Framework;
 public sealed class ShootingGame : Game
 {
     private readonly GraphicsDeviceManager _graphics;
-    private readonly GameInputState _input = new();
-    private readonly StartupMenu _startupMenu = new();
+    private readonly GameInputState _input;
+    private readonly GameShell _shell;
+    private readonly IUserDataStore? _userDataStore;
     private readonly ShootingSimulation _simulation;
     private readonly RenderSystem _renderSystem = new();
     private GameScreenLayout _layout;
     private SpriteBatch? _spriteBatch;
     private Texture2D? _pixel;
+    private RenderTarget2D? _logicalCanvas;
     private GameAudio? _audio;
+    private DisplaySettingsApplicator? _displaySettingsApplicator;
+    private GameSettings _appliedSettings;
     private float _shakeRemaining;
+    private float _vibrationRemaining;
+    private float _leftMotorStrength;
+    private float _rightMotorStrength;
     private bool _showControllerDisconnectedMessage;
 
     public ShootingGame(IDefinitionRepository definitionRepository)
+        : this(definitionRepository, userDataStore: null, settings: new GameSettings())
     {
+    }
+
+    public ShootingGame(
+        IDefinitionRepository definitionRepository,
+        IUserDataStore? userDataStore,
+        GameSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        _input = new GameInputState(settings.Input);
+        _shell = new GameShell(settings);
+        _appliedSettings = settings;
+        _userDataStore = userDataStore;
         _simulation = new ShootingSimulation(definitionRepository, _input);
         _layout = PrimitiveRenderLayout.CreateGameScreenLayout(_simulation.Definitions.Game);
+        var displayMode = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
+        var isBorderless = settings.Display.WindowMode == WindowMode.BorderlessFullscreen;
         _graphics = new GraphicsDeviceManager(this)
         {
-            PreferredBackBufferWidth = _layout.Window.Width,
-            PreferredBackBufferHeight = _layout.Window.Height,
-            SynchronizeWithVerticalRetrace = true
+            PreferredBackBufferWidth = isBorderless
+                ? displayMode.Width
+                : _layout.Window.Width * settings.Display.WindowScale,
+            PreferredBackBufferHeight = isBorderless
+                ? displayMode.Height
+                : _layout.Window.Height * settings.Display.WindowScale,
+            SynchronizeWithVerticalRetrace = settings.Display.VSync,
+            HardwareModeSwitch = false,
+            IsFullScreen = isBorderless
         };
         Content.RootDirectory = "Content";
-        IsMouseVisible = true;
-        Window.Title = "goat-shooooting — START MENU";
+        IsMouseVisible = false;
+        Window.Title = "goat-shooooting — TITLE";
+    }
+
+    protected override void Initialize()
+    {
+        base.Initialize();
+        _displaySettingsApplicator = new DisplaySettingsApplicator(
+            new MonoGameDisplaySettingsTarget(_graphics),
+            _appliedSettings.Display);
     }
 
     protected override void LoadContent()
@@ -41,50 +79,54 @@ public sealed class ShootingGame : Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         _pixel = new Texture2D(GraphicsDevice, 1, 1);
         _pixel.SetData(new[] { Color.White });
-        _audio = new GameAudio();
+        _logicalCanvas = CreateLogicalCanvas();
+        _audio = new GameAudio(_appliedSettings.Audio);
     }
 
     protected override void Update(GameTime gameTime)
     {
         _input.Update();
+        if (_input.ToggleFullscreenPressed)
+        {
+            ToggleFullscreen();
+        }
+
+        if (_shell.State != GameShellState.Playing)
+        {
+            if (_shell.State == GameShellState.Result && _input.RetryPressed)
+            {
+                HandleShellCommand(_shell.RetryResult());
+                UpdateWindowTitle();
+                base.Update(gameTime);
+                return;
+            }
+
+            if (_shell.State == GameShellState.Pause && _input.PausePressed)
+            {
+                _simulation.SetPaused(false);
+                _shell.Resume();
+                UpdateWindowTitle();
+                base.Update(gameTime);
+                return;
+            }
+
+            HandleShellCommand(_shell.Update(_input));
+            UpdateWindowTitle();
+            base.Update(gameTime);
+            return;
+        }
+
         if (_input.QuitRequested)
         {
             Exit();
             return;
         }
 
-        if (_startupMenu.IsOpen)
-        {
-            if (_input.CancelPressed)
-            {
-                Exit();
-                return;
-            }
-
-            var action = _startupMenu.Update(
-                _input.UpPressed,
-                _input.DownPressed,
-                _input.ConfirmPressed);
-            if (action == StartupMenuAction.Quit)
-            {
-                Exit();
-                return;
-            }
-
-            Window.Title = action == StartupMenuAction.StartGame
-                ? "goat-shooooting — WASD/Arrows move, Z/Space fire, X/Shift bomb, Esc quits"
-                : "goat-shooooting — START MENU — Up/Down select, Enter confirms";
-            base.Update(gameTime);
-            return;
-        }
-
         if (_input.GamePadDisconnectedThisFrame)
         {
             _showControllerDisconnectedMessage = true;
-            if (!_simulation.IsPaused)
-            {
-                _input.RequestPause();
-            }
+            _simulation.SetPaused(true);
+            _shell.Pause();
         }
 
         if (_input.IsGamePadConnected || _input.KeyboardInputDetected)
@@ -92,10 +134,20 @@ public sealed class ShootingGame : Game
             _showControllerDisconnectedMessage = false;
         }
 
+        if (_input.PausePressed)
+        {
+            _simulation.SetPaused(true);
+            _shell.Pause();
+            UpdateWindowTitle();
+            base.Update(gameTime);
+            return;
+        }
+
         var deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
         _simulation.Update(deltaTime);
         ApplyLayoutChanges();
         _audio?.Play(_simulation.Feedback);
+        UpdateVibration(deltaTime);
         _shakeRemaining = Math.Max(0, _shakeRemaining - deltaTime);
         if (_simulation.Feedback.BombsUsed > 0)
         {
@@ -110,8 +162,27 @@ public sealed class ShootingGame : Game
             _shakeRemaining = Math.Max(_shakeRemaining, 0.12f);
         }
 
+        if (_simulation.IsPaused)
+        {
+            _shell.Pause();
+        }
+        else if (_simulation.Status != SimulationStatus.Running)
+        {
+            _shell.ShowResult();
+        }
+
+        UpdateWindowTitle();
+        base.Update(gameTime);
+    }
+
+    private void UpdateWindowTitle()
+    {
         Window.Title = _showControllerDisconnectedMessage
             ? "goat-shooooting — CONTROLLER DISCONNECTED — reconnect or use keyboard"
+            : _shell.State == GameShellState.Title
+            ? "goat-shooooting — TITLE"
+            : _shell.State == GameShellState.Options
+            ? "goat-shooooting — OPTIONS"
             : _simulation.DefinitionReloadError is not null
             ? $"goat-shooooting — DEFINITION ERROR — {_simulation.DefinitionReloadError}"
             : _simulation.IsPaused
@@ -126,14 +197,121 @@ public sealed class ShootingGame : Game
                     $"goat-shooooting — STAGE CLEAR — STAGE SCORE {_simulation.LastStageScore} — TOTAL {_simulation.Telemetry.Score}",
                 _ => $"goat-shooooting — STAGE {_simulation.StageNumber:D2} — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — SCORE {_simulation.Telemetry.Score}"
             };
-        base.Update(gameTime);
+    }
+
+    private void HandleShellCommand(GameShellCommand command)
+    {
+        switch (command)
+        {
+            case GameShellCommand.StartRun:
+            case GameShellCommand.RetryRun:
+                _simulation.Restart();
+                _showControllerDisconnectedMessage = false;
+                break;
+            case GameShellCommand.ResumeRun:
+                _simulation.SetPaused(false);
+                _showControllerDisconnectedMessage = false;
+                break;
+            case GameShellCommand.SettingsChanged:
+                ApplySettings(_shell.Settings);
+                break;
+            case GameShellCommand.SaveSettings:
+                _userDataStore?.SaveSettings(_appliedSettings);
+                break;
+            case GameShellCommand.Quit:
+                Exit();
+                break;
+            case GameShellCommand.None:
+            case GameShellCommand.ReturnToTitle:
+            default:
+                break;
+        }
+    }
+
+    private bool ApplySettings(GameSettings requested)
+    {
+        var previous = _appliedSettings;
+        if (!_input.TryApplySettings(requested.Input, out var normalizedInput))
+        {
+            _shell.ReplaceSettings(previous);
+            return false;
+        }
+
+        var normalized = requested with { Input = normalizedInput };
+        if (_displaySettingsApplicator is not null &&
+            normalized.Display != previous.Display &&
+            !_displaySettingsApplicator.TryApply(normalized.Display, _layout.Window.Width, _layout.Window.Height))
+        {
+            _input.TryApplySettings(previous.Input, out _);
+            _shell.ReplaceSettings(previous);
+            return false;
+        }
+
+        _appliedSettings = normalized;
+        _shell.ReplaceSettings(normalized);
+        _audio?.Apply(normalized.Audio);
+        if (!normalized.Gameplay.ControllerVibration)
+        {
+            StopVibration();
+        }
+
+        return true;
+    }
+
+    private void ToggleFullscreen()
+    {
+        var windowMode = _appliedSettings.Display.WindowMode == WindowMode.Windowed
+            ? WindowMode.BorderlessFullscreen
+            : WindowMode.Windowed;
+        var requested = _appliedSettings with
+        {
+            Display = _appliedSettings.Display with { WindowMode = windowMode }
+        };
+        if (ApplySettings(requested))
+        {
+            _userDataStore?.SaveSettings(_appliedSettings);
+        }
+    }
+
+    private void UpdateVibration(float deltaTime)
+    {
+        _vibrationRemaining = Math.Max(0, _vibrationRemaining - deltaTime);
+        var pulse = FeedbackVibration.GetPulse(
+            _simulation.Feedback,
+            _appliedSettings.Gameplay.ControllerVibration);
+        if (pulse.Duration > 0)
+        {
+            _vibrationRemaining = pulse.Duration;
+            _leftMotorStrength = pulse.LeftMotor;
+            _rightMotorStrength = pulse.RightMotor;
+        }
+
+        if (_vibrationRemaining > 0 && _input.IsGamePadConnected)
+        {
+            GamePad.SetVibration(PlayerIndex.One, _leftMotorStrength, _rightMotorStrength);
+        }
+        else
+        {
+            StopVibration();
+        }
+    }
+
+    private void StopVibration()
+    {
+        _vibrationRemaining = 0;
+        _leftMotorStrength = 0;
+        _rightMotorStrength = 0;
+        GamePad.SetVibration(PlayerIndex.One, 0, 0);
     }
 
     protected override void Draw(GameTime gameTime)
     {
-        if (_startupMenu.IsOpen)
+        var logicalCanvas = _logicalCanvas ?? throw new InvalidOperationException("Content has not been loaded.");
+        GraphicsDevice.SetRenderTarget(logicalCanvas);
+        if (_shell.State == GameShellState.Title)
         {
-            DrawStartupMenu();
+            DrawShellMenu(clearBackground: true);
+            PresentLogicalCanvas(logicalCanvas);
             base.Draw(gameTime);
             return;
         }
@@ -147,7 +325,9 @@ public sealed class ShootingGame : Game
         var spriteBatch = _spriteBatch ?? throw new InvalidOperationException("Content has not been loaded.");
         var pixel = _pixel ?? throw new InvalidOperationException("Content has not been loaded.");
 
-        var shakeMagnitude = _shakeRemaining > 0 ? 5f * (_shakeRemaining / 0.3f) : 0;
+        var shakeMagnitude = _shakeRemaining > 0
+            ? 5f * (_shakeRemaining / 0.3f) * _appliedSettings.Gameplay.ScreenShakeStrength
+            : 0;
         var shakeOffset = shakeMagnitude > 0
             ? new Vector2(
                 (Random.Shared.NextSingle() * 2 - 1) * shakeMagnitude,
@@ -235,50 +415,77 @@ public sealed class ShootingGame : Game
         }
 
         spriteBatch.End();
+        if (_shell.State is GameShellState.Pause or GameShellState.Options or GameShellState.Result)
+        {
+            DrawShellMenu(clearBackground: false);
+        }
+
+        PresentLogicalCanvas(logicalCanvas);
         base.Draw(gameTime);
     }
 
-    private void DrawStartupMenu()
+    private void DrawShellMenu(bool clearBackground)
     {
-        GraphicsDevice.Clear(new Color(5, 9, 20));
+        if (clearBackground)
+        {
+            GraphicsDevice.Clear(new Color(5, 9, 20));
+        }
+
         var spriteBatch = _spriteBatch ?? throw new InvalidOperationException("Content has not been loaded.");
         var pixel = _pixel ?? throw new InvalidOperationException("Content has not been loaded.");
         var window = _layout.Window;
         var centerX = window.Center.X;
         var centerY = window.Center.Y;
+        var isOptions = _shell.State == GameShellState.Options;
+        var panelWidth = isOptions ? Math.Min(window.Width - 48, 680) : 420;
+        var panelHeight = isOptions ? Math.Min(window.Height - 48, 560) : 300;
+        var panelTop = centerY - (panelHeight / 2);
+        var title = _shell.State switch
+        {
+            GameShellState.Title => "GOAT-SHOOOOTING",
+            GameShellState.Pause => "PAUSED",
+            GameShellState.Result when _simulation.Status == SimulationStatus.StageClear => "ALL STAGES CLEAR",
+            GameShellState.Result => "GAME OVER",
+            _ => "OPTIONS"
+        };
 
         spriteBatch.Begin(samplerState: SamplerState.PointClamp);
         spriteBatch.Draw(
             pixel,
-            new Rectangle(centerX - 210, centerY - 170, 420, 300),
-            new Color(10, 20, 40));
+            new Rectangle(centerX - (panelWidth / 2), panelTop, panelWidth, panelHeight),
+            new Color(10, 20, 40, clearBackground ? 255 : 242));
         spriteBatch.Draw(
             pixel,
-            new Rectangle(centerX - 210, centerY - 170, 420, 3),
+            new Rectangle(centerX - (panelWidth / 2), panelTop, panelWidth, 3),
             new Color(68, 210, 255));
-        DrawCenteredPixelText(spriteBatch, pixel, "GOAT-SHOOOOTING", centerX, centerY - 120, 3, Color.White);
-        DrawMenuOption(
-            spriteBatch,
-            pixel,
-            "START GAME",
-            centerX,
-            centerY - 28,
-            _startupMenu.Selection == StartupMenuSelection.StartGame);
-        DrawMenuOption(
-            spriteBatch,
-            pixel,
-            "QUIT",
-            centerX,
-            centerY + 28,
-            _startupMenu.Selection == StartupMenuSelection.Quit);
+        DrawCenteredPixelText(spriteBatch, pixel, title, centerX, panelTop + 28, isOptions ? 2 : 3, Color.White);
+
+        var items = _shell.MenuItems;
+        var itemSpacing = isOptions ? 23 : 46;
+        var itemsTop = isOptions ? panelTop + 78 : centerY - ((items.Count - 1) * itemSpacing / 2);
+        for (var index = 0; index < items.Count; index++)
+        {
+            var value = isOptions ? OptionsMenu.GetValue(_shell.Settings, index) : string.Empty;
+            var text = string.IsNullOrEmpty(value) ? items[index] : $"{items[index]}  {value}";
+            DrawMenuOption(
+                spriteBatch,
+                pixel,
+                text,
+                centerX,
+                itemsTop + (index * itemSpacing),
+                index == _shell.SelectionIndex,
+                isOptions ? 1 : 2,
+                panelWidth - 48);
+        }
+
         DrawCenteredPixelText(
             spriteBatch,
             pixel,
             _input.ActiveDevice == ActiveInputDevice.GamePad
                 ? "D PAD SELECT  A CONFIRM  B BACK"
-                : "UP DOWN SELECT  ENTER CONFIRM",
+                : "ARROWS SELECT  ENTER CONFIRM  ESC BACK",
             centerX,
-            centerY + 94,
+            panelTop + panelHeight - 30,
             1,
             new Color(160, 185, 210));
         spriteBatch.End();
@@ -290,13 +497,15 @@ public sealed class ShootingGame : Game
         string text,
         int centerX,
         int top,
-        bool selected)
+        bool selected,
+        int scale,
+        int width)
     {
         if (selected)
         {
             spriteBatch.Draw(
                 pixel,
-                new Rectangle(centerX - 120, top - 11, 240, 36),
+                new Rectangle(centerX - (width / 2), top - 8, width, (7 * scale) + 14),
                 new Color(25, 68, 100));
         }
 
@@ -306,7 +515,7 @@ public sealed class ShootingGame : Game
             text,
             centerX,
             top,
-            2,
+            scale,
             selected ? new Color(255, 235, 84) : new Color(160, 185, 210));
     }
 
@@ -319,9 +528,37 @@ public sealed class ShootingGame : Game
         }
 
         _layout = nextLayout;
-        _graphics.PreferredBackBufferWidth = _layout.Window.Width;
-        _graphics.PreferredBackBufferHeight = _layout.Window.Height;
-        _graphics.ApplyChanges();
+        _logicalCanvas?.Dispose();
+        _logicalCanvas = CreateLogicalCanvas();
+        _displaySettingsApplicator?.TryApply(
+            _appliedSettings.Display,
+            _layout.Window.Width,
+            _layout.Window.Height);
+    }
+
+    private RenderTarget2D CreateLogicalCanvas() => new(
+        GraphicsDevice,
+        _layout.Window.Width,
+        _layout.Window.Height,
+        mipMap: false,
+        SurfaceFormat.Color,
+        DepthFormat.None,
+        preferredMultiSampleCount: 0,
+        RenderTargetUsage.DiscardContents);
+
+    private void PresentLogicalCanvas(RenderTarget2D logicalCanvas)
+    {
+        GraphicsDevice.SetRenderTarget(null);
+        GraphicsDevice.Clear(Color.Black);
+        var spriteBatch = _spriteBatch ?? throw new InvalidOperationException("Content has not been loaded.");
+        var destination = DisplaySettingsApplicator.CalculateLetterbox(
+            logicalCanvas.Width,
+            logicalCanvas.Height,
+            GraphicsDevice.PresentationParameters.BackBufferWidth,
+            GraphicsDevice.PresentationParameters.BackBufferHeight);
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        spriteBatch.Draw(logicalCanvas, destination, Color.White);
+        spriteBatch.End();
     }
 
     private int GetScoreScale(string scoreText)
@@ -471,11 +708,57 @@ public sealed class ShootingGame : Game
     {
         if (disposing)
         {
+            StopVibration();
             _pixel?.Dispose();
             _spriteBatch?.Dispose();
+            _logicalCanvas?.Dispose();
             _audio?.Dispose();
         }
 
         base.Dispose(disposing);
     }
+}
+
+internal sealed class MonoGameDisplaySettingsTarget : IDisplaySettingsTarget
+{
+    private readonly GraphicsDeviceManager _graphics;
+
+    public MonoGameDisplaySettingsTarget(GraphicsDeviceManager graphics)
+    {
+        _graphics = graphics ?? throw new ArgumentNullException(nameof(graphics));
+    }
+
+    public int DesktopWidth => GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
+    public int DesktopHeight => GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
+    public int BackBufferWidth
+    {
+        get => _graphics.PreferredBackBufferWidth;
+        set => _graphics.PreferredBackBufferWidth = value;
+    }
+
+    public int BackBufferHeight
+    {
+        get => _graphics.PreferredBackBufferHeight;
+        set => _graphics.PreferredBackBufferHeight = value;
+    }
+
+    public bool IsFullScreen
+    {
+        get => _graphics.IsFullScreen;
+        set => _graphics.IsFullScreen = value;
+    }
+
+    public bool HardwareModeSwitch
+    {
+        get => _graphics.HardwareModeSwitch;
+        set => _graphics.HardwareModeSwitch = value;
+    }
+
+    public bool VSync
+    {
+        get => _graphics.SynchronizeWithVerticalRetrace;
+        set => _graphics.SynchronizeWithVerticalRetrace = value;
+    }
+
+    public void ApplyChanges() => _graphics.ApplyChanges();
 }

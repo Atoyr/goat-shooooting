@@ -1,6 +1,7 @@
 using GoatShooooting.Core;
 using GoatShooooting.Definitions;
 using GoatShooooting.Framework;
+using GoatShooooting.Platform;
 using GoatShooooting.Runtime;
 
 namespace GoatShooooting.SampleGame;
@@ -21,7 +22,9 @@ public static class Program
                 return RunSmokeTest(definitions);
             }
 
-            using var game = new ShootingGame(definitions);
+            var userDataStore = new JsonUserDataStore(UserDataPathResolver.GetDefaultDirectory());
+            var settings = userDataStore.LoadSettings().Value;
+            using var game = new ShootingGame(definitions, userDataStore, settings);
             game.Run();
             return 0;
         }

@@ -29,7 +29,10 @@ public sealed class GameInputState : IInputState, IMenuInput
     public bool Fire { get; private set; }
     public bool Bomb { get; private set; }
     public bool Retry { get; private set; }
+    public bool RetryPressed { get; private set; }
     public bool Pause { get; private set; }
+    public bool PausePressed { get; private set; }
+    public bool ToggleFullscreenPressed { get; private set; }
     public bool QuitRequested { get; private set; }
     public bool UpPressed { get; private set; }
     public bool DownPressed { get; private set; }
@@ -81,8 +84,14 @@ public sealed class GameInputState : IInputState, IMenuInput
             IsGamePadButtonDown(gamePadState, isGamePadConnected, Buttons.B, Buttons.Y);
         Retry = IsDown(keys, _bindings.Retry, Keys.Enter) ||
             IsGamePadButtonDown(gamePadState, isGamePadConnected, Buttons.A);
+        RetryPressed = IsNewPress(keys, _bindings.Retry, Keys.Enter) ||
+            IsNewGamePadPress(gamePadState, isGamePadConnected, Buttons.A);
         Pause = keys.Contains(_bindings.Pause) ||
             IsGamePadButtonDown(gamePadState, isGamePadConnected, Buttons.Start);
+        PausePressed = IsNewPress(keys, _bindings.Pause) ||
+            IsNewGamePadPress(gamePadState, isGamePadConnected, Buttons.Start);
+        ToggleFullscreenPressed = (keys.Contains(Keys.LeftAlt) || keys.Contains(Keys.RightAlt)) &&
+            IsNewPress(keys, Keys.Enter);
         QuitRequested = keys.Contains(Keys.Escape);
 
         var gamePadUp = IsGamePadDirectionDown(gamePadState, isGamePadConnected, Buttons.DPadUp, stick.Y > 0);
