@@ -44,6 +44,7 @@ public sealed class GameInputState : IInputState, IMenuInput
     public bool IsGamePadConnected { get; private set; }
     public bool GamePadDisconnectedThisFrame { get; private set; }
     public bool KeyboardInputDetected { get; private set; }
+    public string? NewlyPressedKey { get; private set; }
     public InputSettings CurrentInputSettings => _bindings.Settings;
 
     public void Update()
@@ -55,12 +56,17 @@ public sealed class GameInputState : IInputState, IMenuInput
     public void Apply(IEnumerable<Keys> pressedKeys, GamePadState gamePadState, bool isGamePadConnected)
     {
         ArgumentNullException.ThrowIfNull(pressedKeys);
-        var keys = pressedKeys.ToHashSet();
+        var pressedKeyArray = pressedKeys.Distinct().ToArray();
+        var keys = pressedKeyArray.ToHashSet();
         var stick = isGamePadConnected
             ? ApplyCircularDeadZone(gamePadState.ThumbSticks.Left, DefaultGamePadDeadZone)
             : Vector2.Zero;
 
         KeyboardInputDetected = keys.Count > 0;
+        NewlyPressedKey = pressedKeyArray
+            .Where(key => !_previousKeys.Contains(key))
+            .Select(key => key.ToString())
+            .FirstOrDefault();
         IsGamePadConnected = isGamePadConnected;
         GamePadDisconnectedThisFrame = _previousGamePadConnected && !isGamePadConnected;
 

@@ -66,6 +66,61 @@ public sealed class GameShellTests
         Assert.Equal("sample", shell.SelectedGameId);
     }
 
+    [Fact]
+    public void ConfirmOnInputOptionCapturesTheNextKeyboardKey()
+    {
+        var shell = OpenOptionsAtInputIndex(12);
+
+        Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(confirm: true, newlyPressedKey: "Enter")));
+        Assert.True(shell.IsAwaitingKeyBinding);
+        Assert.Equal("PRESS A KEY", shell.SelectedValue);
+
+        Assert.Equal(
+            GameShellCommand.SettingsChanged,
+            shell.Update(new MenuInput(newlyPressedKey: "F")));
+        Assert.False(shell.IsAwaitingKeyBinding);
+        Assert.Equal("F", shell.Settings.Input.Fire);
+    }
+
+    [Fact]
+    public void CancelLeavesAKeyBindingUnchanged()
+    {
+        var shell = OpenOptionsAtInputIndex(12);
+        shell.Update(new MenuInput(confirm: true));
+
+        Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(cancel: true, newlyPressedKey: "Escape")));
+
+        Assert.False(shell.IsAwaitingKeyBinding);
+        Assert.Equal("Z", shell.Settings.Input.Fire);
+        Assert.Equal(GameShellState.Options, shell.State);
+    }
+
+    [Fact]
+    public void ConflictingConfirmAndCancelBindingKeepsWaiting()
+    {
+        var shell = OpenOptionsAtInputIndex(15);
+        shell.Update(new MenuInput(confirm: true));
+
+        Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(newlyPressedKey: "Escape")));
+
+        Assert.True(shell.IsAwaitingKeyBinding);
+        Assert.Equal("KEY IN USE", shell.SelectedValue);
+        Assert.Equal("Enter", shell.Settings.Input.Confirm);
+    }
+
+    private static GameShell OpenOptionsAtInputIndex(int inputIndex)
+    {
+        var shell = new GameShell(new GameSettings());
+        shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(confirm: true));
+        for (var index = 0; index < inputIndex; index++)
+        {
+            shell.Update(new MenuInput(down: true));
+        }
+
+        return shell;
+    }
+
     private sealed class MenuInput : IMenuInput
     {
         public MenuInput(
@@ -74,7 +129,8 @@ public sealed class GameShellTests
             bool left = false,
             bool right = false,
             bool confirm = false,
-            bool cancel = false)
+            bool cancel = false,
+            string? newlyPressedKey = null)
         {
             UpPressed = up;
             DownPressed = down;
@@ -82,6 +138,7 @@ public sealed class GameShellTests
             RightPressed = right;
             ConfirmPressed = confirm;
             CancelPressed = cancel;
+            NewlyPressedKey = newlyPressedKey;
         }
 
         public bool UpPressed { get; }
@@ -90,5 +147,6 @@ public sealed class GameShellTests
         public bool RightPressed { get; }
         public bool ConfirmPressed { get; }
         public bool CancelPressed { get; }
+        public string? NewlyPressedKey { get; }
     }
 }

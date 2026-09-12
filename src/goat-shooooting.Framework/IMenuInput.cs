@@ -8,6 +8,7 @@ public interface IMenuInput
     bool RightPressed { get; }
     bool ConfirmPressed { get; }
     bool CancelPressed { get; }
+    string? NewlyPressedKey { get; }
 }
 
 public enum ActiveInputDevice

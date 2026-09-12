@@ -54,6 +54,8 @@ internal static class OptionsMenu
 
     public static int BackIndex => ItemLabels.Length - 1;
 
+    public static bool IsInputIndex(int index) => index is >= 8 and <= 17;
+
     public static GameSettings Adjust(GameSettings settings, int index, int direction) => index switch
     {
         0 => settings with
@@ -131,6 +133,45 @@ internal static class OptionsMenu
         17 => settings.Input.Retry,
         _ => string.Empty
     };
+
+    public static bool TryBindInput(
+        GameSettings settings,
+        int index,
+        string key,
+        out GameSettings adjustedSettings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        if (!IsInputIndex(index) || string.IsNullOrWhiteSpace(key))
+        {
+            adjustedSettings = settings;
+            return false;
+        }
+
+        var input = settings.Input;
+        if ((index == 15 && string.Equals(key, input.Cancel, StringComparison.OrdinalIgnoreCase)) ||
+            (index == 16 && string.Equals(key, input.Confirm, StringComparison.OrdinalIgnoreCase)))
+        {
+            adjustedSettings = settings;
+            return false;
+        }
+
+        var adjusted = index switch
+        {
+            8 => input with { MoveUp = key },
+            9 => input with { MoveDown = key },
+            10 => input with { MoveLeft = key },
+            11 => input with { MoveRight = key },
+            12 => input with { Fire = key },
+            13 => input with { Bomb = key },
+            14 => input with { Pause = key },
+            15 => input with { Confirm = key },
+            16 => input with { Cancel = key },
+            17 => input with { Retry = key },
+            _ => input
+        };
+        adjustedSettings = settings with { Input = adjusted };
+        return true;
+    }
 
     private static GameSettings AdjustInput(GameSettings settings, int index, int direction)
     {

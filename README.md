@@ -70,6 +70,8 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 - R / Enter: Game Over／Stage Clear後にリトライ
 - Esc: 終了
 
+タイトルまたはポーズメニューの `OPTIONS` ではキーボード割り当てを変更できます。変更したい項目で Enter／A を押してから新しいキーを押してください。Esc／B で入力待ちをキャンセルでき、左右キーで候補を順送りすることもできます。変更内容は `OPTIONS` を閉じたときに保存されます。
+
 約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Scoutは直進弾、Fighterは追尾弾、Midbossは二層式洗濯機弾幕を使用します。被弾するたびに残機が1減り、0になるとGame Over、Player BulletでEnemyをすべて倒すとStage Clearです。ボムは全Enemyへ一斉にダメージを与え、画面内のEnemy Bulletを消去します。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。残機・ボム数はプレイ領域左上、スコアは設定した位置へ常時表示され、現在の残機・ボム数・スコア・Pause／終了状態はウィンドウタイトルにも表示されます。
 
 画面を使わない smoke test:

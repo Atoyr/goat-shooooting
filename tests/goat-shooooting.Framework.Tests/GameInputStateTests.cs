@@ -145,6 +145,22 @@ public sealed class GameInputStateTests
     }
 
     [Fact]
+    public void NewlyPressedKeyReportsEachPhysicalPressOnce()
+    {
+        var input = new GameInputState();
+
+        input.Apply(new[] { Keys.F }, default, isGamePadConnected: false);
+        Assert.Equal("F", input.NewlyPressedKey);
+
+        input.Apply(new[] { Keys.F }, default, isGamePadConnected: false);
+        Assert.Null(input.NewlyPressedKey);
+
+        input.Apply([], default, isGamePadConnected: false);
+        input.Apply(new[] { Keys.F }, default, isGamePadConnected: false);
+        Assert.Equal("F", input.NewlyPressedKey);
+    }
+
+    [Fact]
     public void GamePadCanStartAndQuitStartupMenuWithoutMouse()
     {
         var input = new GameInputState();

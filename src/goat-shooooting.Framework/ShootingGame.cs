@@ -216,7 +216,9 @@ public sealed class ShootingGame : Game
             : _shell.State == GameShellState.Title
             ? $"goat-shooooting — TITLE — {_gameId}"
             : _shell.State == GameShellState.Options
-            ? "goat-shooooting — OPTIONS"
+            ? _shell.IsAwaitingKeyBinding
+                ? "goat-shooooting — OPTIONS — PRESS A KEY"
+                : "goat-shooooting — OPTIONS"
             : _simulation.DefinitionReloadError is not null
             ? $"goat-shooooting — DEFINITION ERROR — {_simulation.DefinitionReloadError}"
             : _simulation.IsPaused
@@ -559,7 +561,11 @@ public sealed class ShootingGame : Game
             : centerY - ((items.Count - 1) * itemSpacing / 2);
         for (var index = 0; index < items.Count; index++)
         {
-            var value = isOptions ? OptionsMenu.GetValue(_shell.Settings, index) : string.Empty;
+            var value = isOptions
+                ? index == _shell.SelectionIndex
+                    ? _shell.SelectedValue
+                    : OptionsMenu.GetValue(_shell.Settings, index)
+                : string.Empty;
             var text = string.IsNullOrEmpty(value) ? items[index] : $"{items[index]}  {value}";
             DrawMenuOption(
                 spriteBatch,
@@ -575,7 +581,9 @@ public sealed class ShootingGame : Game
         DrawCenteredPixelText(
             spriteBatch,
             pixel,
-            _input.ActiveDevice == ActiveInputDevice.GamePad
+            _shell.IsAwaitingKeyBinding
+                ? "PRESS A KEY  ESC OR B CANCEL"
+                : _input.ActiveDevice == ActiveInputDevice.GamePad
                 ? "D PAD SELECT  A CONFIRM  B BACK"
                 : "ARROWS SELECT  ENTER CONFIRM  ESC BACK",
             centerX,

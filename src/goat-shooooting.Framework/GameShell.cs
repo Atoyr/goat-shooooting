@@ -33,6 +33,7 @@ public sealed class GameShell
     private GameShellState _optionsReturnState;
     private readonly string[] _gameIds;
     private int _selectionIndex;
+    private bool _keyBindingRejected;
 
     public GameShell(GameSettings settings)
         : this(settings, ["sample"], "sample")
@@ -58,6 +59,7 @@ public sealed class GameShell
     public GameSettings Settings { get; private set; }
     public string SelectedGameId { get; private set; }
     public int SelectionIndex => _selectionIndex;
+    public bool IsAwaitingKeyBinding { get; private set; }
     public IReadOnlyList<string> MenuItems => State switch
     {
         GameShellState.Title => TitleItems,
@@ -68,7 +70,9 @@ public sealed class GameShell
     };
 
     public string SelectedValue => State == GameShellState.Options
-        ? OptionsMenu.GetValue(Settings, _selectionIndex)
+        ? IsAwaitingKeyBinding
+            ? _keyBindingRejected ? "KEY IN USE" : "PRESS A KEY"
+            : OptionsMenu.GetValue(Settings, _selectionIndex)
         : string.Empty;
 
     public GameShellCommand Update(IMenuInput input)
@@ -77,6 +81,36 @@ public sealed class GameShell
         if (State == GameShellState.Playing)
         {
             return GameShellCommand.None;
+        }
+
+        if (State == GameShellState.Options && IsAwaitingKeyBinding)
+        {
+            if (input.CancelPressed)
+            {
+                IsAwaitingKeyBinding = false;
+                _keyBindingRejected = false;
+                return GameShellCommand.None;
+            }
+
+            if (input.NewlyPressedKey is null)
+            {
+                return GameShellCommand.None;
+            }
+
+            if (!OptionsMenu.TryBindInput(
+                    Settings,
+                    _selectionIndex,
+                    input.NewlyPressedKey,
+                    out var adjustedSettings))
+            {
+                _keyBindingRejected = true;
+                return GameShellCommand.None;
+            }
+
+            Settings = adjustedSettings;
+            IsAwaitingKeyBinding = false;
+            _keyBindingRejected = false;
+            return GameShellCommand.SettingsChanged;
         }
 
         if (input.CancelPressed)
@@ -105,6 +139,13 @@ public sealed class GameShell
 
         if (State == GameShellState.Options)
         {
+            if (OptionsMenu.IsInputIndex(_selectionIndex) && input.ConfirmPressed)
+            {
+                IsAwaitingKeyBinding = true;
+                _keyBindingRejected = false;
+                return GameShellCommand.None;
+            }
+
             var direction = input.LeftPressed ? -1 : input.RightPressed || input.ConfirmPressed ? 1 : 0;
             if (direction != 0)
             {
@@ -254,12 +295,16 @@ public sealed class GameShell
         _optionsReturnState = returnState;
         State = GameShellState.Options;
         _selectionIndex = 0;
+        IsAwaitingKeyBinding = false;
+        _keyBindingRejected = false;
     }
 
     private GameShellCommand CloseOptions()
     {
         State = _optionsReturnState;
         _selectionIndex = 0;
+        IsAwaitingKeyBinding = false;
+        _keyBindingRejected = false;
         return GameShellCommand.SaveSettings;
     }
 }
