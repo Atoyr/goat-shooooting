@@ -78,6 +78,10 @@ public sealed class DefinitionEditorServiceTests
         Assert.Contains("左右2分割（東方型）", editor, StringComparison.Ordinal);
         Assert.Contains("左・中央・右3分割（怒首領蜂型）", editor, StringComparison.Ordinal);
         Assert.Contains("scorePosition", editor, StringComparison.Ordinal);
+        Assert.Contains("nextStageId", editor, StringComparison.Ordinal);
+        Assert.Contains("openingDuration", editor, StringComparison.Ordinal);
+        Assert.Contains("resultsDuration", editor, StringComparison.Ordinal);
+        Assert.Contains("isBoss", editor, StringComparison.Ordinal);
     }
 
     [Fact]

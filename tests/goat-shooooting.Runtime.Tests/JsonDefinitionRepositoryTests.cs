@@ -146,6 +146,41 @@ public sealed class JsonDefinitionRepositoryTests
     }
 
     [Fact]
+    public void StageRouteRejectsUnknownNextStage()
+    {
+        var baseline = TestDefinitions.Create();
+        var stage = baseline.GetStage("stage") with { NextStageId = "missing-stage" };
+
+        var exception = Assert.Throws<DefinitionValidationException>(() => new DefinitionCatalog(
+            baseline.Game,
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            baseline.Bullets.Values,
+            baseline.Weapons.Values,
+            new[] { stage }));
+
+        Assert.Contains("missing-stage", exception.Message);
+    }
+
+    [Fact]
+    public void StageRouteRejectsCycles()
+    {
+        var baseline = TestDefinitions.Create();
+        var first = baseline.GetStage("stage") with { NextStageId = "second" };
+        var second = new StageDefinition { Id = "second", NextStageId = "stage" };
+
+        var exception = Assert.Throws<DefinitionValidationException>(() => new DefinitionCatalog(
+            baseline.Game,
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            baseline.Bullets.Values,
+            baseline.Weapons.Values,
+            new[] { first, second }));
+
+        Assert.Contains("cycle", exception.Message);
+    }
+
+    [Fact]
     public void UnknownJsonPropertyReportsFilePathAndLocation()
     {
         using var directory = DefinitionDirectory.Create();

@@ -16,5 +16,6 @@ public sealed class SimulationTelemetry
     public int BombsUsed { get; internal set; }
     public int EnemyBulletsCleared { get; internal set; }
     public int EnemiesKilled { get; internal set; }
+    public int BossesKilled { get; internal set; }
     public int Score { get; internal set; }
 }

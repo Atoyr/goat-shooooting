@@ -54,6 +54,16 @@ public sealed class FrameworkAdapterTests
     }
 
     [Fact]
+    public void PixelTextLayoutSupportsStageTitlesAndFallsBackForOtherCharacters()
+    {
+        var title = PrimitiveRenderLayout.ToPixelTextRectangles("THE SILENT HORIZON", 400, 100, 3);
+        var localized = PrimitiveRenderLayout.ToPixelTextRectangles("ステージ", 400, 140, 2);
+
+        Assert.NotEmpty(title);
+        Assert.NotEmpty(localized);
+    }
+
+    [Fact]
     public void TouhouLayoutPlacesPlayfieldLeftAndHudPanelRight()
     {
         var definition = new GameDefinition

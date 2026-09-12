@@ -6,6 +6,15 @@
   "required": ["id", "events"],
   "properties": {
     "id": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "description": "ステージ開始時に表示するタイトルです。" },
+    "subtitle": { "type": "string", "description": "タイトルの下に表示する短い副題です。" },
+    "openingDuration": { "type": "number", "minimum": 0, "default": 0 },
+    "resultsDuration": { "type": "number", "minimum": 0, "default": 0 },
+    "nextStageId": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "リザルト表示後に開始するステージIDです。省略時はゲームクリアになります。"
+    },
     "events": {
       "type": "array",
       "items": {
@@ -20,7 +29,12 @@
           "y": { "type": "number" },
           "count": { "type": "integer", "minimum": 1, "default": 1 },
           "spawnInterval": { "type": "number", "minimum": 0, "default": 0 },
-          "spacingX": { "type": "number", "default": 0 }
+          "spacingX": { "type": "number", "default": 0 },
+          "isBoss": {
+            "type": "boolean",
+            "default": false,
+            "description": "trueの敵をすべて倒すと、残っている通常敵に関係なくステージクリアになります。"
+          }
         }
       }
     }

@@ -65,6 +65,11 @@ public sealed record WeaponDefinition
 public sealed record StageDefinition
 {
     public string Id { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public string Subtitle { get; init; } = string.Empty;
+    public float OpeningDuration { get; init; }
+    public float ResultsDuration { get; init; }
+    public string? NextStageId { get; init; }
     public IReadOnlyList<StageEventDefinition> Events { get; init; } = Array.Empty<StageEventDefinition>();
 }
 
@@ -78,4 +83,5 @@ public sealed record StageEventDefinition
     public int Count { get; init; } = 1;
     public float SpawnInterval { get; init; }
     public float SpacingX { get; init; }
+    public bool IsBoss { get; init; }
 }

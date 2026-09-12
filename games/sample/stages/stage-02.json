@@ -1,0 +1,12 @@
+{
+  "id": "stage-02",
+  "title": "REFLECTION",
+  "subtitle": "TRIAL OF RESOLVE",
+  "openingDuration": 3,
+  "resultsDuration": 4,
+  "events": [
+    { "time": 3, "type": "spawn-enemy", "enemyId": "fighter-a", "x": 180, "y": 80, "count": 3, "spacingX": 220 },
+    { "time": 10, "type": "spawn-enemy", "enemyId": "scout", "x": 220, "y": 100, "count": 2, "spawnInterval": 0.7, "spacingX": 360 },
+    { "time": 18, "type": "spawn-enemy", "enemyId": "midboss", "x": 400, "y": 80, "isBoss": true }
+  ]
+}

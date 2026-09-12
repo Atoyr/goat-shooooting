@@ -31,7 +31,7 @@ public sealed class PlayerFactory
 
 public sealed class EnemyFactory
 {
-    public Entity Create(World world, EnemyDefinition definition, Vector2 position)
+    public Entity Create(World world, EnemyDefinition definition, Vector2 position, bool isBoss = false)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(definition);
@@ -43,6 +43,11 @@ public sealed class EnemyFactory
             .Add(new ColliderComponent(definition.Radius, CollisionLayer.Enemy))
             .Add(new EnemyComponent(definition.Id))
             .Add(new ScoreValueComponent(definition.Score));
+
+        if (isBoss)
+        {
+            entity.Add(new BossComponent());
+        }
 
         if (!string.IsNullOrWhiteSpace(definition.WeaponId))
         {

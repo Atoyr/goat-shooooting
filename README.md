@@ -123,9 +123,34 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 - `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照、`straight`／`sine`／`zigzag`移動
 - `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime、`straight`／`homing`移動
 - `weapons/*.json`: Bullet 参照、cooldown、弾数と`spread`／`washing-machine`／`double-washing-machine`弾幕
-- `stages/*.json`: 時刻付き `spawn-enemy` event、出現位置、個数、出現間隔、横方向の間隔
+- `stages/*.json`: タイトル、開始／リザルト表示時間、次Stage、時刻付き `spawn-enemy` event、ボス指定、出現位置と編隊
 
 新しい JSON を対象フォルダーへ追加し、一意な `id` で参照してください。Engine コードの変更は不要です。起動時に全参照と値を検証するため、不明な Player／Stage／Enemy／Weapon／Bullet ID、重複 ID、未対応 event、0 以下の HP などは `DefinitionValidationException` になります。
+
+Stageは`nextStageId`で連結します。`openingDuration`中はタイトルと副題を表示して戦闘を停止し、`isBoss: true`のイベントで出現した敵をすべて倒すとステージ別スコアと累計スコアを`resultsDuration`秒表示して次へ進みます。`nextStageId`を省略したStageのリザルト後が全ステージクリアです。
+
+![ステージ開始、ボス撃破後のリザルト、次ステージ開始のサンプル](docs/assets/stage-flow.gif)
+
+```json
+{
+  "id": "stage-01",
+  "title": "THE SILENT HORIZON",
+  "subtitle": "IDEAL RELEASE",
+  "openingDuration": 3,
+  "resultsDuration": 4,
+  "nextStageId": "stage-02",
+  "events": [
+    {
+      "time": 60,
+      "type": "spawn-enemy",
+      "enemyId": "midboss",
+      "x": 400,
+      "y": 90,
+      "isBoss": true
+    }
+  ]
+}
+```
 
 例:
 
@@ -201,7 +226,7 @@ Enemy の `weaponId` にこの Weapon ID を指定するだけで、敵ごとに
 }
 ```
 
-同一のRuntimeで両コンテンツパックが使う必要性から、敵のサイン移動、Bulletの追尾、Weaponの扇状／洗濯機／二層式洗濯機射撃、Stage eventの繰り返しSpawnをDefinition化しています。未使用のドロップ、複数武器スロット、Stage遷移はまだ抽象化していません。
+同一のRuntimeで両コンテンツパックが使う必要性から、敵のサイン移動、Bulletの追尾、Weaponの扇状／洗濯機／二層式洗濯機射撃、Stage eventの繰り返しSpawn、ボス撃破を起点とするStage遷移をDefinition化しています。未使用のドロップ、複数武器スロットはまだ抽象化していません。
 
 ## 現在の Architecture
 

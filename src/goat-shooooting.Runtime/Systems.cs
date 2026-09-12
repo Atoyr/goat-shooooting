@@ -275,7 +275,7 @@ public sealed class OutOfBoundsSystem
     {
         foreach (var entity in world.Query<TransformComponent, ColliderComponent>().ToArray())
         {
-            if (entity.Has<PlayerComponent>() || entity.Has<PendingDestroyComponent>())
+            if (entity.Has<PlayerComponent>() || entity.Has<BossComponent>() || entity.Has<PendingDestroyComponent>())
             {
                 continue;
             }
@@ -296,12 +296,40 @@ public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFa
     private readonly StageDefinition _definition = definition ?? throw new ArgumentNullException(nameof(definition));
     private readonly EnemyFactory _enemyFactory = enemyFactory ?? throw new ArgumentNullException(nameof(enemyFactory));
     private readonly int[] _spawnedCounts = new int[definition.Events.Count];
+    private readonly int _bossesKilledAtStart;
     private double _elapsed;
 
+    public StageSystem(
+        StageDefinition definition,
+        EnemyFactory enemyFactory,
+        int bossesKilledAtStart = 0)
+        : this(definition, enemyFactory)
+    {
+        _bossesKilledAtStart = bossesKilledAtStart;
+    }
+
     public double Elapsed => _elapsed;
+    public int BossCount => _definition.Events
+        .Where(static stageEvent => stageEvent.IsBoss)
+        .Sum(static stageEvent => stageEvent.Count);
     public bool IsComplete => _definition.Events
         .Select((stageEvent, index) => _spawnedCounts[index] >= stageEvent.Count)
         .All(static complete => complete);
+
+    public bool IsCleared(World world, SimulationTelemetry telemetry)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(telemetry);
+        if (BossCount > 0)
+        {
+            var allBossesSpawned = _definition.Events
+                .Select((stageEvent, index) => !stageEvent.IsBoss || _spawnedCounts[index] >= stageEvent.Count)
+                .All(static spawned => spawned);
+            return allBossesSpawned && telemetry.BossesKilled - _bossesKilledAtStart >= BossCount;
+        }
+
+        return IsComplete && !world.Query<EnemyComponent>().Any();
+    }
 
     public void Update(World world, DefinitionCatalog definitions, float deltaTime, SimulationTelemetry telemetry)
     {
@@ -321,7 +349,8 @@ public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFa
                 _enemyFactory.Create(
                     world,
                     definitions.GetEnemy(stageEvent.EnemyId),
-                    new Vector2(stageEvent.X + (spawnIndex * stageEvent.SpacingX), stageEvent.Y));
+                    new Vector2(stageEvent.X + (spawnIndex * stageEvent.SpacingX), stageEvent.Y),
+                    stageEvent.IsBoss);
                 _spawnedCounts[index]++;
                 telemetry.EnemiesSpawned++;
             }
@@ -502,6 +531,11 @@ public sealed class DamageSystem
                 if (damageEvent.Target.Has<EnemyComponent>())
                 {
                     telemetry.EnemiesKilled++;
+                    if (damageEvent.Target.Has<BossComponent>())
+                    {
+                        telemetry.BossesKilled++;
+                    }
+
                     telemetry.Score += damageEvent.Target.Get<ScoreValueComponent>().Value;
                 }
             }

@@ -1,5 +1,10 @@
 {
   "id": "stage-01",
+  "title": "THE SILENT HORIZON",
+  "subtitle": "IDEAL RELEASE",
+  "openingDuration": 3,
+  "resultsDuration": 4,
+  "nextStageId": "stage-02",
   "events": [
     { "time": 3, "type": "spawn-enemy", "enemyId": "scout", "x": 240, "y": 120, "count": 2, "spacingX": 320 },
     { "time": 10, "type": "spawn-enemy", "enemyId": "fighter-a", "x": 400, "y": 100 },
@@ -8,6 +13,6 @@
     { "time": 40, "type": "spawn-enemy", "enemyId": "scout", "x": 180, "y": 90, "count": 2, "spacingX": 440 },
     { "time": 40, "type": "spawn-enemy", "enemyId": "fighter-a", "x": 400, "y": 70 },
     { "time": 50, "type": "spawn-enemy", "enemyId": "fighter-a", "x": 260, "y": 90, "count": 2, "spacingX": 280 },
-    { "time": 60, "type": "spawn-enemy", "enemyId": "midboss", "x": 400, "y": 90 }
+    { "time": 60, "type": "spawn-enemy", "enemyId": "midboss", "x": 400, "y": 90, "isBoss": true }
   ]
 }

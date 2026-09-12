@@ -154,6 +154,18 @@ public sealed class DefinitionCatalog
 
         foreach (var stage in Stages.Values)
         {
+            EnsureNonNegative(stage.OpeningDuration, $"Stage '{stage.Id}' opening duration");
+            EnsureNonNegative(stage.ResultsDuration, $"Stage '{stage.Id}' results duration");
+            if (!string.IsNullOrWhiteSpace(stage.NextStageId))
+            {
+                if (string.Equals(stage.Id, stage.NextStageId, StringComparison.Ordinal))
+                {
+                    throw new DefinitionValidationException($"Stage '{stage.Id}' cannot transition to itself.");
+                }
+
+                _ = GetStage(stage.NextStageId);
+            }
+
             foreach (var stageEvent in stage.Events)
             {
                 EnsureNonNegative(stageEvent.Time, $"Stage '{stage.Id}' event time");
@@ -167,6 +179,24 @@ public sealed class DefinitionCatalog
 
                 _ = GetEnemy(stageEvent.EnemyId);
             }
+        }
+
+        ValidateStageRoute();
+    }
+
+    private void ValidateStageRoute()
+    {
+        var visited = new HashSet<string>(StringComparer.Ordinal);
+        var stage = GetStage(Game.StageId);
+        while (visited.Add(stage.Id) && !string.IsNullOrWhiteSpace(stage.NextStageId))
+        {
+            stage = GetStage(stage.NextStageId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(stage.NextStageId))
+        {
+            throw new DefinitionValidationException(
+                $"Stage route from '{Game.StageId}' contains a cycle at '{stage.Id}'.");
         }
     }
 

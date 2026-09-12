@@ -65,6 +65,9 @@ public sealed class EnemyComponent(string definitionId)
     public string DefinitionId { get; } = definitionId;
 }
 
+/// <summary>Marks the enemy whose defeat completes the current stage.</summary>
+public sealed class BossComponent;
+
 public sealed class ScoreValueComponent(int value)
 {
     public int Value { get; } = value > 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));

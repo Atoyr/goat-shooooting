@@ -40,15 +40,19 @@ public static class Program
         // Retry below verifies that runtime state returns to the configured life count.
         simulation.Player.Get<LivesComponent>().Remaining = 100;
         const float deltaTime = 1f / 60f;
-        const int maximumFrames = 60 * 150;
-        var stage = simulation.Definitions.GetStage(simulation.Definitions.Game.StageId);
-        var expectedEnemies = stage.Events.Sum(static stageEvent => stageEvent.Count);
-        var expectedScore = stage.Events.Sum(stageEvent =>
-            simulation.Definitions.GetEnemy(stageEvent.EnemyId).Score * stageEvent.Count);
-        var lastEventTime = stage.Events.Count == 0
+        const int maximumFrames = 60 * 210;
+        var stages = GetStageRoute(simulation.Definitions);
+        var expectedEnemies = stages.Sum(stage =>
+            stage.Events.Sum(static stageEvent => stageEvent.Count));
+        var expectedScore = stages.Sum(stage => stage.Events.Sum(stageEvent =>
+            simulation.Definitions.GetEnemy(stageEvent.EnemyId).Score * stageEvent.Count));
+        var finalStage = stages[^1];
+        var lastEventTime = finalStage.Events.Count == 0
             ? 0
-            : stage.Events.Max(static stageEvent =>
+            : finalStage.Events.Max(static stageEvent =>
                 stageEvent.Time + ((stageEvent.Count - 1) * stageEvent.SpawnInterval));
+        var observedDestructionFeedback = false;
+        var observedExplosionEffect = false;
         for (var frame = 0; frame < maximumFrames && simulation.Status == SimulationStatus.Running; frame++)
         {
             var target = simulation.World.Query<EnemyComponent>()
@@ -77,6 +81,8 @@ public static class Program
             }
 
             simulation.Update(deltaTime);
+            observedDestructionFeedback |= simulation.Feedback.EnemiesDestroyed > 0;
+            observedExplosionEffect |= simulation.World.Query<ExplosionComponent>().Any();
         }
 
         var telemetry = simulation.Telemetry;
@@ -102,8 +108,8 @@ public static class Program
         Require(telemetry.Score == expectedScore, "The expected score was not awarded for the complete stage.");
         Require(simulation.Elapsed >= lastEventTime, "The simulation did not run through the final wave.");
         Require(!simulation.World.Query<EnemyComponent>().Any(), "A dead enemy remained in the world.");
-        Require(simulation.Feedback.EnemiesDestroyed > 0, "No enemy destruction feedback was emitted.");
-        Require(simulation.World.Query<ExplosionComponent>().Any(), "No explosion effect was created.");
+        Require(observedDestructionFeedback, "No enemy destruction feedback was emitted.");
+        Require(observedExplosionEffect, "No explosion effect was created.");
         Require(simulation.Status == SimulationStatus.StageClear, "The simulation did not reach Stage Clear.");
 
         input.Fire = false;
@@ -123,6 +129,22 @@ public static class Program
             $"damage={telemetry.DamageEventsApplied}, killed={telemetry.EnemiesKilled}, bombs={telemetry.BombsUsed}, " +
             $"enemyBulletsCleared={telemetry.EnemyBulletsCleared}, retry=passed");
         return 0;
+    }
+
+    private static IReadOnlyList<StageDefinition> GetStageRoute(DefinitionCatalog definitions)
+    {
+        var stages = new List<StageDefinition>();
+        var stage = definitions.GetStage(definitions.Game.StageId);
+        while (true)
+        {
+            stages.Add(stage);
+            if (string.IsNullOrWhiteSpace(stage.NextStageId))
+            {
+                return stages;
+            }
+
+            stage = definitions.GetStage(stage.NextStageId);
+        }
     }
 
     private static string GetGameId(string[] args)

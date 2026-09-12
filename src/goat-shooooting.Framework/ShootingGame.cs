@@ -76,8 +76,12 @@ public sealed class ShootingGame : Game
             : _simulation.Status switch
             {
                 SimulationStatus.GameOver => $"goat-shooooting — GAME OVER — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
-                SimulationStatus.StageClear => $"goat-shooooting — STAGE CLEAR — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
-                _ => $"goat-shooooting — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — SCORE {_simulation.Telemetry.Score}"
+                SimulationStatus.StageClear => $"goat-shooooting — ALL STAGES CLEAR — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
+                _ when _simulation.Phase == StagePhase.Opening =>
+                    $"goat-shooooting — STAGE {_simulation.StageNumber:D2} — {_simulation.CurrentStage.Title}",
+                _ when _simulation.Phase == StagePhase.Results =>
+                    $"goat-shooooting — STAGE CLEAR — STAGE SCORE {_simulation.LastStageScore} — TOTAL {_simulation.Telemetry.Score}",
+                _ => $"goat-shooooting — STAGE {_simulation.StageNumber:D2} — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — SCORE {_simulation.Telemetry.Score}"
             };
         base.Update(gameTime);
     }
@@ -175,6 +179,11 @@ public sealed class ShootingGame : Game
             spriteBatch.Draw(pixel, scorePixel, new Color(255, 235, 84));
         }
 
+        if (_simulation.Status == SimulationStatus.Running && _simulation.Phase != StagePhase.Playing)
+        {
+            DrawStagePresentation(spriteBatch, pixel);
+        }
+
         spriteBatch.End();
         base.Draw(gameTime);
     }
@@ -227,6 +236,113 @@ public sealed class ShootingGame : Game
         {
             spriteBatch.Draw(pixel, rectangle, color);
         }
+    }
+
+    private void DrawStagePresentation(SpriteBatch spriteBatch, Texture2D pixel)
+    {
+        var playfield = _layout.Playfield;
+        var centerX = playfield.Center.X;
+        var centerY = playfield.Center.Y;
+        spriteBatch.Draw(pixel, playfield, new Color(3, 7, 16, 220));
+        spriteBatch.Draw(pixel, new Rectangle(playfield.Left + 48, centerY, playfield.Width - 96, 2),
+            new Color(68, 210, 255));
+        spriteBatch.Draw(pixel, new Rectangle(centerX - 1, centerY - 118, 2, 236),
+            new Color(68, 210, 255, 100));
+
+        if (_simulation.Phase == StagePhase.Opening)
+        {
+            var openingTitle = string.IsNullOrWhiteSpace(_simulation.CurrentStage.Title)
+                ? _simulation.CurrentStage.Id
+                : _simulation.CurrentStage.Title;
+            DrawCenteredPixelText(
+                spriteBatch,
+                pixel,
+                $"STAGE {_simulation.StageNumber:D2}",
+                centerX,
+                centerY - 92,
+                2,
+                new Color(160, 185, 210));
+            DrawCenteredPixelText(
+                spriteBatch,
+                pixel,
+                openingTitle,
+                centerX,
+                centerY - 42,
+                GetCenteredTextScale(openingTitle, playfield.Width - 64, 3),
+                Color.White);
+            if (!string.IsNullOrWhiteSpace(_simulation.CurrentStage.Subtitle))
+            {
+                DrawCenteredPixelText(
+                    spriteBatch,
+                    pixel,
+                    _simulation.CurrentStage.Subtitle,
+                    centerX,
+                    centerY + 30,
+                    1,
+                    new Color(255, 235, 84));
+            }
+
+            return;
+        }
+
+        DrawCenteredPixelText(spriteBatch, pixel, "STAGE CLEAR", centerX, centerY - 80, 3, Color.White);
+        DrawCenteredPixelText(
+            spriteBatch,
+            pixel,
+            $"STAGE SCORE {_simulation.LastStageScore:D8}",
+            centerX,
+            centerY - 12,
+            2,
+            new Color(255, 235, 84));
+        DrawCenteredPixelText(
+            spriteBatch,
+            pixel,
+            $"TOTAL SCORE {_simulation.Telemetry.Score:D8}",
+            centerX,
+            centerY + 28,
+            2,
+            new Color(68, 210, 255));
+        if (!string.IsNullOrWhiteSpace(_simulation.CurrentStage.NextStageId))
+        {
+            DrawCenteredPixelText(
+                spriteBatch,
+                pixel,
+                "NEXT STAGE",
+                centerX,
+                centerY + 88,
+                1,
+                new Color(160, 185, 210));
+        }
+    }
+
+    private static void DrawCenteredPixelText(
+        SpriteBatch spriteBatch,
+        Texture2D pixel,
+        string text,
+        int centerX,
+        int top,
+        int scale,
+        Color color)
+    {
+        var right = centerX + (PrimitiveRenderLayout.MeasurePixelText(text, scale).X / 2);
+        foreach (var rectangle in PrimitiveRenderLayout.ToPixelTextRectangles(text, right, top, scale))
+        {
+            spriteBatch.Draw(pixel, rectangle, color);
+        }
+    }
+
+    private static int GetCenteredTextScale(string text, int availableWidth, int preferredScale)
+    {
+        var displayText = string.IsNullOrWhiteSpace(text) ? "STAGE" : text;
+        for (var scale = preferredScale; scale > 1; scale--)
+        {
+            if (PrimitiveRenderLayout.MeasurePixelText(displayText, scale).X <= availableWidth)
+            {
+                return scale;
+            }
+        }
+
+        return 1;
     }
 
     protected override void Dispose(bool disposing)

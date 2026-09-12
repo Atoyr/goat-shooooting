@@ -27,7 +27,12 @@ public sealed class ContentPackIntegrationTests
         Assert.Equal("zigzag", sample.Definitions.GetEnemy("fighter-a").MovementPattern);
         Assert.Equal("double-washing-machine", sample.Definitions.GetWeapon("enemy-double-washer").FirePattern);
         Assert.Equal("washing-machine", gauntlet.Definitions.GetWeapon("gauntlet-washer").FirePattern);
+        Assert.Equal("THE SILENT HORIZON", sample.CurrentStage.Title);
+        Assert.Equal("stage-02", sample.CurrentStage.NextStageId);
+        Assert.True(sample.CurrentStage.Events.Single(static stageEvent => stageEvent.IsBoss).IsBoss);
 
+        sample.Update(3);
+        Assert.Equal(StagePhase.Playing, sample.Phase);
         sample.Update(3);
         gauntlet.Update(3);
 

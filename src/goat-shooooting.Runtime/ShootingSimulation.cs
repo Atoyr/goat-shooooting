@@ -10,6 +10,13 @@ public enum SimulationStatus
     GameOver
 }
 
+public enum StagePhase
+{
+    Opening,
+    Playing,
+    Results
+}
+
 /// <summary>Headless-capable composition root for the production game simulation.</summary>
 public sealed class ShootingSimulation
 {
@@ -32,6 +39,8 @@ public sealed class ShootingSimulation
     private readonly CleanupSystem _cleanupSystem = new();
     private StageSystem _stageSystem = null!;
     private bool _pauseWasPressed;
+    private double _phaseElapsed;
+    private int _stageStartScore;
 
     public ShootingSimulation(IDefinitionRepository definitionRepository, IInputState input)
     {
@@ -50,6 +59,12 @@ public sealed class ShootingSimulation
     public Entity Player { get; private set; }
     public SimulationTelemetry Telemetry { get; private set; }
     public double Elapsed => _stageSystem.Elapsed;
+    public StageDefinition CurrentStage { get; private set; } = null!;
+    public int StageNumber { get; private set; }
+    public StagePhase Phase { get; private set; }
+    public double PhaseElapsed => _phaseElapsed;
+    public int StageScore => Telemetry.Score - _stageStartScore;
+    public int LastStageScore { get; private set; }
     public SimulationStatus Status { get; private set; }
     public bool IsPaused { get; private set; }
     public SimulationFeedback Feedback { get; private set; }
@@ -95,6 +110,31 @@ public sealed class ShootingSimulation
             return;
         }
 
+        if (Phase == StagePhase.Opening)
+        {
+            _phaseElapsed += deltaTime;
+            if (_phaseElapsed >= CurrentStage.OpeningDuration)
+            {
+                Phase = StagePhase.Playing;
+                _phaseElapsed = 0;
+            }
+
+            return;
+        }
+
+        if (Phase == StagePhase.Results)
+        {
+            _feedbackSystem.Update(World, deltaTime);
+            _cleanupSystem.Update(World);
+            _phaseElapsed += deltaTime;
+            if (_phaseElapsed >= CurrentStage.ResultsDuration)
+            {
+                AdvanceStageOrFinish();
+            }
+
+            return;
+        }
+
         var damageBefore = Telemetry.DamageEventsApplied;
         var enemiesKilledBefore = Telemetry.EnemiesKilled;
         var playerDamageBefore = Telemetry.PlayerDamageEventsApplied;
@@ -131,9 +171,9 @@ public sealed class ShootingSimulation
         {
             Status = SimulationStatus.GameOver;
         }
-        else if (_stageSystem.IsComplete && !World.Query<EnemyComponent>().Any())
+        else if (_stageSystem.IsCleared(World, Telemetry))
         {
-            Status = SimulationStatus.StageClear;
+            BeginResults();
         }
     }
 
@@ -168,11 +208,70 @@ public sealed class ShootingSimulation
         World = new World();
         Player = new PlayerFactory().Create(World, Definitions.GetPlayer(Definitions.Game.PlayerId));
         Telemetry = new SimulationTelemetry();
-        _stageSystem = new StageSystem(Definitions.GetStage(Definitions.Game.StageId), new EnemyFactory());
         Status = SimulationStatus.Running;
         IsPaused = false;
         _pauseWasPressed = _input.Pause;
         _bombSystem.Reset(_input.Bomb);
         Feedback = default;
+        StageNumber = 0;
+        LastStageScore = 0;
+        StartStage(Definitions.Game.StageId);
+    }
+
+    private void BeginResults()
+    {
+        LastStageScore = StageScore;
+        Phase = StagePhase.Results;
+        _phaseElapsed = 0;
+        ClearStageEntities(keepEffects: true);
+        if (CurrentStage.ResultsDuration <= 0)
+        {
+            AdvanceStageOrFinish();
+        }
+    }
+
+    private void AdvanceStageOrFinish()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentStage.NextStageId))
+        {
+            Status = SimulationStatus.StageClear;
+            return;
+        }
+
+        StartStage(CurrentStage.NextStageId);
+    }
+
+    private void StartStage(string stageId)
+    {
+        ClearStageEntities(keepEffects: false);
+        CurrentStage = Definitions.GetStage(stageId);
+        StageNumber++;
+        _stageStartScore = Telemetry.Score;
+        _stageSystem = new StageSystem(CurrentStage, new EnemyFactory(), Telemetry.BossesKilled);
+        Phase = CurrentStage.OpeningDuration > 0 ? StagePhase.Opening : StagePhase.Playing;
+        _phaseElapsed = 0;
+
+        var playerDefinition = Definitions.GetPlayer(Definitions.Game.PlayerId);
+        Player.Get<TransformComponent>().Position = new System.Numerics.Vector2(playerDefinition.X, playerDefinition.Y);
+        Player.Get<VelocityComponent>().Value = System.Numerics.Vector2.Zero;
+        Player.Remove<HitFlashComponent>();
+        Player.Remove<PendingDestroyComponent>();
+        if (Player.TryGet<InvincibilityComponent>(out var invincibility))
+        {
+            invincibility.Remaining = 0;
+        }
+    }
+
+    private void ClearStageEntities(bool keepEffects)
+    {
+        foreach (var entity in World.Entities.ToArray())
+        {
+            if (entity.Has<PlayerComponent>() || (keepEffects && entity.Has<ExplosionComponent>()))
+            {
+                continue;
+            }
+
+            World.DestroyEntity(entity);
+        }
     }
 }

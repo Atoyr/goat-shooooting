@@ -35,6 +35,46 @@ public sealed class SimulationIntegrationTests
     }
 
     [Fact]
+    public void BossDefeatShowsResultsThenStartsNextStageWithRunStatePreserved()
+    {
+        var input = new MutableInputState { Fire = true };
+        var simulation = new ShootingSimulation(
+            new MemoryDefinitionRepository(CreateStageFlowDefinitions()),
+            input);
+
+        Assert.Equal(StagePhase.Opening, simulation.Phase);
+        Assert.Equal("OPENING", simulation.CurrentStage.Title);
+        Assert.Empty(simulation.World.Query<EnemyComponent>());
+
+        simulation.Update(1);
+        Assert.Equal(StagePhase.Playing, simulation.Phase);
+        simulation.Update(0);
+        Assert.True(Assert.Single(simulation.World.Query<EnemyComponent>()).Has<BossComponent>());
+
+        for (var frame = 0; frame < 300 && simulation.Phase == StagePhase.Playing; frame++)
+        {
+            simulation.Update(1f / 60f);
+        }
+
+        Assert.Equal(StagePhase.Results, simulation.Phase);
+        Assert.Equal(SimulationStatus.Running, simulation.Status);
+        Assert.Equal(100, simulation.LastStageScore);
+        Assert.Equal(100, simulation.Telemetry.Score);
+        Assert.Equal(1, simulation.Telemetry.BossesKilled);
+        Assert.Empty(simulation.World.Query<EnemyComponent>());
+
+        var remainingLives = simulation.Player.Get<LivesComponent>().Remaining;
+        simulation.Update(2);
+
+        Assert.Equal(2, simulation.StageNumber);
+        Assert.Equal("stage-02", simulation.CurrentStage.Id);
+        Assert.Equal(StagePhase.Opening, simulation.Phase);
+        Assert.Equal(100, simulation.Telemetry.Score);
+        Assert.Equal(remainingLives, simulation.Player.Get<LivesComponent>().Remaining);
+        Assert.Empty(simulation.World.Query<EnemyComponent>());
+    }
+
+    [Fact]
     public void EnemyFireCausesGameOverAndRetryStartsFreshRun()
     {
         var input = new MutableInputState();
@@ -230,6 +270,42 @@ public sealed class SimulationIntegrationTests
                             Time = spawnTime, Type = "spawn-enemy", EnemyId = "enemy", X = 0, Y = 100
                         }
                     }
+                }
+            });
+    }
+
+    private static DefinitionCatalog CreateStageFlowDefinitions()
+    {
+        var baseline = CreateDefinitions(spawnTime: 0, enemyHp: 10, enemySpeed: 0);
+        return new DefinitionCatalog(
+            baseline.Game with { StageId = "stage-01" },
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            baseline.Bullets.Values,
+            baseline.Weapons.Values,
+            new[]
+            {
+                new StageDefinition
+                {
+                    Id = "stage-01",
+                    Title = "OPENING",
+                    OpeningDuration = 1,
+                    ResultsDuration = 2,
+                    NextStageId = "stage-02",
+                    Events = new[]
+                    {
+                        new StageEventDefinition
+                        {
+                            Time = 0, Type = "spawn-enemy", EnemyId = "enemy", X = 0, Y = 100,
+                            IsBoss = true
+                        }
+                    }
+                },
+                new StageDefinition
+                {
+                    Id = "stage-02",
+                    Title = "NEXT",
+                    OpeningDuration = 1
                 }
             });
     }

@@ -437,6 +437,11 @@ dotnet build goat-shooooting.sln</code></pre>
         <h2>StageでWaveを組む</h2>
         <pre><code class="language-json">{
   "id": "stage-01",
+  "title": "THE SILENT HORIZON",
+  "subtitle": "IDEAL RELEASE",
+  "openingDuration": 3,
+  "resultsDuration": 4,
+  "nextStageId": "stage-02",
   "events": [
     {
       "time": 3,
@@ -447,9 +452,30 @@ dotnet build goat-shooooting.sln</code></pre>
       "count": 2,
       "spawnInterval": 0.25,
       "spacingX": 320
+    },
+    {
+      "time": 60,
+      "type": "spawn-enemy",
+      "enemyId": "midboss",
+      "x": 400,
+      "y": 90,
+      "isBoss": true
     }
   ]
 }</code></pre>
+        <div class="gameplay-demo">
+          <a href="./assets/stage-flow.gif" aria-label="ステージ開始からボス撃破、リザルト、次ステージ開始までのGIFを原寸で開く">
+            <img src="./assets/stage-flow.gif" width="624" height="440" loading="lazy" alt="STAGE 01のタイトル表示、ボス戦、ステージスコアと累計スコアのリザルト、STAGE 02のタイトル表示へ遷移するサンプル動画">
+          </a>
+          <p>開始演出中とリザルト中は戦闘が停止します。次ステージでは残機・ボム・累計スコアを引き継ぎます。</p>
+        </div>
+        <dl class="field-list compact">
+          <div><dt>title / subtitle</dt><dd>開始演出へ表示するタイトルと短い副題。</dd></div>
+          <div><dt>openingDuration</dt><dd>タイトル演出の秒数。省略時は0。</dd></div>
+          <div><dt>resultsDuration</dt><dd>ボス撃破後にステージ別／累計スコアを表示する秒数。</dd></div>
+          <div><dt>nextStageId</dt><dd>リザルト後に開始するStage。省略したStageで全ステージクリア。</dd></div>
+          <div><dt>isBoss</dt><dd>trueのイベントで出現した敵をすべて倒すとリザルトへ進む。</dd></div>
+        </dl>
         <div class="timeline-demo" aria-label="Stageイベントの時間イメージ">
           <span>0s</span><i style="--at: 15%">Scout ×2</i><i style="--at: 48%">Fighter</i><i style="--at: 84%">Boss</i><span>60s</span>
         </div>
@@ -461,6 +487,7 @@ dotnet build goat-shooooting.sln</code></pre>
           <div><dt>spawnInterval</dt><dd>2体目以降を時間差で出す間隔。</dd></div>
           <div><dt>spacingX</dt><dd>2体目以降へ加算する横間隔。</dd></div>
         </dl>
+        <aside class="callout info"><strong>Stageを連結する</strong><span><code>stage-01.json</code> の <code>nextStageId</code> を <code>stage-02</code> にし、<code>stages/stage-02.json</code> を追加します。存在しないID、自己参照、循環するStage経路は起動時の検証で失敗します。</span></aside>
       </section>
 
       <section class="searchable" id="boss-tutorial">
@@ -489,7 +516,8 @@ dotnet build goat-shooooting.sln</code></pre>
   "type": "spawn-enemy",
   "enemyId": "homing-boss",
   "x": 400,
-  "y": 100
+  "y": 100,
+  "isBoss": true
 }</code></pre></div></article>
           <article class="step-card"><span class="step-number">5</span><div><h3>検証して試す</h3><pre><code>dotnet run --project src/goat-shooooting.Tooling -- validate games/sample
 dotnet run --project src/goat-shooooting.SampleGame</code></pre></div></article>
@@ -589,6 +617,7 @@ Input → ShootingSimulation → System更新 → RenderSystem snapshot → Mono
           <article><time>STEP 2</time><div><h3>スコアHUD</h3><p>画像フォントを必要としない5×7ピクセル文字で、スコアをゲーム画面へ表示。</p></div></article>
           <article><time>STEP 3</time><div><h3>画面レイアウト</h3><p>full、東方型2分割、怒首領蜂型3分割を追加。プレイ座標を維持したままHUDパネルを外側へ配置。</p></div></article>
           <article><time>STEP 4</time><div><h3>制作マニュアル</h3><p>操作、Definition、実践手順、拡張方法をGitHub Pagesへまとめ、自動公開を設定。</p></div></article>
+          <article><time>STEP 5</time><div><h3>マルチステージ進行</h3><p>タイトル演出、ボス撃破リザルト、ステージ別／累計スコア、次Stageへの自動遷移をDefinition化。</p></div></article>
         </div>
       </section>
 
