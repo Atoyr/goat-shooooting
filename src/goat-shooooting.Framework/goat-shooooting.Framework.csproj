@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\goat-shooooting.Core\goat-shooooting.Core.csproj" />
     <ProjectReference Include="..\goat-shooooting.Definitions\goat-shooooting.Definitions.csproj" />
+    <ProjectReference Include="..\goat-shooooting.Platform\goat-shooooting.Platform.csproj" />
     <ProjectReference Include="..\goat-shooooting.Runtime\goat-shooooting.Runtime.csproj" />
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.5.1" />
   </ItemGroup>

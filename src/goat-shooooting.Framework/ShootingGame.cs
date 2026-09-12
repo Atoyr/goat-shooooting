@@ -10,7 +10,7 @@ namespace GoatShooooting.Framework;
 public sealed class ShootingGame : Game
 {
     private readonly GraphicsDeviceManager _graphics;
-    private readonly KeyboardInputState _input = new();
+    private readonly GameInputState _input = new();
     private readonly StartupMenu _startupMenu = new();
     private readonly ShootingSimulation _simulation;
     private readonly RenderSystem _renderSystem = new();
@@ -19,6 +19,7 @@ public sealed class ShootingGame : Game
     private Texture2D? _pixel;
     private GameAudio? _audio;
     private float _shakeRemaining;
+    private bool _showControllerDisconnectedMessage;
 
     public ShootingGame(IDefinitionRepository definitionRepository)
     {
@@ -54,10 +55,16 @@ public sealed class ShootingGame : Game
 
         if (_startupMenu.IsOpen)
         {
+            if (_input.CancelPressed)
+            {
+                Exit();
+                return;
+            }
+
             var action = _startupMenu.Update(
-                _input.MenuUpPressed,
-                _input.MenuDownPressed,
-                _input.MenuConfirmPressed);
+                _input.UpPressed,
+                _input.DownPressed,
+                _input.ConfirmPressed);
             if (action == StartupMenuAction.Quit)
             {
                 Exit();
@@ -69,6 +76,20 @@ public sealed class ShootingGame : Game
                 : "goat-shooooting — START MENU — Up/Down select, Enter confirms";
             base.Update(gameTime);
             return;
+        }
+
+        if (_input.GamePadDisconnectedThisFrame)
+        {
+            _showControllerDisconnectedMessage = true;
+            if (!_simulation.IsPaused)
+            {
+                _input.RequestPause();
+            }
+        }
+
+        if (_input.IsGamePadConnected || _input.KeyboardInputDetected)
+        {
+            _showControllerDisconnectedMessage = false;
         }
 
         var deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -89,14 +110,16 @@ public sealed class ShootingGame : Game
             _shakeRemaining = Math.Max(_shakeRemaining, 0.12f);
         }
 
-        Window.Title = _simulation.DefinitionReloadError is not null
+        Window.Title = _showControllerDisconnectedMessage
+            ? "goat-shooooting — CONTROLLER DISCONNECTED — reconnect or use keyboard"
+            : _simulation.DefinitionReloadError is not null
             ? $"goat-shooooting — DEFINITION ERROR — {_simulation.DefinitionReloadError}"
             : _simulation.IsPaused
-            ? $"goat-shooooting — PAUSED — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — P to resume"
+            ? $"goat-shooooting — PAUSED — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — P/START to resume"
             : _simulation.Status switch
             {
-                SimulationStatus.GameOver => $"goat-shooooting — GAME OVER — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
-                SimulationStatus.StageClear => $"goat-shooooting — ALL STAGES CLEAR — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
+                SimulationStatus.GameOver => $"goat-shooooting — GAME OVER — SCORE {_simulation.Telemetry.Score} — R/ENTER/A to retry",
+                SimulationStatus.StageClear => $"goat-shooooting — ALL STAGES CLEAR — SCORE {_simulation.Telemetry.Score} — R/ENTER/A to retry",
                 _ when _simulation.Phase == StagePhase.Opening =>
                     $"goat-shooooting — STAGE {_simulation.StageNumber:D2} — {_simulation.CurrentStage.Title}",
                 _ when _simulation.Phase == StagePhase.Results =>
@@ -251,7 +274,9 @@ public sealed class ShootingGame : Game
         DrawCenteredPixelText(
             spriteBatch,
             pixel,
-            "UP DOWN SELECT  ENTER CONFIRM",
+            _input.ActiveDevice == ActiveInputDevice.GamePad
+                ? "D PAD SELECT  A CONFIRM  B BACK"
+                : "UP DOWN SELECT  ENTER CONFIRM",
             centerX,
             centerY + 94,
             1,
