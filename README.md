@@ -24,6 +24,14 @@ dotnet build
 dotnet test
 ```
 
+Steam Depotへ配置できるwin-x64 self-contained成果物、ZIP、SHA-256、シンボルを一括生成する場合:
+
+```powershell
+./build/Publish-Game.ps1
+```
+
+成果物は`artifacts/publish/win-x64`、配布ZIPは`artifacts/packages`へ生成されます。スクリプトはReleaseの全テスト、両Definition検証、公開exeからの両smoke test、開発ファイル混入チェックを実行します。
+
 テストには ECS の基本操作、各 System の単体テスト、JSON 検証、Definition 変更テスト、ゲーム全経路の End-to-End Integration Test が含まれます。
 
 Definitionだけを検証する場合:

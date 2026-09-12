@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  package-win-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Select version
+        id: version
+        shell: pwsh
+        run: |
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            "value=$('${{ github.ref_name }}'.TrimStart('v'))" >> $env:GITHUB_OUTPUT
+          }
+          else {
+            "value=0.1.0-ci.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Build, test, and package
+        shell: pwsh
+        run: ./build/Publish-Game.ps1 -Version '${{ steps.version.outputs.value }}'
+
+      - name: Upload game package
+        uses: actions/upload-artifact@v4
+        with:
+          name: goat-shooooting-${{ steps.version.outputs.value }}-win-x64
+          path: |
+            artifacts/packages/*.zip
+            artifacts/packages/*.sha256
+          if-no-files-found: error
+
+      - name: Upload symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: goat-shooooting-${{ steps.version.outputs.value }}-symbols
+          path: artifacts/symbols/*.zip
+          if-no-files-found: error

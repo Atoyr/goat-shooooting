@@ -1,13 +1,22 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <AssemblyName>GoatShooooting</AssemblyName>
+    <Product>Goat Shooooting</Product>
+    <Company>Atoyr</Company>
+    <Copyright>Copyright © 2026 Atoyr</Copyright>
+    <ApplicationIcon>goat-shooooting.ico</ApplicationIcon>
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>false</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\goat-shooooting.Definitions\goat-shooooting.Definitions.csproj" />
     <ProjectReference Include="..\goat-shooooting.Framework\goat-shooooting.Framework.csproj" />
     <ProjectReference Include="..\goat-shooooting.Platform\goat-shooooting.Platform.csproj" />
     <ProjectReference Include="..\goat-shooooting.Runtime\goat-shooooting.Runtime.csproj" />
-    <Content Include="..\..\games\sample\**\*.json" Link="games\sample\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\..\games\gauntlet\**\*.json" Link="games\gauntlet\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\games\sample\**\*.json" Link="games\sample\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\games\gauntlet\**\*.json" Link="games\gauntlet\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="..\..\THIRD-PARTY-NOTICES.txt" Link="THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
