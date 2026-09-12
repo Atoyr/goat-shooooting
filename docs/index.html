@@ -31,8 +31,11 @@
   <div class="page-shell" id="top">
     <aside class="sidebar" aria-label="マニュアル目次">
       <nav>
-        <p class="nav-label">はじめる</p>
-        <a href="#overview">この基盤でできること</a>
+        <p class="nav-label">まず知る</p>
+        <a href="#overview">概要</a>
+        <a href="#capabilities">できること</a>
+
+        <p class="nav-label">詳細ガイド</p>
         <a href="#setup">セットアップ</a>
         <a href="#play">起動と操作</a>
         <a href="#workflow">制作の基本手順</a>
@@ -57,24 +60,50 @@
         <a href="#extend">新しい挙動を追加する</a>
         <a href="#history">ここまでに追加した機能</a>
         <a href="#troubleshooting">トラブルシューティング</a>
-        <a href="#pages">このサイトの公開方法</a>
       </nav>
     </aside>
 
     <main id="manual">
       <section class="hero searchable" id="overview">
-        <div class="eyebrow">GAME CREATION MANUAL / JSON-FIRST SHOOTING KIT</div>
-        <h1>弾幕を考えたら、<br><span>JSONに落としてすぐ試す。</span></h1>
-        <p class="hero-copy">goat-shooootingは、敵・弾・武器・Wave・画面構成をDefinitionとして組み替えられる、小さな2Dシューティング基盤です。このマニュアルは、初回起動から独自ボスの制作、エンジン拡張、公開までを順番に案内します。</p>
+        <div class="eyebrow">QUICK OVERVIEW / JSON-FIRST SHOOTING KIT</div>
+        <h1>この基盤で、<br><span>何ができる？</span></h1>
+        <p class="hero-copy">goat-shooootingは、敵・弾・武器・Wave・画面構成をJSONで組み替え、すぐに試せる小さな2Dシューティング基盤です。まず機能の全体像を確認し、必要な項目だけ詳細ガイドで調べられます。</p>
         <div class="hero-actions">
-          <a class="button primary" href="#setup">5分で起動する</a>
-          <a class="button secondary" href="#boss-tutorial">ボスを作る</a>
+          <a class="button primary" href="#capabilities">1分で機能を見る</a>
+          <a class="button secondary" href="#setup">詳細ガイドへ</a>
         </div>
         <div class="status-grid" aria-label="対応機能">
           <div><strong>3</strong><span>画面レイアウト</span></div>
           <div><strong>3</strong><span>弾幕パターン</span></div>
           <div><strong>2</strong><span>弾の移動方式</span></div>
           <div><strong>0</strong><span>必須画像アセット</span></div>
+        </div>
+      </section>
+
+      <section class="searchable" id="capabilities">
+        <div class="section-kicker">QUICK GUIDE / WHAT YOU CAN DO</div>
+        <h2>端的に、できること</h2>
+        <p class="lead">コードを変更せずにゲーム内容を調整でき、必要になればエンジン側も拡張できます。</p>
+
+        <div class="capability-grid">
+          <article><strong>遊ぶ</strong><p>プレイヤーを操作し、射撃・ボム・ポーズ・リトライを備えた2Dシューティングを実行できます。</p></article>
+          <article><strong>ゲーム内容を作る</strong><p>JSONでPlayer、Enemy、Bullet、Weapon、Stageを定義し、独自のコンテンツパックを作れます。</p></article>
+          <article><strong>動きと弾幕を組む</strong><p>直進・サイン・ジグザグ移動、追尾弾、扇状・洗濯機系弾幕を組み合わせられます。</p></article>
+          <article><strong>Waveとボス戦を作る</strong><p>敵の出現時刻・位置・編隊を指定し、ボス撃破を起点に複数ステージを進行できます。</p></article>
+          <article><strong>画面を見ながら調整する</strong><p>ブラウザEditorのプレビューとホットリロードで、Definitionを起動中のゲームへ反映できます。</p></article>
+          <article><strong>自動で検証する</strong><p>Definition検証、単体・統合テスト、画面不要のsmoke testでゲーム全体の経路を確認できます。</p></article>
+        </div>
+
+        <aside class="callout warning"><strong>現在の対象外</strong><span>ネットワーク対戦、セーブ、独自スクリプト言語、3D、高度なECS最適化は含みません。</span></aside>
+
+        <h3>詳しく知りたいことから選ぶ</h3>
+        <div class="detail-index">
+          <a href="#setup"><strong>まず動かす</strong><span>セットアップと起動方法</span></a>
+          <a href="#workflow"><strong>ゲームを作る</strong><span>Definition制作の基本手順</span></a>
+          <a href="#definition-map"><strong>項目を調べる</strong><span>各JSONの仕様とつながり</span></a>
+          <a href="#editor"><strong>画面で編集する</strong><span>Editorとホットリロード</span></a>
+          <a href="#architecture"><strong>コードを拡張する</strong><span>責務と実装の追加方法</span></a>
+          <a href="#troubleshooting"><strong>問題を解決する</strong><span>よくあるエラーと対処</span></a>
         </div>
       </section>
 
@@ -616,7 +645,7 @@ Input → ShootingSimulation → System更新 → RenderSystem snapshot → Mono
           <article><time>STEP 1</time><div><h3>弾幕のバリエーション</h3><p>追尾弾、左右反転する洗濯機、逆回転する二層式洗濯機を追加。敵の <code>weaponId</code> だけで使い分け可能に。</p></div></article>
           <article><time>STEP 2</time><div><h3>スコアHUD</h3><p>画像フォントを必要としない5×7ピクセル文字で、スコアをゲーム画面へ表示。</p></div></article>
           <article><time>STEP 3</time><div><h3>画面レイアウト</h3><p>full、東方型2分割、怒首領蜂型3分割を追加。プレイ座標を維持したままHUDパネルを外側へ配置。</p></div></article>
-          <article><time>STEP 4</time><div><h3>制作マニュアル</h3><p>操作、Definition、実践手順、拡張方法をGitHub Pagesへまとめ、自動公開を設定。</p></div></article>
+          <article><time>STEP 4</time><div><h3>制作マニュアル</h3><p>操作、Definition、実践手順、拡張方法を目的別に確認できるマニュアルを整備。</p></div></article>
           <article><time>STEP 5</time><div><h3>マルチステージ進行</h3><p>タイトル演出、ボス撃破リザルト、ステージ別／累計スコア、次Stageへの自動遷移をDefinition化。</p></div></article>
         </div>
       </section>
@@ -631,23 +660,6 @@ Input → ShootingSimulation → System更新 → RenderSystem snapshot → Mono
         <details><summary>二層式で弾が多すぎる</summary><p>二層式の同時弾数は腕数の2倍です。<code>projectileCount</code> を1へ下げるか、<code>cooldown</code> を長くしてください。</p></details>
         <details><summary>JSONを保存しても反映されない</summary><p>不正なDefinitionは最後の正常状態へロールバックされます。ウィンドウタイトルのDEFINITION ERROR、またはToolingの <code>validate</code> 結果を確認してください。</p></details>
         <details><summary>MonoGameのウィンドウを開けない</summary><p>OpenGL対応環境を確認してください。CIやGUIのない環境では <code>--smoke-test</code> を使えます。</p></details>
-      </section>
-
-      <section class="searchable" id="pages">
-        <div class="section-kicker">19 / GITHUB PAGES</div>
-        <h2>このマニュアルを公開・更新する</h2>
-        <p>このサイトは <code>docs/</code> 内のHTML、CSS、JavaScriptだけで動作します。<code>main</code> へpushすると <code>.github/workflows/pages.yml</code> が静的ファイルをartifact化し、GitHub Pagesへデプロイします。</p>
-        <ol class="check-list">
-          <li>GitHubのリポジトリで <strong>Settings → Pages</strong> を開く。</li>
-          <li><strong>Build and deployment → Source</strong> を <strong>GitHub Actions</strong> にする。</li>
-          <li>この変更を <code>main</code> へpushする。</li>
-          <li><strong>Actions → Deploy manual to GitHub Pages</strong> の完了を待つ。</li>
-          <li><code>https://atoyr.github.io/goat-shooooting/</code> を開く。</li>
-        </ol>
-        <pre><code>git add docs .github/workflows/pages.yml README.md
-git commit -m "docs: add game creation manual"
-git push origin main</code></pre>
-        <aside class="callout info"><strong>更新方法</strong><span><code>docs/index.html</code> を編集してmainへpushするだけです。ビルドツールやnpm installは不要です。</span></aside>
       </section>
 
       <section class="no-results" hidden>
