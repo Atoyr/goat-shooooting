@@ -11,6 +11,7 @@ public sealed class ShootingGame : Game
 {
     private readonly GraphicsDeviceManager _graphics;
     private readonly KeyboardInputState _input = new();
+    private readonly StartupMenu _startupMenu = new();
     private readonly ShootingSimulation _simulation;
     private readonly RenderSystem _renderSystem = new();
     private GameScreenLayout _layout;
@@ -31,7 +32,7 @@ public sealed class ShootingGame : Game
         };
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
-        Window.Title = "goat-shooooting — WASD/Arrows move, Z/Space fire, X/Shift bomb, Esc quits";
+        Window.Title = "goat-shooooting — START MENU";
     }
 
     protected override void LoadContent()
@@ -48,6 +49,25 @@ public sealed class ShootingGame : Game
         if (_input.QuitRequested)
         {
             Exit();
+            return;
+        }
+
+        if (_startupMenu.IsOpen)
+        {
+            var action = _startupMenu.Update(
+                _input.MenuUpPressed,
+                _input.MenuDownPressed,
+                _input.MenuConfirmPressed);
+            if (action == StartupMenuAction.Quit)
+            {
+                Exit();
+                return;
+            }
+
+            Window.Title = action == StartupMenuAction.StartGame
+                ? "goat-shooooting — WASD/Arrows move, Z/Space fire, X/Shift bomb, Esc quits"
+                : "goat-shooooting — START MENU — Up/Down select, Enter confirms";
+            base.Update(gameTime);
             return;
         }
 
@@ -88,6 +108,13 @@ public sealed class ShootingGame : Game
 
     protected override void Draw(GameTime gameTime)
     {
+        if (_startupMenu.IsOpen)
+        {
+            DrawStartupMenu();
+            base.Draw(gameTime);
+            return;
+        }
+
         GraphicsDevice.Clear(_simulation.IsPaused ? new Color(20, 20, 28) : _simulation.Status switch
         {
             SimulationStatus.GameOver => new Color(38, 8, 16),
@@ -186,6 +213,76 @@ public sealed class ShootingGame : Game
 
         spriteBatch.End();
         base.Draw(gameTime);
+    }
+
+    private void DrawStartupMenu()
+    {
+        GraphicsDevice.Clear(new Color(5, 9, 20));
+        var spriteBatch = _spriteBatch ?? throw new InvalidOperationException("Content has not been loaded.");
+        var pixel = _pixel ?? throw new InvalidOperationException("Content has not been loaded.");
+        var window = _layout.Window;
+        var centerX = window.Center.X;
+        var centerY = window.Center.Y;
+
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+        spriteBatch.Draw(
+            pixel,
+            new Rectangle(centerX - 210, centerY - 170, 420, 300),
+            new Color(10, 20, 40));
+        spriteBatch.Draw(
+            pixel,
+            new Rectangle(centerX - 210, centerY - 170, 420, 3),
+            new Color(68, 210, 255));
+        DrawCenteredPixelText(spriteBatch, pixel, "GOAT-SHOOOOTING", centerX, centerY - 120, 3, Color.White);
+        DrawMenuOption(
+            spriteBatch,
+            pixel,
+            "START GAME",
+            centerX,
+            centerY - 28,
+            _startupMenu.Selection == StartupMenuSelection.StartGame);
+        DrawMenuOption(
+            spriteBatch,
+            pixel,
+            "QUIT",
+            centerX,
+            centerY + 28,
+            _startupMenu.Selection == StartupMenuSelection.Quit);
+        DrawCenteredPixelText(
+            spriteBatch,
+            pixel,
+            "UP DOWN SELECT  ENTER CONFIRM",
+            centerX,
+            centerY + 94,
+            1,
+            new Color(160, 185, 210));
+        spriteBatch.End();
+    }
+
+    private static void DrawMenuOption(
+        SpriteBatch spriteBatch,
+        Texture2D pixel,
+        string text,
+        int centerX,
+        int top,
+        bool selected)
+    {
+        if (selected)
+        {
+            spriteBatch.Draw(
+                pixel,
+                new Rectangle(centerX - 120, top - 11, 240, 36),
+                new Color(25, 68, 100));
+        }
+
+        DrawCenteredPixelText(
+            spriteBatch,
+            pixel,
+            text,
+            centerX,
+            top,
+            2,
+            selected ? new Color(255, 235, 84) : new Color(160, 185, 210));
     }
 
     private void ApplyLayoutChanges()

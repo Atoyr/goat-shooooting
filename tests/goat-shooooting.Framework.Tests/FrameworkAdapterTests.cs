@@ -23,6 +23,48 @@ public sealed class FrameworkAdapterTests
         Assert.True(input.Retry);
         Assert.True(input.Pause);
         Assert.True(input.QuitRequested);
+        Assert.True(input.MenuUpPressed);
+        Assert.True(input.MenuConfirmPressed);
+    }
+
+    [Fact]
+    public void KeyboardAdapterReportsMenuInputOnlyOnNewPress()
+    {
+        var input = new KeyboardInputState();
+
+        input.Apply(new[] { Keys.Down, Keys.Enter });
+        Assert.True(input.MenuDownPressed);
+        Assert.True(input.MenuConfirmPressed);
+
+        input.Apply(new[] { Keys.Down, Keys.Enter });
+        Assert.False(input.MenuDownPressed);
+        Assert.False(input.MenuConfirmPressed);
+
+        input.Apply([]);
+        input.Apply(new[] { Keys.Down, Keys.Enter });
+        Assert.True(input.MenuDownPressed);
+        Assert.True(input.MenuConfirmPressed);
+    }
+
+    [Fact]
+    public void StartupMenuSelectsQuitAndConfirmsIt()
+    {
+        var menu = new StartupMenu();
+
+        Assert.Equal(StartupMenuAction.None, menu.Update(false, true, false));
+        Assert.Equal(StartupMenuSelection.Quit, menu.Selection);
+        Assert.Equal(StartupMenuAction.Quit, menu.Update(false, false, true));
+        Assert.True(menu.IsOpen);
+    }
+
+    [Fact]
+    public void StartupMenuStartsGameWithDefaultSelection()
+    {
+        var menu = new StartupMenu();
+
+        Assert.Equal(StartupMenuAction.StartGame, menu.Update(false, false, true));
+        Assert.False(menu.IsOpen);
+        Assert.Equal(StartupMenuAction.None, menu.Update(false, true, true));
     }
 
     [Fact]

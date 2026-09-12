@@ -49,6 +49,8 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 
 操作:
 
+- 起動メニューの Up / Down または W / S: 項目選択
+- 起動メニューの Enter / Z / Space: 決定
 - Arrow / WASD: Player 移動
 - Z / Space: 発射
 - X / Shift: ボム
