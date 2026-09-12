@@ -18,6 +18,23 @@ public sealed class HealthComponent(int maximum)
     public int Current { get; set; } = maximum;
 }
 
+public sealed class LivesComponent(int initialLives)
+{
+    public int Initial { get; } = initialLives > 0
+        ? initialLives
+        : throw new ArgumentOutOfRangeException(nameof(initialLives));
+    public int Remaining { get; set; } = initialLives;
+}
+
+public sealed class BombComponent(int initialBombs, int damage)
+{
+    public int Initial { get; } = initialBombs >= 0
+        ? initialBombs
+        : throw new ArgumentOutOfRangeException(nameof(initialBombs));
+    public int Remaining { get; set; } = initialBombs;
+    public int Damage { get; } = damage > 0 ? damage : throw new ArgumentOutOfRangeException(nameof(damage));
+}
+
 public sealed class DamageComponent(int value)
 {
     public int Value { get; } = value > 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));

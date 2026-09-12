@@ -39,7 +39,7 @@ public sealed class CollisionAndDamageTests
     }
 
     [Fact]
-    public void EnemyBulletCanKillPlayerAndRecordsPlayerDamage()
+    public void EnemyBulletConsumesLastLifeAndRecordsPlayerDamage()
     {
         var world = new World();
         var bullet = world.CreateEntity()
@@ -50,7 +50,7 @@ public sealed class CollisionAndDamageTests
         var player = world.CreateEntity()
             .Add(new TransformComponent(Vector2.Zero))
             .Add(new ColliderComponent(10, CollisionLayer.Player))
-            .Add(new HealthComponent(10))
+            .Add(new LivesComponent(1))
             .Add(new PlayerComponent("player", 100));
         var telemetry = new SimulationTelemetry();
 

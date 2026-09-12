@@ -51,11 +51,12 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 
 - Arrow / WASD: Player 移動
 - Z / Space: 発射
+- X / Shift: ボム
 - P: ポーズ／再開
 - R / Enter: Game Over／Stage Clear後にリトライ
 - Esc: 終了
 
-約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Scoutは直進弾、Fighterは追尾弾、Midbossは二層式洗濯機弾幕を使用します。PlayerのHPが0になるとGame Over、Player BulletでEnemyをすべて倒すとStage Clearです。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。HPバーはプレイ領域左上、スコアは設定した位置へ常時表示され、現在HP・スコア・Pause／終了状態はウィンドウタイトルにも表示されます。
+約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Scoutは直進弾、Fighterは追尾弾、Midbossは二層式洗濯機弾幕を使用します。被弾するたびに残機が1減り、0になるとGame Over、Player BulletでEnemyをすべて倒すとStage Clearです。ボムは全Enemyへ一斉にダメージを与え、画面内のEnemy Bulletを消去します。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。残機・ボム数はプレイ領域左上、スコアは設定した位置へ常時表示され、現在の残機・ボム数・スコア・Pause／終了状態はウィンドウタイトルにも表示されます。
 
 画面を使わない smoke test:
 
@@ -118,7 +119,7 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 サンプルの定義は [`games/sample`](games/sample) にあります。
 
 - `game.json`: 使用する `playerId`、`stageId`、プレイ領域サイズ、画面レイアウト、スコア位置
-- `player.json`: HP、移動速度、初期位置、Collider 半径、被弾後の無敵時間、Weapon 参照
+- `player.json`: 残機、ボム数と威力、移動速度、初期位置、Collider 半径、被弾後の無敵時間、Weapon 参照
 - `enemies/*.json`: Enemy の HP、移動速度、Collider 半径、スコア、任意の Weapon 参照、`straight`／`sine`移動
 - `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime、`straight`／`homing`移動
 - `weapons/*.json`: Bullet 参照、cooldown、弾数と`spread`／`washing-machine`／`double-washing-machine`弾幕
@@ -206,9 +207,9 @@ Enemy の `weaponId` にこの Weapon ID を指定するだけで、敵ごとに
 
 - **Definition**: immutable-style record による静的設定。Runtime state は保持しません。
 - **Factory**: `PlayerFactory`、`EnemyFactory`、`BulletFactory` が Definition を Entity＋Component へ変換します。
-- **Entity / Component**: 継承階層を使わない composition model です。`Transform`、`Velocity`、`Health`、`Damage`、`Collider`、marker、Weapon、Lifetime を World が管理します。
-- **System**: 入力、射撃、移動、境界、Stage、Collision、Damage、無敵時間、Feedback、Lifetime、Cleanup、Renderをそれぞれ独立したSystemが処理します。
+- **Entity / Component**: 継承階層を使わない composition model です。`Transform`、`Velocity`、`Lives`、`Bomb`、`Health`、`Damage`、`Collider`、marker、Weapon、Lifetime を World が管理します。
+- **System**: 入力、射撃、ボム、移動、境界、Stage、Collision、Damage、無敵時間、Feedback、Lifetime、Cleanup、Renderをそれぞれ独立したSystemが処理します。
 - **Runtime**: `ShootingSimulation.Update(deltaTime)` が production実行順序、Pause、`Running`／`StageClear`／`GameOver` の状態遷移、リトライ時のWorld再構築を統括します。1フレーム単位の `SimulationFeedback` は描画APIに依存しません。
-- **Framework**: `KeyboardInputState`、`ShootingGame`、手続き生成音を扱う`GameAudio`だけがMonoGame APIを扱います。RenderSystemはrenderer-neutralなsnapshotを返し、Frameworkがフラッシュ、爆発、画面揺れ、HPバーと状態表示へ変換します。
+- **Framework**: `KeyboardInputState`、`ShootingGame`、手続き生成音を扱う`GameAudio`だけがMonoGame APIを扱います。RenderSystemはrenderer-neutralなsnapshotを返し、Frameworkがフラッシュ、爆発、画面揺れ、残機・ボム数と状態表示へ変換します。
 
 現在の範囲はPlayer／Enemyによる射撃、直進／サイン移動、追尾弾、扇状／洗濯機系弾幕、Wave、Damage／Death、勝敗とリトライ、Definition制作支援までです。networking、save、独自Script言語や高度なECS最適化は含みません。

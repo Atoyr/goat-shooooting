@@ -24,6 +24,7 @@ public sealed class ShootingSimulation
     private readonly OutOfBoundsSystem _outOfBoundsSystem = new();
     private readonly CollisionSystem _collisionSystem = new();
     private readonly BulletHitSystem _bulletHitSystem = new();
+    private readonly BombSystem _bombSystem = new();
     private readonly DamageSystem _damageSystem = new();
     private readonly InvincibilitySystem _invincibilitySystem = new();
     private readonly FeedbackSystem _feedbackSystem = new();
@@ -97,6 +98,7 @@ public sealed class ShootingSimulation
         var damageBefore = Telemetry.DamageEventsApplied;
         var enemiesKilledBefore = Telemetry.EnemiesKilled;
         var playerDamageBefore = Telemetry.PlayerDamageEventsApplied;
+        var bombsUsedBefore = Telemetry.BombsUsed;
 
         _stageSystem.Update(World, Definitions, deltaTime, Telemetry);
         _playerInputSystem.Update(World, _input);
@@ -107,6 +109,12 @@ public sealed class ShootingSimulation
         _playerBoundsSystem.Update(World, Definitions.Game.Width, Definitions.Game.Height);
         _outOfBoundsSystem.Update(World, Definitions.Game.Width, Definitions.Game.Height);
         _invincibilitySystem.Update(World, deltaTime);
+        var bombDamage = _bombSystem.Update(
+            World,
+            _input,
+            Math.Min(Definitions.Game.Width, Definitions.Game.Height) * 0.4f,
+            Telemetry);
+        _damageSystem.Update(bombDamage, Telemetry);
         var collisions = _collisionSystem.Detect(World);
         var damageEvents = _bulletHitSystem.Update(collisions, Telemetry);
         _damageSystem.Update(damageEvents, Telemetry);
@@ -116,7 +124,8 @@ public sealed class ShootingSimulation
         Feedback = new SimulationFeedback(
             Telemetry.DamageEventsApplied - damageBefore,
             Telemetry.EnemiesKilled - enemiesKilledBefore,
-            Telemetry.PlayerDamageEventsApplied - playerDamageBefore);
+            Telemetry.PlayerDamageEventsApplied - playerDamageBefore,
+            Telemetry.BombsUsed - bombsUsedBefore);
 
         if (!World.Query<PlayerComponent>().Any())
         {
@@ -163,6 +172,7 @@ public sealed class ShootingSimulation
         Status = SimulationStatus.Running;
         IsPaused = false;
         _pauseWasPressed = _input.Pause;
+        _bombSystem.Reset(_input.Bomb);
         Feedback = default;
     }
 }

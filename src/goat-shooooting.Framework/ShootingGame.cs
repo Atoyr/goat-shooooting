@@ -31,7 +31,7 @@ public sealed class ShootingGame : Game
         };
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
-        Window.Title = "goat-shooooting — WASD/Arrows move, Z/Space fire, Esc quits";
+        Window.Title = "goat-shooooting — WASD/Arrows move, Z/Space fire, X/Shift bomb, Esc quits";
     }
 
     protected override void LoadContent()
@@ -56,7 +56,11 @@ public sealed class ShootingGame : Game
         ApplyLayoutChanges();
         _audio?.Play(_simulation.Feedback);
         _shakeRemaining = Math.Max(0, _shakeRemaining - deltaTime);
-        if (_simulation.Feedback.PlayerHits > 0)
+        if (_simulation.Feedback.BombsUsed > 0)
+        {
+            _shakeRemaining = Math.Max(_shakeRemaining, 0.45f);
+        }
+        else if (_simulation.Feedback.PlayerHits > 0)
         {
             _shakeRemaining = Math.Max(_shakeRemaining, 0.3f);
         }
@@ -68,12 +72,12 @@ public sealed class ShootingGame : Game
         Window.Title = _simulation.DefinitionReloadError is not null
             ? $"goat-shooooting — DEFINITION ERROR — {_simulation.DefinitionReloadError}"
             : _simulation.IsPaused
-            ? $"goat-shooooting — PAUSED — HP {_simulation.Player.Get<HealthComponent>().Current} — P to resume"
+            ? $"goat-shooooting — PAUSED — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — P to resume"
             : _simulation.Status switch
             {
                 SimulationStatus.GameOver => $"goat-shooooting — GAME OVER — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
                 SimulationStatus.StageClear => $"goat-shooooting — STAGE CLEAR — SCORE {_simulation.Telemetry.Score} — R/Enter to retry",
-                _ => $"goat-shooooting — HP {_simulation.Player.Get<HealthComponent>().Current} — SCORE {_simulation.Telemetry.Score}"
+                _ => $"goat-shooooting — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — SCORE {_simulation.Telemetry.Score}"
             };
         base.Update(gameTime);
     }
@@ -137,14 +141,22 @@ public sealed class ShootingGame : Game
             DrawSidePanel(spriteBatch, pixel, rightPanel);
         }
 
-        var player = items.FirstOrDefault(static item => item.Kind == RenderKind.Player);
-        if (player.EntityId != 0)
+        if (_simulation.Player.Has<PlayerComponent>())
         {
-            const int healthBarWidth = 200;
-            var healthBarX = _layout.Playfield.Left + 16;
-            spriteBatch.Draw(pixel, new Rectangle(healthBarX, 16, healthBarWidth, 12), new Color(45, 55, 70));
-            var currentWidth = (int)MathF.Round(healthBarWidth * player.HealthFraction);
-            spriteBatch.Draw(pixel, new Rectangle(healthBarX, 16, currentWidth, 12), new Color(68, 210, 255));
+            DrawHudText(
+                spriteBatch,
+                pixel,
+                $"LIVES {_simulation.Player.Get<LivesComponent>().Remaining}",
+                _layout.Playfield.Left + 16,
+                16,
+                new Color(68, 210, 255));
+            DrawHudText(
+                spriteBatch,
+                pixel,
+                $"BOMBS {_simulation.Player.Get<BombComponent>().Remaining}",
+                _layout.Playfield.Left + 16,
+                36,
+                new Color(255, 180, 50));
         }
 
         var scoreText = $"SCORE {_simulation.Telemetry.Score:D8}";
@@ -200,6 +212,21 @@ public sealed class ShootingGame : Game
         spriteBatch.Draw(pixel, panel, new Color(12, 22, 42));
         spriteBatch.Draw(pixel, new Rectangle(panel.Left, panel.Top, 2, panel.Height), new Color(55, 80, 115));
         spriteBatch.Draw(pixel, new Rectangle(panel.Right - 2, panel.Top, 2, panel.Height), new Color(55, 80, 115));
+    }
+
+    private static void DrawHudText(
+        SpriteBatch spriteBatch,
+        Texture2D pixel,
+        string text,
+        int left,
+        int top,
+        Color color)
+    {
+        var right = left + PrimitiveRenderLayout.MeasurePixelText(text).X;
+        foreach (var rectangle in PrimitiveRenderLayout.ToPixelTextRectangles(text, right, top))
+        {
+            spriteBatch.Draw(pixel, rectangle, color);
+        }
     }
 
     protected override void Dispose(bool disposing)

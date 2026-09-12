@@ -9,6 +9,7 @@ internal sealed class GameAudio : IDisposable
     private readonly SoundEffect _hit = CreateTone(520, 45, 0.12f);
     private readonly SoundEffect _explosion = CreateTone(120, 140, 0.18f);
     private readonly SoundEffect _playerHit = CreateTone(210, 180, 0.2f);
+    private readonly SoundEffect _bomb = CreateTone(75, 300, 0.22f);
 
     public void Play(SimulationFeedback feedback)
     {
@@ -26,6 +27,11 @@ internal sealed class GameAudio : IDisposable
         {
             _playerHit.Play();
         }
+
+        if (feedback.BombsUsed > 0)
+        {
+            _bomb.Play();
+        }
     }
 
     public void Dispose()
@@ -33,6 +39,7 @@ internal sealed class GameAudio : IDisposable
         _hit.Dispose();
         _explosion.Dispose();
         _playerHit.Dispose();
+        _bomb.Dispose();
     }
 
     private static SoundEffect CreateTone(float frequency, int durationMilliseconds, float volume)

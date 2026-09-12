@@ -20,7 +20,7 @@ public sealed class SimulationIntegrationTests
             simulation.Update(1f / 60f);
         }
 
-        Assert.True(simulation.Player.Get<HealthComponent>().Current > 0);
+        Assert.True(simulation.Player.Get<LivesComponent>().Remaining > 0);
         Assert.Equal(1, simulation.Telemetry.EnemiesSpawned);
         Assert.True(simulation.Telemetry.EnemyMovementFrames > 0);
         Assert.True(simulation.Telemetry.BulletsSpawned > 0);
@@ -43,7 +43,7 @@ public sealed class SimulationIntegrationTests
                 spawnTime: 0,
                 enemyHp: 10,
                 enemySpeed: 0,
-                playerHp: 10,
+                playerLives: 1,
                 enemyWeaponId: "weapon")),
             input);
 
@@ -67,10 +67,43 @@ public sealed class SimulationIntegrationTests
 
         Assert.Equal(SimulationStatus.Running, simulation.Status);
         Assert.NotSame(completedWorld, simulation.World);
-        Assert.Equal(10, simulation.Player.Get<HealthComponent>().Current);
+        Assert.Equal(1, simulation.Player.Get<LivesComponent>().Remaining);
+        Assert.Equal(2, simulation.Player.Get<BombComponent>().Remaining);
         Assert.Equal(0, simulation.Elapsed);
         Assert.Equal(0, simulation.Telemetry.EnemyBulletsSpawned);
         Assert.Single(simulation.World.Query<PlayerComponent>());
+    }
+
+    [Fact]
+    public void BombInputDamagesEnemyAndClearsEnemyBulletsEndToEnd()
+    {
+        var input = new MutableInputState();
+        var simulation = new ShootingSimulation(
+            new MemoryDefinitionRepository(CreateDefinitions(
+                spawnTime: 0,
+                enemyHp: 100,
+                enemySpeed: 0,
+                enemyWeaponId: "weapon")),
+            input);
+        simulation.Update(0);
+        Assert.NotEmpty(simulation.World.Query<BulletComponent>()
+            .Where(static bullet => bullet.Get<ColliderComponent>().Layer == CollisionLayer.EnemyBullet));
+
+        input.Bomb = true;
+        simulation.Update(0);
+
+        var enemy = Assert.Single(simulation.World.Query<EnemyComponent>());
+        Assert.Equal(50, enemy.Get<HealthComponent>().Current);
+        Assert.Empty(simulation.World.Query<BulletComponent>()
+            .Where(static bullet => bullet.Get<ColliderComponent>().Layer == CollisionLayer.EnemyBullet));
+        Assert.Equal(1, simulation.Player.Get<BombComponent>().Remaining);
+        Assert.Equal(1, simulation.Telemetry.BombsUsed);
+        Assert.True(simulation.Telemetry.EnemyBulletsCleared > 0);
+        Assert.Equal(1, simulation.Feedback.BombsUsed);
+
+        simulation.Update(0);
+        Assert.Equal(50, enemy.Get<HealthComponent>().Current);
+        Assert.Equal(1, simulation.Telemetry.BombsUsed);
     }
 
     [Fact]
@@ -155,7 +188,7 @@ public sealed class SimulationIntegrationTests
         float spawnTime,
         int enemyHp,
         float enemySpeed,
-        int playerHp = 100,
+        int playerLives = 2,
         string? enemyWeaponId = null,
         float playerSpeed = 200)
     {
@@ -165,7 +198,7 @@ public sealed class SimulationIntegrationTests
             {
                 new PlayerDefinition
                 {
-                    Id = "player", Hp = playerHp, Speed = playerSpeed, WeaponId = "weapon",
+                    Id = "player", Lives = playerLives, Speed = playerSpeed, WeaponId = "weapon",
                     X = 0, Y = 300, Radius = 10
                 }
             },

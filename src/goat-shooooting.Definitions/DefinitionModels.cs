@@ -15,7 +15,9 @@ public sealed record GameDefinition
 public sealed record PlayerDefinition
 {
     public string Id { get; init; } = string.Empty;
-    public int Hp { get; init; }
+    public int Lives { get; init; } = 2;
+    public int Bombs { get; init; } = 2;
+    public int BombDamage { get; init; } = 50;
     public float Speed { get; init; }
     public string WeaponId { get; init; } = string.Empty;
     public float X { get; init; }

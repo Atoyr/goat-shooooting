@@ -14,7 +14,8 @@ public sealed class PlayerFactory
         var entity = world.CreateEntity()
             .Add(new TransformComponent(new Vector2(definition.X, definition.Y)))
             .Add(new VelocityComponent(Vector2.Zero))
-            .Add(new HealthComponent(definition.Hp))
+            .Add(new LivesComponent(definition.Lives))
+            .Add(new BombComponent(definition.Bombs, definition.BombDamage))
             .Add(new ColliderComponent(definition.Radius, CollisionLayer.Player))
             .Add(new PlayerComponent(definition.Id, definition.Speed))
             .Add(new WeaponHolderComponent(definition.WeaponId));

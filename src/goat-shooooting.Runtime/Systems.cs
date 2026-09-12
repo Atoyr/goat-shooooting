@@ -376,6 +376,68 @@ public sealed class BulletHitSystem
     }
 }
 
+public sealed class BombSystem
+{
+    private const float EffectDuration = 0.45f;
+    private bool _bombWasPressed;
+
+    public IReadOnlyList<DamageEvent> Update(
+        World world,
+        IInputState input,
+        float effectRadius,
+        SimulationTelemetry telemetry)
+    {
+        if (!input.Bomb)
+        {
+            _bombWasPressed = false;
+            return Array.Empty<DamageEvent>();
+        }
+
+        if (_bombWasPressed)
+        {
+            return Array.Empty<DamageEvent>();
+        }
+
+        _bombWasPressed = true;
+        var player = world.Query<PlayerComponent, BombComponent, TransformComponent>()
+            .FirstOrDefault(static entity => !entity.Has<PendingDestroyComponent>());
+        if (player is null)
+        {
+            return Array.Empty<DamageEvent>();
+        }
+
+        var bombs = player.Get<BombComponent>();
+        if (bombs.Remaining <= 0)
+        {
+            return Array.Empty<DamageEvent>();
+        }
+
+        bombs.Remaining--;
+        telemetry.BombsUsed++;
+
+        foreach (var bullet in world.Query<BulletComponent, ColliderComponent>().ToArray())
+        {
+            if (!bullet.Has<PendingDestroyComponent>() &&
+                bullet.Get<ColliderComponent>().Layer == CollisionLayer.EnemyBullet)
+            {
+                bullet.Add(new PendingDestroyComponent());
+                telemetry.EnemyBulletsCleared++;
+            }
+        }
+
+        world.CreateEntity()
+            .Add(new TransformComponent(player.Get<TransformComponent>().Position))
+            .Add(new ExplosionComponent(effectRadius, EffectDuration));
+
+        return world.Query<EnemyComponent, HealthComponent>()
+            .Where(static enemy => !enemy.Has<PendingDestroyComponent>())
+            .Select(enemy => new DamageEvent(enemy, bombs.Damage))
+            .ToArray();
+    }
+
+    public void Reset(bool bombPressed) => _bombWasPressed = bombPressed;
+}
+
 public sealed class DamageSystem
 {
     public void Update(IReadOnlyList<DamageEvent> damageEvents, SimulationTelemetry telemetry)
@@ -393,8 +455,6 @@ public sealed class DamageSystem
                 continue;
             }
 
-            var health = damageEvent.Target.Get<HealthComponent>();
-            health.Current -= damageEvent.Amount;
             if (damageEvent.Target.TryGet<HitFlashComponent>(out var hitFlash))
             {
                 hitFlash.Remaining = 0.1f;
@@ -412,9 +472,19 @@ public sealed class DamageSystem
             telemetry.DamageEventsApplied++;
             if (damageEvent.Target.Has<PlayerComponent>())
             {
+                var lives = damageEvent.Target.Get<LivesComponent>();
+                lives.Remaining--;
                 telemetry.PlayerDamageEventsApplied++;
+                if (lives.Remaining <= 0)
+                {
+                    damageEvent.Target.Add(new PendingDestroyComponent());
+                }
+
+                continue;
             }
 
+            var health = damageEvent.Target.Get<HealthComponent>();
+            health.Current -= damageEvent.Amount;
             if (health.Current <= 0)
             {
                 damageEvent.Target.Add(new PendingDestroyComponent());
@@ -466,10 +536,13 @@ public sealed class FeedbackSystem
             }
         }
 
-        foreach (var entity in world.Query<PendingDestroyComponent, TransformComponent, HealthComponent>().ToArray())
+        foreach (var entity in world.Query<PendingDestroyComponent, TransformComponent>().ToArray())
         {
-            if (entity.Get<HealthComponent>().Current > 0 ||
-                (!entity.Has<EnemyComponent>() && !entity.Has<PlayerComponent>()))
+            var destroyedEnemy = entity.Has<EnemyComponent>() &&
+                entity.TryGet<HealthComponent>(out var health) && health.Current <= 0;
+            var destroyedPlayer = entity.Has<PlayerComponent>() &&
+                entity.TryGet<LivesComponent>(out var lives) && lives.Remaining <= 0;
+            if (!destroyedEnemy && !destroyedPlayer)
             {
                 continue;
             }

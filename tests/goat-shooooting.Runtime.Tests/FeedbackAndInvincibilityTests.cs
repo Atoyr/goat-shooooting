@@ -13,7 +13,7 @@ public sealed class FeedbackAndInvincibilityTests
         var world = new World();
         var player = world.CreateEntity()
             .Add(new PlayerComponent("player", 100))
-            .Add(new HealthComponent(30))
+            .Add(new LivesComponent(3))
             .Add(new InvincibilityComponent(1));
         var damage = new[] { new DamageEvent(player, 10) };
         var telemetry = new SimulationTelemetry();
@@ -22,14 +22,14 @@ public sealed class FeedbackAndInvincibilityTests
         damageSystem.Update(damage, telemetry);
         damageSystem.Update(damage, telemetry);
 
-        Assert.Equal(20, player.Get<HealthComponent>().Current);
+        Assert.Equal(2, player.Get<LivesComponent>().Remaining);
         Assert.Equal(1, telemetry.PlayerDamageEventsApplied);
         Assert.True(player.Get<InvincibilityComponent>().Remaining > 0);
 
         new InvincibilitySystem().Update(world, 1);
         damageSystem.Update(damage, telemetry);
 
-        Assert.Equal(10, player.Get<HealthComponent>().Current);
+        Assert.Equal(1, player.Get<LivesComponent>().Remaining);
         Assert.Equal(2, telemetry.PlayerDamageEventsApplied);
     }
 

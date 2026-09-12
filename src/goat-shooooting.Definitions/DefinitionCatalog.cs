@@ -74,7 +74,9 @@ public sealed class DefinitionCatalog
 
         foreach (var player in Players.Values)
         {
-            EnsurePositive(player.Hp, $"Player '{player.Id}' hp");
+            EnsurePositive(player.Lives, $"Player '{player.Id}' lives");
+            EnsureNonNegative(player.Bombs, $"Player '{player.Id}' bombs");
+            EnsurePositive(player.BombDamage, $"Player '{player.Id}' bomb damage");
             EnsurePositive(player.Speed, $"Player '{player.Id}' speed");
             EnsurePositive(player.Radius, $"Player '{player.Id}' radius");
             EnsureNonNegative(player.InvincibilitySeconds, $"Player '{player.Id}' invincibility seconds");

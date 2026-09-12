@@ -9,6 +9,7 @@ public sealed class KeyboardInputState : IInputState
     public float MoveX { get; private set; }
     public float MoveY { get; private set; }
     public bool Fire { get; private set; }
+    public bool Bomb { get; private set; }
     public bool Retry { get; private set; }
     public bool Pause { get; private set; }
     public bool QuitRequested { get; private set; }
@@ -24,6 +25,7 @@ public sealed class KeyboardInputState : IInputState
         MoveY = (keys.Contains(Keys.Down) || keys.Contains(Keys.S) ? 1 : 0)
             - (keys.Contains(Keys.Up) || keys.Contains(Keys.W) ? 1 : 0);
         Fire = keys.Contains(Keys.Space) || keys.Contains(Keys.Z);
+        Bomb = keys.Contains(Keys.X) || keys.Contains(Keys.LeftShift) || keys.Contains(Keys.RightShift);
         Retry = keys.Contains(Keys.R) || keys.Contains(Keys.Enter);
         Pause = keys.Contains(Keys.P);
         QuitRequested = keys.Contains(Keys.Escape);

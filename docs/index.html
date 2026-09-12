@@ -128,6 +128,7 @@ dotnet build goat-shooooting.sln</code></pre>
             <div><kbd>WASD</kbd><span>移動</span></div>
             <div><kbd>↑ ↓ ← →</kbd><span>移動</span></div>
             <div><kbd>Z</kbd> <kbd>Space</kbd><span>発射</span></div>
+            <div><kbd>X</kbd> <kbd>Shift</kbd><span>ボム</span></div>
             <div><kbd>P</kbd><span>ポーズ／再開</span></div>
             <div><kbd>R</kbd> <kbd>Enter</kbd><span>リトライ</span></div>
             <div><kbd>Esc</kbd><span>終了</span></div>
@@ -142,7 +143,7 @@ dotnet build goat-shooooting.sln</code></pre>
             <span>左パネルのスコア表示、縦長プレイ領域、敵の移動と洗濯機弾幕を16秒のGIFで確認できます。クリックすると原寸で開きます。</span>
           </figcaption>
         </figure>
-        <p>SampleではScoutが直進弾、Fighterが追尾弾、Midbossが二層式洗濯機弾幕を使います。Gauntletでは別の画面比率と洗濯機弾幕を確認できます。</p>
+        <p>SampleではScoutが直進弾、Fighterが追尾弾、Midbossが二層式洗濯機弾幕を使います。Gauntletでは別の画面比率と洗濯機弾幕を確認できます。被弾すると残機が1減り、0でGame Overです。ボムは全Enemyへ設定ダメージを与え、画面内のEnemy Bulletを消去します。</p>
       </section>
 
       <section class="searchable" id="workflow">
@@ -248,7 +249,9 @@ dotnet build goat-shooooting.sln</code></pre>
         <div class="definition-grid">
           <pre><code class="language-json">{
   "id": "player-one",
-  "hp": 100,
+  "lives": 2,
+  "bombs": 2,
+  "bombDamage": 50,
   "speed": 260,
   "weaponId": "player-basic",
   "x": 400,
@@ -258,7 +261,9 @@ dotnet build goat-shooooting.sln</code></pre>
 }</code></pre>
           <div>
             <dl class="field-list">
-              <div><dt>hp</dt><dd>最大HP。1以上。</dd></div>
+              <div><dt>lives</dt><dd>残機。省略時は2、1以上。</dd></div>
+              <div><dt>bombs</dt><dd>ボム数。省略時は2、0以上。</dd></div>
+              <div><dt>bombDamage</dt><dd>全Enemyへ与えるボム威力。省略時は50。</dd></div>
               <div><dt>speed</dt><dd>1秒あたりの移動距離。</dd></div>
               <div><dt>weaponId</dt><dd>プレイヤーが使うWeapon。</dd></div>
               <div><dt>x / y</dt><dd>開始位置。左上が原点。</dd></div>
@@ -267,6 +272,27 @@ dotnet build goat-shooooting.sln</code></pre>
             </dl>
           </div>
         </div>
+        <h3>残機とボムの動作</h3>
+        <div class="sequence" aria-label="ボム発動の処理順序">
+          <div><strong>01</strong><span><kbd>X</kbd> または <kbd>Shift</kbd>を押す</span></div>
+          <i>→</i>
+          <div><strong>02</strong><span>全Enemyへ<code>bombDamage</code></span></div>
+          <i>→</i>
+          <div><strong>03</strong><span>Enemy Bulletを全消去</span></div>
+          <i>→</i>
+          <div><strong>04</strong><span>ボム残数を1減らす</span></div>
+        </div>
+        <p>被弾1回につき残機を1減らし、残機が0になるとGame Overです。ボムはキーを押した瞬間に1回だけ発動するため、長押ししても連続消費しません。残数が0の場合は発動せず、Player Bulletには影響しません。</p>
+        <figure class="gameplay-demo">
+          <a href="./assets/bomb-demo.gif" aria-label="ボムのデモ動画を原寸で開く">
+            <img src="./assets/bomb-demo.gif" width="768" height="432" loading="lazy" alt="敵弾が接近した状態でボムを発動し、全敵のHPが減少すると同時に敵弾が消え、ボム残数が2から1へ減るデモ動画">
+          </a>
+          <figcaption>
+            <strong>ボム発動デモ</strong>
+            <span>発動した瞬間に敵弾だけが消え、全EnemyのHPバーとHUDのボム残数が同時に変化します。クリックすると原寸で確認できます。</span>
+          </figcaption>
+        </figure>
+        <aside class="callout tip"><strong>調整ポイント</strong><span><code>lives</code>、<code>bombs</code>、<code>bombDamage</code>はすべて<code>player.json</code>だけで変更できます。省略時は順に2、2、50です。</span></aside>
       </section>
 
       <section class="searchable" id="enemy-definition">

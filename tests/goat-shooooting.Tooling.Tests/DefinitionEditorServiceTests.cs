@@ -110,7 +110,7 @@ public sealed class DefinitionEditorServiceTests
             File.WriteAllText(System.IO.Path.Combine(root, "game.json"),
                 """{"playerId":"player","stageId":"stage","width":800,"height":600}""");
             File.WriteAllText(System.IO.Path.Combine(root, "player.json"),
-                """{"id":"player","hp":100,"speed":200,"weaponId":"weapon","x":400,"y":550,"radius":10}""");
+                """{"id":"player","lives":2,"bombs":2,"bombDamage":50,"speed":200,"weaponId":"weapon","x":400,"y":550,"radius":10}""");
             File.WriteAllText(System.IO.Path.Combine(root, "enemies", "enemy.json"),
                 """{"id":"enemy","hp":10,"speed":10,"radius":10,"score":100}""");
             File.WriteAllText(System.IO.Path.Combine(root, "bullets", "bullet.json"),

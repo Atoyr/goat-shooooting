@@ -29,11 +29,16 @@ public static class PrimitiveRenderLayout
         ['7'] = "11111000010001000100010000100001000",
         ['8'] = "01110100011000101110100011000101110",
         ['9'] = "01110100011000101111000010001001100",
+        ['B'] = "11110100011000111110100011000111110",
         ['S'] = "01111100001000001110000010000111110",
         ['C'] = "01110100011000010000100001000101110",
+        ['I'] = "11111001000010000100001000010011111",
+        ['L'] = "10000100001000010000100001000011111",
+        ['M'] = "10001110111010110001100011000110001",
         ['O'] = "01110100011000110001100011000101110",
         ['R'] = "11110100011000111110101001001010001",
-        ['E'] = "11111100001000011110100001000011111"
+        ['E'] = "11111100001000011110100001000011111",
+        ['V'] = "10001100011000110001010100010000100"
     };
 
     public static Rectangle ToRectangle(RenderItem item)
@@ -92,7 +97,7 @@ public static class PrimitiveRenderLayout
         {
             "playfield-top-left" => new ScoreHudAnchor(
                 layout.Playfield.Left + 16 + scoreSize.X,
-                40),
+                56),
             "playfield-top-right" => new ScoreHudAnchor(layout.Playfield.Right - 16, 16),
             "left-panel" => new ScoreHudAnchor(
                 layout.LeftPanel?.Right - 16 ?? throw MissingPanel(definition.ScorePosition),

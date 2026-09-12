@@ -1,6 +1,8 @@
 {
   "id": "gauntlet-player",
-  "hp": 80,
+  "lives": 2,
+  "bombs": 2,
+  "bombDamage": 50,
   "speed": 340,
   "weaponId": "rapid-fire",
   "x": 320,

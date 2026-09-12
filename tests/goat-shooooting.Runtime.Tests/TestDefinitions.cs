@@ -14,7 +14,10 @@ internal static class TestDefinitions
         float bulletLifetime = 5,
         string movementPattern = "straight",
         float movementAmplitude = 0,
-        float movementFrequency = 0)
+        float movementFrequency = 0,
+        int playerLives = 2,
+        int playerBombs = 2,
+        int bombDamage = 50)
     {
         return new DefinitionCatalog(
             new GameDefinition { PlayerId = "player", StageId = "stage", Width = 800, Height = 600 },
@@ -22,7 +25,8 @@ internal static class TestDefinitions
             {
                 new PlayerDefinition
                 {
-                    Id = "player", Hp = 100, Speed = 200, WeaponId = "weapon",
+                    Id = "player", Lives = playerLives, Bombs = playerBombs, BombDamage = bombDamage,
+                    Speed = 200, WeaponId = "weapon",
                     X = 0, Y = 300, Radius = 10
                 }
             },

@@ -1,6 +1,8 @@
 {
   "id": "player-one",
-  "hp": 100,
+  "lives": 2,
+  "bombs": 2,
+  "bombDamage": 50,
   "speed": 260,
   "weaponId": "player-basic",
   "x": 400,

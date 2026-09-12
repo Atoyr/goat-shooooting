@@ -13,6 +13,9 @@ public sealed class JsonDefinitionRepositoryTests
         var catalog = new JsonDefinitionRepository(directory.Path).Load();
 
         Assert.Equal(10, catalog.GetEnemy("enemy").Hp);
+        Assert.Equal(2, catalog.GetPlayer("player").Lives);
+        Assert.Equal(2, catalog.GetPlayer("player").Bombs);
+        Assert.Equal(50, catalog.GetPlayer("player").BombDamage);
         Assert.Equal(100, catalog.GetBullet("bullet").Speed);
         Assert.Equal("bullet", catalog.GetWeapon("weapon").BulletId);
         Assert.Equal(1, catalog.GetStage("stage").Events[0].Time);
@@ -57,6 +60,27 @@ public sealed class JsonDefinitionRepositoryTests
             baseline.Stages.Values));
 
         Assert.Contains("homing turn", exception.Message);
+    }
+
+    [Fact]
+    public void PlayerResourceDefinitionsRejectInvalidValues()
+    {
+        var baseline = TestDefinitions.Create();
+        var player = baseline.GetPlayer("player");
+
+        var livesException = Assert.Throws<DefinitionValidationException>(() => ReplacePlayer(
+            baseline,
+            player with { Lives = 0 }));
+        var bombsException = Assert.Throws<DefinitionValidationException>(() => ReplacePlayer(
+            baseline,
+            player with { Bombs = -1 }));
+        var damageException = Assert.Throws<DefinitionValidationException>(() => ReplacePlayer(
+            baseline,
+            player with { BombDamage = 0 }));
+
+        Assert.Contains("lives", livesException.Message);
+        Assert.Contains("bombs", bombsException.Message);
+        Assert.Contains("bomb damage", damageException.Message);
     }
 
     [Fact]
@@ -167,7 +191,7 @@ public sealed class JsonDefinitionRepositoryTests
             Directory.CreateDirectory(System.IO.Path.Combine(root, "weapons"));
             Directory.CreateDirectory(System.IO.Path.Combine(root, "stages"));
             File.WriteAllText(System.IO.Path.Combine(root, "game.json"), """{"playerId":"player","stageId":"stage"}""");
-            File.WriteAllText(System.IO.Path.Combine(root, "player.json"), """{"id":"player","hp":100,"speed":200,"weaponId":"weapon","x":0,"y":300,"radius":10}""");
+            File.WriteAllText(System.IO.Path.Combine(root, "player.json"), """{"id":"player","speed":200,"weaponId":"weapon","x":0,"y":300,"radius":10}""");
             File.WriteAllText(System.IO.Path.Combine(root, "enemies", "enemy.json"), """{"id":"enemy","hp":10,"speed":0,"radius":10}""");
             File.WriteAllText(System.IO.Path.Combine(root, "bullets", "bullet.json"), """{"id":"bullet","speed":100,"damage":10,"radius":3,"lifetime":5}""");
             File.WriteAllText(System.IO.Path.Combine(root, "weapons", "weapon.json"), $$"""{"id":"weapon","bulletId":"{{weaponBulletId}}","cooldown":0.5}""");
@@ -177,4 +201,12 @@ public sealed class JsonDefinitionRepositoryTests
 
         public void Dispose() => Directory.Delete(Path, recursive: true);
     }
+
+    private static DefinitionCatalog ReplacePlayer(DefinitionCatalog baseline, PlayerDefinition player) => new(
+        baseline.Game,
+        new[] { player },
+        baseline.Enemies.Values,
+        baseline.Bullets.Values,
+        baseline.Weapons.Values,
+        baseline.Stages.Values);
 }

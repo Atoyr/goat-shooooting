@@ -1,6 +1,6 @@
 namespace GoatShooooting.Runtime;
 
-public readonly record struct SimulationFeedback(int Hits, int EnemiesDestroyed, int PlayerHits);
+public readonly record struct SimulationFeedback(int Hits, int EnemiesDestroyed, int PlayerHits, int BombsUsed);
 
 /// <summary>Observable facts emitted by the real simulation path for diagnostics and acceptance tests.</summary>
 public sealed class SimulationTelemetry
@@ -13,6 +13,8 @@ public sealed class SimulationTelemetry
     public int CollisionsDetected { get; internal set; }
     public int DamageEventsApplied { get; internal set; }
     public int PlayerDamageEventsApplied { get; internal set; }
+    public int BombsUsed { get; internal set; }
+    public int EnemyBulletsCleared { get; internal set; }
     public int EnemiesKilled { get; internal set; }
     public int Score { get; internal set; }
 }
