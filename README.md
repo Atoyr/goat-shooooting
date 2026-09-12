@@ -4,6 +4,8 @@ goat-shooooting は、JSON で定義した Player、Enemy、Weapon、Bullet、St
 
 遊び方から独自の弾・敵・ボス・Wave・画面レイアウトの作り方、エンジン拡張までをまとめた[制作マニュアル](https://atoyr.github.io/goat-shooooting/)を公開しています。
 
+Steam向けのゲームパッド、設定、セーブ、正式配布ビルドについては、[Steam 配信に向けたロードマップと設計](docs/steam-release-roadmap.md)にまとめています。
+
 ## 必要環境
 
 - .NET 8 SDK（`global.json` は 8.0 系の利用可能な最新 feature band を選択）
