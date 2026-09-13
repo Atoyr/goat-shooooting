@@ -49,7 +49,24 @@ public sealed class JsonUserDataStoreTests
         {
             LastGameId = "gauntlet",
             HighScores = new Dictionary<string, int> { ["sample"] = 1200, ["gauntlet"] = 3400 },
-            ClearCounts = new Dictionary<string, int> { ["sample"] = 2 }
+            ClearCounts = new Dictionary<string, int> { ["sample"] = 2 },
+            CategoryStats = new Dictionary<string, PlayerCategoryStats>
+            {
+                [new ScoreCategoryKey("sample", "normal", "arcade", "swift").StableId] = new()
+                {
+                    Category = new ScoreCategoryKey("sample", "normal", "arcade", "swift"),
+                    BestScore = 9876543210,
+                    ClearCount = 3,
+                    BestStage = 5,
+                    PlayCount = 8,
+                    PlayTimeFrames = 12345
+                }
+            },
+            LastRuleSetIds = new() { ["sample"] = "normal" },
+            LastDifficultyIds = new() { ["sample"] = "arcade" },
+            LastShipIds = new() { ["sample"] = "swift" },
+            Unlocks = new(StringComparer.Ordinal) { "mode:sprint" },
+            RecordedRunIds = new(StringComparer.Ordinal) { "run-1" }
         };
 
         store.SaveSettings(settings);
@@ -74,6 +91,11 @@ public sealed class JsonUserDataStoreTests
         Assert.Equal("gauntlet", loadedProfile.Value.LastGameId);
         Assert.Equal(3400, loadedProfile.Value.HighScores["gauntlet"]);
         Assert.Equal(2, loadedProfile.Value.ClearCounts["sample"]);
+        var category = new ScoreCategoryKey("sample", "normal", "arcade", "swift");
+        Assert.Equal(9876543210, loadedProfile.Value.GetStats(category)!.BestScore);
+        Assert.Equal("normal", loadedProfile.Value.LastRuleSetIds["sample"]);
+        Assert.Contains("mode:sprint", loadedProfile.Value.Unlocks);
+        Assert.Contains("run-1", loadedProfile.Value.RecordedRunIds);
     }
 
     [Fact]
@@ -208,7 +230,25 @@ public sealed class JsonUserDataStoreTests
         Assert.Equal(PlayerProfile.CurrentSchemaVersion, result.Value.SchemaVersion);
         Assert.Equal("gauntlet", result.Value.LastGameId);
         Assert.Equal(4200, result.Value.HighScores["gauntlet"]);
-        Assert.Contains("\"schemaVersion\": 1", File.ReadAllText(profilePath), StringComparison.Ordinal);
+        Assert.Equal(4200, result.Value.GetStats(ScoreCategoryKey.Legacy("gauntlet"))!.BestScore);
+        Assert.Contains("\"schemaVersion\": 2", File.ReadAllText(profilePath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SchemaOneProfileMigratesGameScoreAndClearCountWithoutLoss()
+    {
+        using var directory = new TemporaryDirectory();
+        var profilePath = System.IO.Path.Combine(directory.Path, "profile.json");
+        File.WriteAllText(profilePath,
+            "{ \"schemaVersion\": 1, \"lastGameId\": \"sample\", \"highScores\": { \"sample\": 2147483647 }, \"clearCounts\": { \"sample\": 7 } }");
+
+        var result = new JsonUserDataStore(directory.Path, new RecordingLogger()).LoadProfile();
+
+        Assert.Equal(LoadStatus.Migrated, result.Status);
+        var stats = result.Value.GetStats(ScoreCategoryKey.Legacy("sample"))!;
+        Assert.Equal(int.MaxValue, stats.BestScore);
+        Assert.Equal(7, stats.ClearCount);
+        Assert.Equal(int.MaxValue, result.Value.HighScores["sample"]);
     }
 
     [Fact]

@@ -196,6 +196,10 @@ public sealed class JsonUserDataStore : IUserDataStore
             {
                 SchemaVersion = PlayerProfile.CurrentSchemaVersion
             },
+            1 => DeserializeRequired<PlayerProfile>(root, options) with
+            {
+                SchemaVersion = PlayerProfile.CurrentSchemaVersion
+            },
             PlayerProfile.CurrentSchemaVersion => DeserializeRequired<PlayerProfile>(root, options),
             _ => throw new InvalidOperationException($"No profile migration exists for schema version {schemaVersion}.")
         };

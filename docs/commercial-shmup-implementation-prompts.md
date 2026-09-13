@@ -18,7 +18,7 @@
 - [x] P7 Boss phase
 - [x] P8 Score engine
 - [x] P9 Special gauge、Rank、Difficulty、RuleSet
-- [ ] P10 Mode選択、Profile v2、Local leaderboard
+- [x] P10 Mode選択、Profile v2、Local leaderboard
 - [ ] P11 ReplayとTraining
 - [ ] P12 Asset catalog、Sprite、Background
 - [ ] P13 Effect、HUD、視認性

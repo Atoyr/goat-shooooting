@@ -16,4 +16,14 @@ public sealed class PlayerProfileTests
         profile = profile.WithHighScore("sample", 1200);
         Assert.Equal(1200, profile.HighScores["sample"]);
     }
+
+    [Fact]
+    public void CategoryKeyIsStableAndDoesNotCollideWithEscapedSeparators()
+    {
+        var first = new ScoreCategoryKey("game|one", "mode", "hard", "ship");
+        var second = new ScoreCategoryKey("game", "one|mode", "hard", "ship");
+
+        Assert.NotEqual(first.StableId, second.StableId);
+        Assert.Equal(first.StableId, first.Normalize().StableId);
+    }
 }

@@ -39,6 +39,8 @@ public sealed record ShipDefinition
         Array.Empty<PowerLevelModifierDefinition>();
     public string? VisualId { get; init; }
     public string? AudioId { get; init; }
+    public bool IsAvailable { get; init; } = true;
+    public string? UnlockId { get; init; }
     [System.Text.Json.Serialization.JsonIgnore]
     internal bool MigratedFromV1 { get; init; }
 }
@@ -219,6 +221,8 @@ public sealed record RuleSetDefinition
     public IReadOnlyList<CapabilityDefinition> ScoreRules { get; init; } = Array.Empty<CapabilityDefinition>();
     public CapabilityDefinition? SpecialGaugeRule { get; init; }
     public CapabilityDefinition? RankRule { get; init; }
+    public bool IsAvailable { get; init; } = true;
+    public string? UnlockId { get; init; }
 }
 
 public sealed record DifficultyDefinition
@@ -231,6 +235,8 @@ public sealed record DifficultyDefinition
     public int AdditionalProjectileCount { get; init; }
     public bool AutoBomb { get; init; }
     public IReadOnlyList<string> PatternTags { get; init; } = Array.Empty<string>();
+    public bool IsAvailable { get; init; } = true;
+    public string? UnlockId { get; init; }
 }
 
 public sealed record VisualDefinition

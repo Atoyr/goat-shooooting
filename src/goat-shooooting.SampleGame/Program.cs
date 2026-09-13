@@ -20,7 +20,9 @@ public static class Program
                 return RunSmokeTest(new JsonDefinitionRepository(gameDirectory));
             }
 
-            var userDataStore = new JsonUserDataStore(UserDataPathResolver.GetDefaultDirectory());
+            var userDataDirectory = UserDataPathResolver.GetDefaultDirectory();
+            var userDataStore = new JsonUserDataStore(userDataDirectory);
+            var leaderboard = new LocalLeaderboardService(userDataDirectory);
             var settings = userDataStore.LoadSettings().Value;
             var profile = userDataStore.LoadProfile().Value;
             var definitions = GetAvailableGames();
@@ -36,7 +38,7 @@ public static class Program
                 userDataStore.SaveProfile(profile);
             }
 
-            using var game = new ShootingGame(definitions, gameId, userDataStore, settings, profile);
+            using var game = new ShootingGame(definitions, gameId, userDataStore, settings, profile, leaderboard);
             game.Run();
             return 0;
         }

@@ -30,4 +30,45 @@ public sealed class PlayerProfileServiceTests
         Assert.Equal("gauntlet", updated.LastGameId);
         Assert.Equal(42, updated.HighScores["sample"]);
     }
+
+    [Fact]
+    public void DetailedRunsAreSeparatedByCategoryAndIgnoreDuplicateRunIds()
+    {
+        var service = new PlayerProfileService();
+        var arcade = new ScoreCategoryKey("sample", "normal", "arcade", "swift");
+        var expert = arcade with { DifficultyId = "expert" };
+        var profile = service.RecordCompletedRun(new PlayerProfile(), Run("run-1", arcade, 1000, true, 2, 600));
+        profile = service.RecordCompletedRun(profile, Run("run-2", arcade, 900, false, 3, 300));
+        profile = service.RecordCompletedRun(profile, Run("run-3", expert, 1500, false, 1, 120));
+        profile = service.RecordCompletedRun(profile, Run("run-3", expert, 9999, true, 9, 999));
+
+        var arcadeStats = profile.GetStats(arcade)!;
+        Assert.Equal(1000, arcadeStats.BestScore);
+        Assert.Equal(1, arcadeStats.ClearCount);
+        Assert.Equal(3, arcadeStats.BestStage);
+        Assert.Equal(2, arcadeStats.PlayCount);
+        Assert.Equal(900, arcadeStats.PlayTimeFrames);
+        var expertStats = profile.GetStats(expert)!;
+        Assert.Equal(1500, expertStats.BestScore);
+        Assert.Equal(1, expertStats.PlayCount);
+        Assert.Equal("normal", profile.LastRuleSetIds["sample"]);
+        Assert.Equal("expert", profile.LastDifficultyIds["sample"]);
+        Assert.Equal("swift", profile.LastShipIds["sample"]);
+    }
+
+    private static CompletedRunRecord Run(
+        string id,
+        ScoreCategoryKey category,
+        long score,
+        bool clear,
+        int stage,
+        long frames) => new()
+        {
+            RunId = id,
+            Category = category,
+            Score = score,
+            Cleared = clear,
+            BestStage = stage,
+            PlayTimeFrames = frames
+        };
 }

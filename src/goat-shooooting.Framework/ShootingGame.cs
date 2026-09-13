@@ -15,6 +15,7 @@ public sealed class ShootingGame : Game
     private readonly GameInputState _input;
     private readonly GameShell _shell;
     private readonly IUserDataStore? _userDataStore;
+    private readonly ILeaderboardService? _leaderboardService;
     private readonly IReadOnlyDictionary<string, IDefinitionRepository> _definitionRepositories;
     private readonly PlayerProfileService _profileService = new();
     private readonly RunCompletionTracker _runCompletionTracker = new();
@@ -35,6 +36,8 @@ public sealed class ShootingGame : Game
     private float _leftMotorStrength;
     private float _rightMotorStrength;
     private bool _showControllerDisconnectedMessage;
+    private string _currentRunId = Guid.NewGuid().ToString("N");
+    private CompletedRunRecord? _lastRun;
 
     public ShootingGame(IDefinitionRepository definitionRepository)
         : this(definitionRepository, userDataStore: null, settings: new GameSettings())
@@ -53,7 +56,8 @@ public sealed class ShootingGame : Game
             "sample",
             userDataStore,
             settings,
-            new PlayerProfile())
+            new PlayerProfile(),
+            leaderboardService: null)
     {
     }
 
@@ -62,7 +66,8 @@ public sealed class ShootingGame : Game
         string gameId,
         IUserDataStore? userDataStore,
         GameSettings settings,
-        PlayerProfile profile)
+        PlayerProfile profile,
+        ILeaderboardService? leaderboardService = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(definitionRepositories);
@@ -76,13 +81,15 @@ public sealed class ShootingGame : Game
         _gameId = gameId;
         _profile = profile;
         _input = new GameInputState(settings.Input);
-        _shell = new GameShell(settings, definitionRepositories.Keys, gameId);
+        _shell = new GameShell(
+            settings,
+            definitionRepositories.Select(pair => CreateRunOptions(pair.Key, pair.Value)),
+            gameId,
+            profile);
         _appliedSettings = settings;
         _userDataStore = userDataStore;
-        _simulation = new ShootingSimulation(
-            definitionRepository,
-            _input,
-            new RunConfiguration(gameId, seed: 0));
+        _leaderboardService = leaderboardService;
+        _simulation = CreateSimulation(definitionRepository);
         _layout = PrimitiveRenderLayout.CreateGameScreenLayout(_simulation.Definitions.Game);
         var displayMode = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
         var isBorderless = settings.Display.WindowMode == WindowMode.BorderlessFullscreen;
@@ -231,6 +238,10 @@ public sealed class ShootingGame : Game
             ? "goat-shooooting — CONTROLLER DISCONNECTED — reconnect or use keyboard"
             : _shell.State == GameShellState.Title
             ? $"goat-shooooting — TITLE — {_gameId}"
+            : _shell.State is GameShellState.ModeSelect or GameShellState.DifficultySelect or GameShellState.ShipSelect
+            ? $"goat-shooooting — {_shell.State.ToString().ToUpperInvariant()}"
+            : _shell.State == GameShellState.Leaderboard
+            ? "goat-shooooting — LEADERBOARD"
             : _shell.State == GameShellState.Options
             ? _shell.IsAwaitingKeyBinding
                 ? "goat-shooooting — OPTIONS — PRESS A KEY"
@@ -256,8 +267,21 @@ public sealed class ShootingGame : Game
         switch (command)
         {
             case GameShellCommand.StartRun:
+                if (_definitionRepositories.TryGetValue(_shell.SelectedGameId, out var repository))
+                {
+                    _simulation = CreateSimulation(repository);
+                    _currentRunId = Guid.NewGuid().ToString("N");
+                    _profile = _profileService.SelectRunConfiguration(_profile, _shell.SelectedCategory);
+                    _userDataStore?.SaveProfile(_profile);
+                    ApplyLayoutChanges();
+                }
+                _simulationClock.Reset();
+                _runCompletionTracker.StartRun();
+                _showControllerDisconnectedMessage = false;
+                break;
             case GameShellCommand.RetryRun:
                 _simulation.Restart();
+                _currentRunId = Guid.NewGuid().ToString("N");
                 _simulationClock.Reset();
                 _runCompletionTracker.StartRun();
                 _showControllerDisconnectedMessage = false;
@@ -272,6 +296,9 @@ public sealed class ShootingGame : Game
                 break;
             case GameShellCommand.GameSelectionChanged:
                 SelectGame(_shell.SelectedGameId);
+                break;
+            case GameShellCommand.RunSelectionChanged:
+            case GameShellCommand.OpenLeaderboard:
                 break;
             case GameShellCommand.SaveSettings:
                 _userDataStore?.SaveSettings(_appliedSettings);
@@ -294,10 +321,7 @@ public sealed class ShootingGame : Game
         }
 
         _gameId = gameId;
-        _simulation = new ShootingSimulation(
-            repository,
-            _input,
-            new RunConfiguration(gameId, seed: 0));
+        _simulation = CreateSimulation(repository);
         _simulationClock.Reset();
         _runCompletionTracker.StartRun();
         _profile = _profileService.SelectGame(_profile, gameId);
@@ -313,12 +337,64 @@ public sealed class ShootingGame : Game
             return;
         }
 
-        _profile = _profileService.RecordCompletedRun(
-            _profile,
-            _gameId,
-            (int)Math.Min(int.MaxValue, completion.Value.Score),
-            completion.Value.Cleared);
+        var run = new CompletedRunRecord
+        {
+            RunId = _currentRunId,
+            Category = _shell.SelectedCategory,
+            Score = completion.Value.Score,
+            Cleared = completion.Value.Cleared,
+            Continued = _simulation.RunState.Continued,
+            BestStage = _simulation.StageNumber,
+            MaximumChain = _simulation.RunState.MaximumChain,
+            Grazes = _simulation.Telemetry.PlayerGrazes,
+            Misses = _simulation.Telemetry.PlayerDeaths,
+            Bombs = _simulation.Telemetry.BombsUsed,
+            Continues = _simulation.Telemetry.ContinuesUsed,
+            PlayTimeFrames = _simulation.RunState.Frame,
+            Timestamp = DateTimeOffset.UtcNow,
+            ScoreBreakdown = new Dictionary<string, long>(
+                _simulation.RunState.ScoreBreakdown,
+                StringComparer.Ordinal)
+        };
+        _lastRun = run;
+        _profile = _profileService.RecordCompletedRun(_profile, run);
+        _ = _leaderboardService?.Submit(run);
         _userDataStore?.SaveProfile(_profile);
+    }
+
+    private ShootingSimulation CreateSimulation(IDefinitionRepository repository) => new(
+        repository,
+        _input,
+        RunSelectionConfiguration.Create(_shell, seed: 0));
+
+    private static GameRunOptions CreateRunOptions(string gameId, IDefinitionRepository repository)
+    {
+        var definitions = repository.Load();
+        var modes = definitions.RuleSets.Count == 0
+            ? new[] { new RunSelectionOption(ScoreCategoryKey.LegacySelection) }
+            : definitions.RuleSets.Values.OrderBy(static definition => definition.Id, StringComparer.Ordinal)
+                .Select(definition => new RunSelectionOption(
+                definition.Id, definition.Id, definition.IsAvailable, definition.UnlockId)).ToArray();
+        var difficulties = definitions.Difficulties.Count == 0
+            ? new[] { new RunSelectionOption(ScoreCategoryKey.LegacySelection) }
+            : definitions.Difficulties.Values.OrderBy(static definition => definition.Id, StringComparer.Ordinal)
+                .Select(definition => new RunSelectionOption(
+                definition.Id, definition.Id, definition.IsAvailable, definition.UnlockId)).ToArray();
+        var ships = definitions.Ships.Values.OrderBy(static definition => definition.Id, StringComparer.Ordinal)
+            .Select(definition => new RunSelectionOption(
+            definition.Id, definition.Id, definition.IsAvailable, definition.UnlockId)).ToArray();
+        return new GameRunOptions(
+            gameId,
+            modes,
+            difficulties,
+            ships,
+            string.IsNullOrWhiteSpace(definitions.Game.DefaultRuleSetId)
+                ? ScoreCategoryKey.LegacySelection
+                : definitions.Game.DefaultRuleSetId,
+            definitions.Game.DifficultyIds.FirstOrDefault() ?? ScoreCategoryKey.LegacySelection,
+            !string.IsNullOrWhiteSpace(definitions.Game.PlayerId)
+                ? definitions.Game.PlayerId
+                : definitions.Game.ShipIds.FirstOrDefault());
     }
 
     private bool ApplySettings(GameSettings requested)
@@ -401,7 +477,8 @@ public sealed class ShootingGame : Game
     {
         var logicalCanvas = _logicalCanvas ?? throw new InvalidOperationException("Content has not been loaded.");
         GraphicsDevice.SetRenderTarget(logicalCanvas);
-        if (_shell.State == GameShellState.Title)
+        if (_shell.State is GameShellState.Title or GameShellState.ModeSelect or
+            GameShellState.DifficultySelect or GameShellState.ShipSelect or GameShellState.Leaderboard)
         {
             DrawShellMenu(clearBackground: true);
             PresentLogicalCanvas(logicalCanvas);
@@ -551,15 +628,20 @@ public sealed class ShootingGame : Game
         var centerX = window.Center.X;
         var centerY = window.Center.Y;
         var isOptions = _shell.State == GameShellState.Options;
-        var panelWidth = isOptions ? Math.Min(window.Width - 48, 680) : 420;
-        var panelHeight = isOptions ? Math.Min(window.Height - 48, 560) : 300;
+        var isDetailed = _shell.State is GameShellState.Result or GameShellState.Leaderboard;
+        var panelWidth = isOptions || isDetailed ? Math.Min(window.Width - 48, 680) : 420;
+        var panelHeight = isOptions || isDetailed ? Math.Min(window.Height - 48, 560) : 300;
         var panelTop = centerY - (panelHeight / 2);
         var title = _shell.State switch
         {
             GameShellState.Title => "GOAT-SHOOOOTING",
+            GameShellState.ModeSelect => "SELECT MODE",
+            GameShellState.DifficultySelect => "SELECT DIFFICULTY",
+            GameShellState.ShipSelect => "SELECT SHIP",
             GameShellState.Pause => "PAUSED",
             GameShellState.Result when _simulation.Status == SimulationStatus.StageClear => "ALL STAGES CLEAR",
             GameShellState.Result => "GAME OVER",
+            GameShellState.Leaderboard => "LOCAL LEADERBOARD",
             _ => "OPTIONS"
         };
 
@@ -576,7 +658,8 @@ public sealed class ShootingGame : Game
 
         if (_shell.State == GameShellState.Title)
         {
-            _profile.HighScores.TryGetValue(_gameId, out var highScore);
+            var highScore = _profile.GetStats(_shell.SelectedCategory)?.BestScore ??
+                _profile.HighScores.GetValueOrDefault(_gameId);
             DrawCenteredPixelText(
                 spriteBatch,
                 pixel,
@@ -595,10 +678,47 @@ public sealed class ShootingGame : Game
                 new Color(255, 235, 84));
         }
 
+        if (_shell.State == GameShellState.Result && _lastRun is { } result)
+        {
+            var resultLines = new[]
+            {
+                $"{result.Category.GameId}  {result.Category.RuleSetId}  {result.Category.DifficultyId}  {result.Category.ShipId}",
+                $"STAGE {result.BestStage:D2}  SCORE {result.Score:D8}  {(result.Cleared ? "CLEAR" : "INCOMPLETE")}",
+                $"MAX CHAIN {result.MaximumChain}  GRAZE {result.Grazes}",
+                $"MISS {result.Misses}  BOMB {result.Bombs}  CONTINUE {result.Continues}",
+                $"PLAY TIME {result.PlayTimeFrames / (double)SimulationTiming.TicksPerSecond:F1} SEC"
+            };
+            for (var index = 0; index < resultLines.Length; index++)
+            {
+                DrawCenteredPixelText(spriteBatch, pixel, resultLines[index], centerX, panelTop + 72 + (index * 18), 1, Color.White);
+            }
+        }
+
+        if (_shell.State == GameShellState.Leaderboard)
+        {
+            var entries = _leaderboardService?.GetEntries(_shell.SelectedCategory) ?? [];
+            for (var index = 0; index < entries.Count && index < 10; index++)
+            {
+                var entry = entries[index];
+                DrawCenteredPixelText(
+                    spriteBatch,
+                    pixel,
+                    $"{index + 1:D2}  {entry.Score:D8}  ST {entry.BestStage:D2}  {(entry.Cleared ? "CLEAR" : "---")}",
+                    centerX,
+                    panelTop + 72 + (index * 22),
+                    1,
+                    index == 0 ? new Color(255, 235, 84) : Color.White);
+            }
+        }
+
         var items = _shell.MenuItems;
         var itemSpacing = isOptions ? 23 : 46;
         var itemsTop = isOptions
             ? panelTop + 78
+            : _shell.State == GameShellState.Result
+            ? panelTop + 210
+            : _shell.State == GameShellState.Leaderboard
+            ? panelTop + panelHeight - 80
             : _shell.State == GameShellState.Title
             ? centerY - 24
             : centerY - ((items.Count - 1) * itemSpacing / 2);

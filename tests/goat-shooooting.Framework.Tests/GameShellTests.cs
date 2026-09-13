@@ -11,6 +11,12 @@ public sealed class GameShellTests
     {
         var shell = new GameShell(new GameSettings());
 
+        Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(confirm: true)));
+        Assert.Equal(GameShellState.ModeSelect, shell.State);
+        Assert.Equal(GameShellCommand.RunSelectionChanged, shell.Update(new MenuInput(confirm: true)));
+        Assert.Equal(GameShellState.DifficultySelect, shell.State);
+        Assert.Equal(GameShellCommand.RunSelectionChanged, shell.Update(new MenuInput(confirm: true)));
+        Assert.Equal(GameShellState.ShipSelect, shell.State);
         Assert.Equal(GameShellCommand.StartRun, shell.Update(new MenuInput(confirm: true)));
         Assert.Equal(GameShellState.Playing, shell.State);
 
@@ -30,6 +36,7 @@ public sealed class GameShellTests
         Assert.Equal(GameShellState.Playing, shell.State);
         shell.ShowResult();
         shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(down: true));
         Assert.Equal(GameShellCommand.ReturnToTitle, shell.Update(new MenuInput(confirm: true)));
         Assert.Equal(GameShellState.Title, shell.State);
     }
@@ -38,6 +45,7 @@ public sealed class GameShellTests
     public void OptionsChangesSettingsAndWrapsSelection()
     {
         var shell = new GameShell(new GameSettings());
+        shell.Update(new MenuInput(down: true));
         shell.Update(new MenuInput(down: true));
         shell.Update(new MenuInput(confirm: true));
         Assert.Equal(GameShellState.Options, shell.State);
@@ -64,6 +72,76 @@ public sealed class GameShellTests
         Assert.Equal("gauntlet", shell.SelectedGameId);
         Assert.Equal(GameShellCommand.GameSelectionChanged, shell.Update(new MenuInput(right: true)));
         Assert.Equal("sample", shell.SelectedGameId);
+    }
+
+    [Fact]
+    public void RunSelectionsRestoreProfileValuesRejectLockedChoicesAndSupportBackNavigation()
+    {
+        var options = new GameRunOptions(
+            "sample",
+            [new("normal", "normal"), new("sprint", "sprint", UnlockId: "mode:sprint")],
+            [new("novice", "novice"), new("expert", "expert", IsAvailable: false)],
+            [new("swift", "swift"), new("heavy", "heavy")]);
+        var profile = new PlayerProfile
+        {
+            LastRuleSetIds = new() { ["sample"] = "normal" },
+            LastDifficultyIds = new() { ["sample"] = "novice" },
+            LastShipIds = new() { ["sample"] = "heavy" }
+        };
+        var shell = new GameShell(new GameSettings(), [options], "sample", profile);
+
+        shell.Update(new MenuInput(confirm: true));
+        shell.Update(new MenuInput(down: true));
+        Assert.Contains("LOCKED", shell.MenuItems[shell.SelectionIndex], StringComparison.Ordinal);
+        Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(confirm: true)));
+        Assert.Equal(GameShellState.ModeSelect, shell.State);
+        shell.Update(new MenuInput(up: true));
+        shell.Update(new MenuInput(confirm: true));
+        Assert.Equal(GameShellState.DifficultySelect, shell.State);
+        Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(cancel: true)));
+        Assert.Equal(GameShellState.ModeSelect, shell.State);
+        shell.Update(new MenuInput(confirm: true));
+        shell.Update(new MenuInput(confirm: true));
+
+        Assert.Equal(GameShellState.ShipSelect, shell.State);
+        Assert.Equal(1, shell.SelectionIndex);
+        Assert.Equal("heavy", shell.SelectedShipId);
+        Assert.Equal(GameShellCommand.StartRun, shell.Update(new MenuInput(confirm: true)));
+        Assert.Equal(new ScoreCategoryKey("sample", "normal", "novice", "heavy"), shell.SelectedCategory);
+        var configuration = RunSelectionConfiguration.Create(shell, 42);
+        Assert.Equal("normal", configuration.RuleSetId);
+        Assert.Equal("novice", configuration.DifficultyId);
+        Assert.Equal("heavy", configuration.ShipId);
+        Assert.Equal(42, configuration.Seed);
+    }
+
+    [Fact]
+    public void UnlockAllowsPreviouslyLockedModeAndLeaderboardReturnsToItsCaller()
+    {
+        var options = new GameRunOptions(
+            "sample",
+            [new("normal", "normal"), new("sprint", "sprint", UnlockId: "mode:sprint")],
+            [new("arcade", "arcade")],
+            [new("ship", "ship")]);
+        var profile = new PlayerProfile
+        {
+            Unlocks = new(StringComparer.Ordinal) { "mode:sprint" },
+            LastRuleSetIds = new() { ["sample"] = "sprint" }
+        };
+        var shell = new GameShell(new GameSettings(), [options], "sample", profile);
+
+        shell.Update(new MenuInput(confirm: true));
+        Assert.Equal(1, shell.SelectionIndex);
+        Assert.DoesNotContain("LOCKED", shell.MenuItems[1], StringComparison.Ordinal);
+        shell.Update(new MenuInput(confirm: true));
+        shell.Update(new MenuInput(confirm: true));
+        shell.Update(new MenuInput(confirm: true));
+        shell.ShowResult();
+        shell.Update(new MenuInput(down: true));
+        Assert.Equal(GameShellCommand.OpenLeaderboard, shell.Update(new MenuInput(confirm: true)));
+        Assert.Equal(GameShellState.Leaderboard, shell.State);
+        Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(cancel: true)));
+        Assert.Equal(GameShellState.Result, shell.State);
     }
 
     [Fact]
@@ -111,6 +189,7 @@ public sealed class GameShellTests
     private static GameShell OpenOptionsAtInputIndex(int inputIndex)
     {
         var shell = new GameShell(new GameSettings());
+        shell.Update(new MenuInput(down: true));
         shell.Update(new MenuInput(down: true));
         shell.Update(new MenuInput(confirm: true));
         for (var index = 0; index < inputIndex; index++)

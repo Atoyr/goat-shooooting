@@ -413,6 +413,7 @@ public sealed class DefinitionCatalog
             ValidateOptionalReference(ship.SpecialWeaponId, Weapons, "weapon", $"Ship '{ship.Id}'");
             ValidateOptionalReference(ship.VisualId, Visuals, "visual", $"Ship '{ship.Id}'");
             ValidateOptionalReference(ship.AudioId, Audio, "audio", $"Ship '{ship.Id}'");
+            if (ship.UnlockId is not null) EnsureNotEmpty(ship.UnlockId, $"Ship '{ship.Id}' unlock id");
             var optionIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var option in ship.Options)
             {
@@ -598,6 +599,7 @@ public sealed class DefinitionCatalog
                     _ = GetProjectile(revenge.GetString()!);
                 }
             }
+            if (ruleSet.UnlockId is not null) EnsureNotEmpty(ruleSet.UnlockId, $"Rule set '{ruleSet.Id}' unlock id");
         }
 
         foreach (var difficulty in Difficulties.Values)
@@ -613,6 +615,7 @@ public sealed class DefinitionCatalog
                 EnsureNotEmpty(tag, $"Difficulty '{difficulty.Id}' pattern tag");
                 if (!patternTags.Add(tag)) throw new DefinitionValidationException($"Difficulty '{difficulty.Id}' has duplicate pattern tag '{tag}'.");
             }
+            if (difficulty.UnlockId is not null) EnsureNotEmpty(difficulty.UnlockId, $"Difficulty '{difficulty.Id}' unlock id");
         }
 
         foreach (var visual in Visuals.Values)

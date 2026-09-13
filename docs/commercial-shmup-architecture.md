@@ -545,6 +545,8 @@ Boot -> Title -> ModeSelect -> DifficultySelect -> ShipSelect -> Playing
 Playing -> StageResult -> Playing | RunResult -> NameEntry -> Leaderboard -> Title
 ```
 
+P10の実装では`GameRunOptions`を各`DefinitionCatalog`のRuleSet、Difficulty、Shipから構築し、`GameShell`が`Title -> ModeSelect -> DifficultySelect -> ShipSelect -> Playing`を所有する。各Definitionの`isAvailable`とoptional `unlockId`を`PlayerProfile.Unlocks`へ照合し、選択不能項目は表示したまま確定を拒否する。cancelは直前画面へ戻り、profileに保存したgame別の最終選択を次回起動時に復元する。確定結果は`RunSelectionConfiguration`だけが`RunConfiguration`へ変換し、Frameworkが同じproduction simulationを生成する。
+
 Resultはscoreだけでなく、stage、difficulty、ship、max chain、graze、miss、bomb、continue、clear、play timeを表示する。初回起動tutorial、操作説明、scoring help、credits、license表示を用意する。
 
 ### 7.4 AccessibilityとLocalization
@@ -599,6 +601,10 @@ public readonly record struct ScoreCategoryKey(
 ```
 
 Profile schema v2はcategory別best score、clear count、best stage、play count、play time、unlocksを保持する。local leaderboard entryはscore breakdownとReplay pathを持つ。Steam bridgeは後から同じcategoryをSteam leaderboardへ写せる境界にするが、Steam SDKをRuntimeへ入れない。
+
+`ScoreCategoryKey`の4要素はpercent escapeしたstable IDで保存し、区切り文字を含むIDでも衝突させない。schema 0／1の`HighScores[gameId]`と`ClearCounts[gameId]`は削除せず、`(gameId, legacy, legacy, legacy)` categoryへlosslessに移す。schema v2のcategory recordは`long BestScore`、clear count、best stage、play count、play time frameを持ち、同一`runId`は二重集計しない。
+
+`ILeaderboardService`はPlatform境界であり、`LocalLeaderboardService`はcategoryごとにscore降順、同点は先に達成したtimestamp順、さらにrun ID順で安定化する。上限外の低score、重複runを保存せず、entryにはcategory、score breakdown、clear／continue、stage、chain、graze、miss、bomb、continue回数、play time、timestamp、将来のReplay pathを保持する。保存はtemporary fileからのatomic replaceを使い、破損JSONは`.invalid-{UTC timestamp}`へ隔離して空のboardから回復する。保存失敗時は既存fileを維持して`SaveFailed`を返す。
 
 ## 9. Tooling
 
