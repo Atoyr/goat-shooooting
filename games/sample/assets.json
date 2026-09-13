@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "textures": [
+    { "id": "placeholder-atlas", "path": "assets/placeholder-atlas.png" },
+    { "id": "space-background-texture", "path": "assets/space-background.png" }
+  ],
+  "sprites": [
+    { "id": "player-frame-1", "textureId": "placeholder-atlas", "x": 0, "y": 0, "width": 313, "height": 313, "layer": 20 },
+    { "id": "player-frame-2", "textureId": "placeholder-atlas", "x": 313, "y": 0, "width": 313, "height": 313, "layer": 20 },
+    { "id": "player-frame-3", "textureId": "placeholder-atlas", "x": 626, "y": 0, "width": 313, "height": 313, "layer": 20 },
+    { "id": "player-frame-4", "textureId": "placeholder-atlas", "x": 939, "y": 0, "width": 315, "height": 313, "layer": 20 },
+    { "id": "scout", "textureId": "placeholder-atlas", "x": 0, "y": 313, "width": 313, "height": 313, "layer": 20 },
+    { "id": "fighter-a", "textureId": "placeholder-atlas", "x": 313, "y": 313, "width": 313, "height": 313, "layer": 20 },
+    { "id": "midboss", "textureId": "placeholder-atlas", "x": 939, "y": 313, "width": 315, "height": 313, "layer": 20 },
+    { "id": "player-shot", "textureId": "placeholder-atlas", "x": 0, "y": 626, "width": 313, "height": 313, "layer": 20 },
+    { "id": "enemy-shot", "textureId": "placeholder-atlas", "x": 626, "y": 626, "width": 313, "height": 313, "layer": 20 },
+    { "id": "enemy-homing-shot", "textureId": "placeholder-atlas", "x": 939, "y": 626, "width": 315, "height": 313, "layer": 20 },
+    { "id": "explosion-frame-1", "textureId": "placeholder-atlas", "x": 626, "y": 939, "width": 313, "height": 315, "layer": 30 },
+    { "id": "explosion-frame-2", "textureId": "placeholder-atlas", "x": 939, "y": 939, "width": 315, "height": 315, "layer": 30 },
+    { "id": "space-background", "textureId": "space-background-texture", "x": 0, "y": 0, "width": 1024, "height": 1536, "originX": 0, "originY": 0, "layer": -100 }
+  ],
+  "animations": [
+    { "id": "player-one", "frames": ["player-frame-1", "player-frame-2", "player-frame-3", "player-frame-4"], "frameDurationSeconds": 0.12, "loop": true },
+    { "id": "explosion", "frames": ["explosion-frame-1", "explosion-frame-2"], "frameDurationSeconds": 0.08, "loop": false }
+  ],
+  "backgrounds": [
+    {
+      "id": "space-main",
+      "layers": [
+        { "assetId": "space-background", "scrollY": 18, "parallax": 0.35, "opacity": 0.88, "layer": -100 }
+      ]
+    }
+  ]
+}

@@ -522,7 +522,13 @@ Runtimeはasset fileやMonoGame型を参照せず、snapshotに`visualId`、anim
 
 最初はSpriteBatchで実装し、bloom／shaderはoptional post-process passとして追加する。ゲーム進行上必要な弾outlineとhitboxはpost-processなしでも見えるようにする。
 
-`assets/manifest.json`にasset ID、相対path、種類、sprite metadataを置く。path traversal、重複ID、存在しないfile、範囲外source rectangleを起動前に検証する。開発時hot reloadとRelease時の不足asset検査を同じcatalogで行う。
+content pack直下の`assets.json`にtexture IDと相対path、sprite region／origin／flip／layer、animation clip、scrolling／parallax backgroundを置く。path traversal、重複ID、存在しないfile、PNG dimension、範囲外source rectangle、無効frame durationを起動前に検証する。開発時hot reloadとRelease時の不足asset検査を同じcatalogで行う。
+
+P12実装では、GPU非依存の`VisualAssetManifestLoader`をDefinitionsへ、MonoGame `Texture2D`の所有者である`MonoGameVisualAssetCatalog`をFrameworkへ置いた。reload候補はmanifestと全textureを検証・decodeしてから一括交換し、成功時に旧textureをdisposeする。失敗時はcandidateだけをdisposeしてlast-known-goodを表示し続け、理由をwindow titleへ出す。`assets.json`変更はDefinition hot reload fingerprintから除外するため、画像差替えだけでSimulationをrestartしない。
+
+Runtimeの`RenderItem`はasset fileやMonoGame型を持たず、visual／animation ID、previous／current position、rotation、scale、RGBA tint、layer、flipだけを公開する。actor／itemのprevious positionはfixed tick開始時に記録し、projectile既存swept-collision位置とともにFrameworkの`InterpolationAlpha`で描画だけを補間する。previous positionとstage `backgroundId`はpresentation-onlyとしてcanonical replay hash／content identityから除外し、P11 Replayとの互換性を維持する。
+
+manifestまたはasset IDがないcontent pack／itemは従来の1px primitiveへfallbackする。sampleにはこのrepository専用に生成したplaceholder atlasと背景、stage別`backgroundId`を追加し、gauntletはmanifestなしのfallback回帰対象として残す。Toolingの`validate`／`render-smoke`、Release publish内のmanifest file検査、実GPUの`--render-screenshot`で同じ境界を確認する。
 
 ### 7.2 Audio
 

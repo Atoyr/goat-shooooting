@@ -12,10 +12,10 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        if (args.Length < 2 || args[0] is not ("validate" or "benchmark" or "editor"))
+        if (args.Length < 2 || args[0] is not ("validate" or "benchmark" or "editor" or "render-smoke"))
         {
             Console.Error.WriteLine(
-                "Usage: goat-shooooting.Tooling validate|benchmark|editor <game-directory> [--port 5078] [--no-open]");
+                "Usage: goat-shooooting.Tooling validate|benchmark|render-smoke|editor <game-directory> [--port 5078] [--no-open]");
             return 2;
         }
 
@@ -28,6 +28,11 @@ public static class Program
         if (args[0] == "benchmark")
         {
             return Benchmark(rootDirectory);
+        }
+
+        if (args[0] == "render-smoke")
+        {
+            return RenderSmoke(rootDirectory);
         }
 
         return await RunEditorAsync(rootDirectory, args).ConfigureAwait(false);
@@ -65,16 +70,47 @@ public static class Program
         {
             var catalog = new JsonDefinitionRepository(rootDirectory).Load();
             new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
+            var assets = VisualAssetManifestLoader.LoadOptional(rootDirectory, catalog);
             Console.WriteLine(
                 $"VALID: schema=2, game={catalog.Game.Id}, player={catalog.Game.PlayerId}, " +
                 $"stage={catalog.Game.StageId}, ships={catalog.Ships.Count}, " +
                 $"projectiles={catalog.Projectiles.Count}, enemies={catalog.Enemies.Count}, " +
-                $"weapons={catalog.Weapons.Count}");
+                $"weapons={catalog.Weapons.Count}, textures={assets.Textures.Count}, sprites={assets.Sprites.Count}");
             return 0;
         }
         catch (Exception exception) when (exception is DefinitionValidationException or IOException or UnauthorizedAccessException)
         {
             Console.Error.WriteLine($"INVALID: {exception.Message}");
+            return 1;
+        }
+    }
+
+    private static int RenderSmoke(string rootDirectory)
+    {
+        try
+        {
+            var definitions = new JsonDefinitionRepository(rootDirectory).Load();
+            var assets = VisualAssetManifestLoader.LoadOptional(rootDirectory, definitions);
+            var assetIds = assets.Sprites.Select(static item => item.Id)
+                .Concat(assets.Animations.Select(static item => item.Id))
+                .ToHashSet(StringComparer.Ordinal);
+            var resolvedActors = definitions.Ships.Values.Count(ship =>
+                    assetIds.Contains(ship.VisualId ?? ship.Id)) +
+                definitions.Enemies.Values.Count(enemy => assetIds.Contains(enemy.Id)) +
+                definitions.Projectiles.Values.Count(projectile => assetIds.Contains(projectile.VisualId));
+            var backgroundLayers = definitions.Stages.Values
+                .Where(static stage => !string.IsNullOrWhiteSpace(stage.BackgroundId))
+                .Select(stage => assets.Backgrounds.Single(background => background.Id == stage.BackgroundId).Layers.Count)
+                .Sum();
+            Console.WriteLine(
+                $"RENDER SMOKE PASSED: textures={assets.Textures.Count}, assets={assetIds.Count}, " +
+                $"resolvedActors={resolvedActors}, backgroundLayers={backgroundLayers}, primitiveFallback=true");
+            return 0;
+        }
+        catch (Exception exception) when (exception is
+                   DefinitionValidationException or IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Console.Error.WriteLine($"RENDER SMOKE FAILED: {exception.Message}");
             return 1;
         }
     }

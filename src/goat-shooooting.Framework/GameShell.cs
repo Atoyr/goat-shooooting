@@ -303,6 +303,13 @@ public sealed class GameShell
 
     public void SetResultReplay(string? replayPath) => _resultReplayPath = replayPath;
 
+    public GameShellCommand StartAutomatedRun()
+    {
+        State = GameShellState.Playing;
+        _selectionIndex = 0;
+        return GameShellCommand.StartRun;
+    }
+
     public GameShellCommand RetryResult()
     {
         if (State != GameShellState.Result) return GameShellCommand.None;

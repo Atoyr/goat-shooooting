@@ -81,6 +81,46 @@ public sealed class FrameworkAdapterTests
     }
 
     [Fact]
+    public void RenderInterpolationUsesPriorAndCurrentTickWithoutChangingEither()
+    {
+        var item = new RenderItem(
+            1,
+            RenderKind.Item,
+            new Vector2(20, 40),
+            4,
+            1,
+            PreviousPosition: new Vector2(10, 20));
+
+        var position = PrimitiveRenderLayout.Interpolate(item, 0.5f);
+        var rectangle = PrimitiveRenderLayout.ToInterpolatedRectangle(item, 0.5f);
+
+        Assert.Equal(new Vector2(15, 30), position);
+        Assert.Equal(11, rectangle.X);
+        Assert.Equal(26, rectangle.Y);
+        Assert.Equal(new Vector2(20, 40), item.Position);
+    }
+
+    [Fact]
+    public void AnimationResolverLoopsAndClampsAtFrameBoundaries()
+    {
+        var manifest = new VisualAssetManifest
+        {
+            Sprites = [new() { Id = "a" }, new() { Id = "b" }],
+            Animations =
+            [
+                new() { Id = "loop", Frames = ["a", "b"], FrameDurationSeconds = 0.25 },
+                new() { Id = "once", Frames = ["a", "b"], FrameDurationSeconds = 0.25, Loop = false }
+            ]
+        };
+
+        Assert.Equal("a", VisualAssetAnimationResolver.ResolveSpriteId(manifest, "loop", 0));
+        Assert.Equal("b", VisualAssetAnimationResolver.ResolveSpriteId(manifest, "loop", 0.25));
+        Assert.Equal("a", VisualAssetAnimationResolver.ResolveSpriteId(manifest, "loop", 0.5));
+        Assert.Equal("b", VisualAssetAnimationResolver.ResolveSpriteId(manifest, "once", 99));
+        Assert.Null(VisualAssetAnimationResolver.ResolveSpriteId(manifest, "missing", 0));
+    }
+
+    [Fact]
     public void PixelTextLayoutRightAlignsScoreInsideHud()
     {
         var rectangles = PrimitiveRenderLayout.ToPixelTextRectangles("SCORE 00000123", 624, 16);

@@ -66,7 +66,7 @@ public sealed class DefinitionEditorServiceTests
         var schemaDirectory = Path.Combine(AppContext.BaseDirectory, "schemas");
         var schemaPaths = Directory.GetFiles(schemaDirectory, "*.schema.json");
 
-        Assert.Equal(16, schemaPaths.Length);
+        Assert.Equal(17, schemaPaths.Length);
         foreach (var schemaPath in schemaPaths)
         {
             using var document = JsonDocument.Parse(File.ReadAllText(schemaPath));

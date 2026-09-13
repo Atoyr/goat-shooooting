@@ -873,7 +873,27 @@ public readonly record struct RenderItem(
     string? BossName = null,
     string? BossPhaseName = null,
     float? BossRemainingTime = null,
-    bool BossWarning = false);
+    bool BossWarning = false,
+    Vector2 PreviousPosition = default,
+    string? AnimationId = null,
+    float Scale = 1,
+    uint Tint = uint.MaxValue,
+    int Layer = 20,
+    bool FlipX = false,
+    bool FlipY = false);
+
+public sealed class TransformHistorySystem
+{
+    public void BeginTick(World world)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        foreach (var entity in world.Query<TransformComponent>())
+        {
+            var transform = entity.Get<TransformComponent>();
+            transform.PreviousPosition = transform.Position;
+        }
+    }
+}
 
 /// <summary>Transforms runtime state into renderer-neutral draw data.</summary>
 public sealed class RenderSystem
@@ -915,32 +935,45 @@ public sealed class RenderSystem
                 ? Math.Clamp((float)health.Current / health.Maximum, 0, 1)
                 : 1;
             entity.TryGet<BossComponent>(out var boss);
+            var visualId = entity.TryGet<ShipComponent>(out var shipComponent)
+                ? shipComponent.VisualId ?? shipComponent.DefinitionId
+                : entity.TryGet<EnemyComponent>(out var enemyComponent)
+                    ? enemyComponent.DefinitionId
+                    : null;
+            var transform = entity.Get<TransformComponent>();
             items.Add(new RenderItem(
                 entity.Id,
                 kind.Value,
-                entity.Get<TransformComponent>().Position,
+                transform.Position,
                 entity.Get<ColliderComponent>().Radius,
                 healthFraction,
                 entity.Has<HitFlashComponent>() ||
                 (entity.TryGet<InvincibilityComponent>(out var invincibility) && invincibility.Remaining > 0),
-                VisualId: entity.TryGet<ShipComponent>(out var shipComponent) ? shipComponent.VisualId : null,
+                VisualId: visualId,
                 BossName: boss?.IsManaged == true ? boss.DisplayName : null,
                 BossPhaseName: boss?.IsManaged == true ? boss.PhaseDisplayName : null,
                 BossRemainingTime: boss?.IsManaged == true ? boss.RemainingTime : null,
-                BossWarning: boss?.IsWarning == true));
+                BossWarning: boss?.IsWarning == true,
+                PreviousPosition: transform.PreviousPosition,
+                Layer: kind == RenderKind.Enemy ? 25 : 30));
         }
 
         foreach (var entity in world.Query<TransformComponent, ExplosionComponent>())
         {
             var explosion = entity.Get<ExplosionComponent>();
             var progress = Math.Clamp(1 - (explosion.Remaining / explosion.Duration), 0, 1);
+            var transform = entity.Get<TransformComponent>();
             items.Add(new RenderItem(
                 entity.Id,
                 RenderKind.Explosion,
-                entity.Get<TransformComponent>().Position,
+                transform.Position,
                 explosion.MaxRadius * Math.Max(0.2f, progress),
                 1,
-                EffectProgress: progress));
+                EffectProgress: progress,
+                VisualId: "explosion",
+                PreviousPosition: transform.PreviousPosition,
+                AnimationId: "explosion",
+                Layer: 50));
         }
 
         foreach (var entity in world.Query<TransformComponent, OptionUnitComponent>())
@@ -948,41 +981,50 @@ public sealed class RenderSystem
             var option = entity.Get<OptionUnitComponent>();
             var owner = OptionFollowSystem.FindEntity(world, option.OwnerEntityId);
             if (owner?.TryGet<PlayerLifeCycleComponent>(out var lifeCycle) == true && !lifeCycle.CanAct) continue;
+            var transform = entity.Get<TransformComponent>();
             items.Add(new RenderItem(
                 entity.Id,
                 RenderKind.Option,
-                entity.Get<TransformComponent>().Position,
+                transform.Position,
                 option.Radius,
                 1,
-                VisualId: option.VisualId));
+                VisualId: option.VisualId ?? option.DefinitionId,
+                PreviousPosition: transform.PreviousPosition,
+                Layer: 29));
         }
 
         foreach (var entity in world.Query<TransformComponent, ItemComponent>())
         {
             if (entity.Has<PendingDestroyComponent>()) continue;
             var item = entity.Get<ItemComponent>();
+            var transform = entity.Get<TransformComponent>();
             items.Add(new RenderItem(
                 entity.Id,
                 RenderKind.Item,
-                entity.Get<TransformComponent>().Position,
+                transform.Position,
                 6,
                 1,
-                VisualId: item.VisualId));
+                VisualId: item.VisualId,
+                PreviousPosition: transform.PreviousPosition,
+                Layer: 35));
         }
 
         foreach (var entity in world.Query<TransformComponent, LaserComponent>())
         {
             var laser = entity.Get<LaserComponent>();
             var direction = Vector2.Normalize(laser.Direction);
+            var transform = entity.Get<TransformComponent>();
             items.Add(new RenderItem(
                 entity.Id,
                 RenderKind.Laser,
-                entity.Get<TransformComponent>().Position + (direction * laser.Length * 0.5f),
+                transform.Position + (direction * laser.Length * 0.5f),
                 laser.Width,
                 1,
                 VisualId: laser.VisualId,
                 Size: new Vector2(laser.Width * 2, laser.Length),
-                Rotation: MathF.Atan2(direction.Y, direction.X) + (MathF.PI * 0.5f)));
+                Rotation: MathF.Atan2(direction.Y, direction.X) + (MathF.PI * 0.5f),
+                PreviousPosition: transform.PreviousPosition + (direction * laser.Length * 0.5f),
+                Layer: 32));
         }
 
         foreach (var player in world.Query<TransformComponent, ShipComponent>())
@@ -995,7 +1037,9 @@ public sealed class RenderSystem
                     RenderKind.PlayerHitbox,
                     player.Get<TransformComponent>().Position,
                     ship.HitRadius,
-                    1));
+                    1,
+                    PreviousPosition: player.Get<TransformComponent>().PreviousPosition,
+                    Layer: 60));
             }
         }
 
@@ -1007,7 +1051,14 @@ public sealed class RenderSystem
                 {
                     var target = OptionFollowSystem.FindEntity(world, targetId);
                     if (target is null || !target.TryGet<TransformComponent>(out var transform)) continue;
-                    items.Add(new RenderItem(targetId, RenderKind.LockMarker, transform.Position, 12, 1));
+                    items.Add(new RenderItem(
+                        targetId,
+                        RenderKind.LockMarker,
+                        transform.Position,
+                        12,
+                        1,
+                        PreviousPosition: transform.PreviousPosition,
+                        Layer: 55));
                 }
             }
         }
@@ -1029,7 +1080,9 @@ public sealed class RenderSystem
                     projectiles.PositionAt(index),
                     projectiles.HitRadiusAt(index),
                     1,
-                    VisualId: projectiles.VisualIdAt(index)));
+                    VisualId: projectiles.VisualIdAt(index),
+                    PreviousPosition: projectiles.PreviousPositionAt(index),
+                    Layer: projectiles.TeamAt(index) == ProjectileTeam.Player ? 40 : 45));
             }
         }
 

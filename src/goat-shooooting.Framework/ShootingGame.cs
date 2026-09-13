@@ -17,6 +17,7 @@ public sealed class ShootingGame : Game
     private readonly IUserDataStore? _userDataStore;
     private readonly ILeaderboardService? _leaderboardService;
     private readonly IReplayStore? _replayStore;
+    private readonly IReadOnlyDictionary<string, IVisualAssetCatalog> _visualAssetCatalogs;
     private readonly IReadOnlyDictionary<string, IDefinitionRepository> _definitionRepositories;
     private readonly PlayerProfileService _profileService = new();
     private readonly RunCompletionTracker _runCompletionTracker = new();
@@ -44,6 +45,10 @@ public sealed class ShootingGame : Game
     private ReplayPlaybackController? _replayController;
     private bool _isReplayPlayback;
     private string? _replayError;
+    private IVisualAssetCatalog? _visualAssets;
+    private int _assetDefinitionReloadCount;
+    private readonly string? _renderScreenshotPath;
+    private bool _renderScreenshotSaved;
 
     public ShootingGame(IDefinitionRepository definitionRepository)
         : this(definitionRepository, userDataStore: null, settings: new GameSettings())
@@ -64,7 +69,9 @@ public sealed class ShootingGame : Game
             settings,
             new PlayerProfile(),
             leaderboardService: null,
-            replayStore: null)
+            replayStore: null,
+            visualAssetCatalogs: null,
+            renderScreenshotPath: null)
     {
     }
 
@@ -75,7 +82,9 @@ public sealed class ShootingGame : Game
         GameSettings settings,
         PlayerProfile profile,
         ILeaderboardService? leaderboardService = null,
-        IReplayStore? replayStore = null)
+        IReplayStore? replayStore = null,
+        IReadOnlyDictionary<string, IVisualAssetCatalog>? visualAssetCatalogs = null,
+        string? renderScreenshotPath = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(definitionRepositories);
@@ -98,6 +107,11 @@ public sealed class ShootingGame : Game
         _userDataStore = userDataStore;
         _leaderboardService = leaderboardService;
         _replayStore = replayStore;
+        _visualAssetCatalogs = visualAssetCatalogs ??
+            new Dictionary<string, IVisualAssetCatalog>(StringComparer.Ordinal);
+        _renderScreenshotPath = string.IsNullOrWhiteSpace(renderScreenshotPath)
+            ? null
+            : Path.GetFullPath(renderScreenshotPath);
         _simulation = CreateSimulation(definitionRepository);
         _layout = PrimitiveRenderLayout.CreateGameScreenLayout(_simulation.Definitions.Game);
         var displayMode = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
@@ -134,6 +148,8 @@ public sealed class ShootingGame : Game
         _pixel.SetData(new[] { Color.White });
         _logicalCanvas = CreateLogicalCanvas();
         _audio = new GameAudio(_appliedSettings.Audio);
+        SelectVisualAssets();
+        if (_renderScreenshotPath is not null) HandleShellCommand(_shell.StartAutomatedRun());
     }
 
     protected override void Update(GameTime gameTime)
@@ -252,6 +268,7 @@ public sealed class ShootingGame : Game
             return;
         }
         ApplyLayoutChanges();
+        UpdateVisualAssets();
         _audio?.Play(frameFeedback);
         UpdateVibration(deltaTime, frameFeedback);
         _shakeRemaining = Math.Max(0, _shakeRemaining - deltaTime);
@@ -289,6 +306,8 @@ public sealed class ShootingGame : Game
             ? "goat-shooooting — CONTROLLER DISCONNECTED — reconnect or use keyboard"
             : _replayError is not null
             ? $"goat-shooooting — REPLAY ERROR — {_replayError}"
+            : _visualAssets?.LastReloadError is { } assetError
+            ? $"goat-shooooting — ASSET ERROR — {assetError}"
             : _shell.State == GameShellState.Title
             ? $"goat-shooooting — TITLE — {_gameId}"
             : _shell.State is GameShellState.ModeSelect or GameShellState.DifficultySelect or
@@ -404,6 +423,27 @@ public sealed class ShootingGame : Game
         _profile = _profileService.SelectGame(_profile, gameId);
         _userDataStore?.SaveProfile(_profile);
         ApplyLayoutChanges();
+        SelectVisualAssets();
+    }
+
+    private void SelectVisualAssets()
+    {
+        _visualAssets = _visualAssetCatalogs.GetValueOrDefault(_gameId);
+        if (_visualAssets is null || GraphicsDevice is null) return;
+        _visualAssets.Load(GraphicsDevice, _simulation.Definitions);
+        _assetDefinitionReloadCount = _simulation.DefinitionReloadCount;
+    }
+
+    private void UpdateVisualAssets()
+    {
+        if (_visualAssets is null) return;
+        if (_assetDefinitionReloadCount != _simulation.DefinitionReloadCount)
+        {
+            _visualAssets.Load(GraphicsDevice, _simulation.Definitions);
+            _assetDefinitionReloadCount = _simulation.DefinitionReloadCount;
+            return;
+        }
+        _visualAssets.PollChanges(GraphicsDevice, _simulation.Definitions);
     }
 
     private void RecordRunCompletion()
@@ -691,8 +731,13 @@ public sealed class ShootingGame : Game
                 _layout.Playfield.X + shakeOffset.X,
                 shakeOffset.Y,
                 0));
+        var animationSeconds = (_simulation.RunState.Frame + _simulationClock.InterpolationAlpha) /
+            SimulationTiming.TicksPerSecond;
+        DrawBackground(spriteBatch, animationSeconds);
         var items = _renderSystem.Capture(_simulation.World, _simulation.Projectiles);
-        foreach (var item in items)
+        foreach (var item in items
+                     .OrderBy(item => GetRenderLayer(item, animationSeconds))
+                     .ThenBy(static item => item.EntityId))
         {
             if (item.Kind == RenderKind.PlayerHitbox &&
                 ((_isReplayPlayback && !(_replayController?.ShowHitboxes ?? false)) ||
@@ -712,8 +757,28 @@ public sealed class ShootingGame : Game
                 RenderKind.Item => new Color(110, 255, 130),
                 _ => Color.White
             };
-            var bounds = PrimitiveRenderLayout.ToRectangle(item);
-            if (item.Rotation == 0)
+            color = ApplyTint(color, item.Tint);
+            var interpolated = PrimitiveRenderLayout.Interpolate(item, _simulationClock.InterpolationAlpha);
+            var bounds = PrimitiveRenderLayout.ToInterpolatedRectangle(item, _simulationClock.InterpolationAlpha);
+            if (TryResolveVisual(item, animationSeconds, out var frame))
+            {
+                var width = item.Size.X > 0 ? item.Size.X : item.Radius * 2;
+                var height = item.Size.Y > 0 ? item.Size.Y : item.Radius * 2;
+                var effects = frame.Effects |
+                    (item.FlipX ? SpriteEffects.FlipHorizontally : SpriteEffects.None) |
+                    (item.FlipY ? SpriteEffects.FlipVertically : SpriteEffects.None);
+                spriteBatch.Draw(
+                    frame.Texture,
+                    new Vector2(interpolated.X, interpolated.Y),
+                    frame.Source,
+                    color,
+                    item.Rotation,
+                    frame.Origin,
+                    new Vector2(width / frame.Source.Width, height / frame.Source.Height) * item.Scale,
+                    effects,
+                    0);
+            }
+            else if (item.Rotation == 0)
             {
                 spriteBatch.Draw(pixel, bounds, color);
             }
@@ -721,7 +786,7 @@ public sealed class ShootingGame : Game
             {
                 spriteBatch.Draw(
                     pixel,
-                    new Vector2(item.Position.X, item.Position.Y),
+                    new Vector2(interpolated.X, interpolated.Y),
                     null,
                     color,
                     item.Rotation,
@@ -797,7 +862,67 @@ public sealed class ShootingGame : Game
         }
 
         PresentLogicalCanvas(logicalCanvas);
+        if (_renderScreenshotPath is not null && !_renderScreenshotSaved && _simulation.RunState.Frame >= 420)
+        {
+            var directory = Path.GetDirectoryName(_renderScreenshotPath);
+            if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);
+            using var stream = File.Create(_renderScreenshotPath);
+            logicalCanvas.SaveAsPng(stream, logicalCanvas.Width, logicalCanvas.Height);
+            _renderScreenshotSaved = true;
+            Exit();
+        }
         base.Draw(gameTime);
+    }
+
+    private void DrawBackground(SpriteBatch spriteBatch, double animationSeconds)
+    {
+        if (_visualAssets is null || string.IsNullOrWhiteSpace(_simulation.CurrentStage.BackgroundId) ||
+            !_visualAssets.TryGetBackground(_simulation.CurrentStage.BackgroundId, out var background))
+            return;
+        var elapsedSeconds = _simulation.RunState.Frame / (double)SimulationTiming.TicksPerSecond;
+        foreach (var layer in background.Layers.OrderBy(static item => item.Layer))
+        {
+            if (!_visualAssets.TryGetFrame(layer.AssetId, animationSeconds, out var frame)) continue;
+            var scale = _layout.Playfield.Width / (float)frame.Source.Width;
+            var tileWidth = Math.Max(1, (int)MathF.Ceiling(frame.Source.Width * scale));
+            var tileHeight = Math.Max(1, (int)MathF.Ceiling(frame.Source.Height * scale));
+            var offsetX = PositiveModulo((float)(elapsedSeconds * layer.ScrollX * layer.Parallax), tileWidth);
+            var offsetY = PositiveModulo((float)(elapsedSeconds * layer.ScrollY * layer.Parallax), tileHeight);
+            var tint = Color.White * layer.Opacity;
+            for (var x = (int)offsetX - tileWidth; x < _layout.Playfield.Width; x += tileWidth)
+            {
+                for (var y = (int)offsetY - tileHeight; y < _layout.Playfield.Height; y += tileHeight)
+                {
+                    spriteBatch.Draw(frame.Texture, new Rectangle(x, y, tileWidth, tileHeight), frame.Source, tint);
+                }
+            }
+        }
+    }
+
+    private int GetRenderLayer(RenderItem item, double animationSeconds) =>
+        TryResolveVisual(item, animationSeconds, out var frame) ? item.Layer + frame.Layer : item.Layer;
+
+    private bool TryResolveVisual(RenderItem item, double animationSeconds, out VisualAssetFrame frame)
+    {
+        var visualId = item.AnimationId ?? item.VisualId;
+        if (visualId is not null && _simulation.Definitions.Visuals.TryGetValue(visualId, out var visual))
+            visualId = visual.AssetId;
+        if (_visualAssets is not null && visualId is not null)
+            return _visualAssets.TryGetFrame(visualId, animationSeconds, out frame);
+        frame = default;
+        return false;
+    }
+
+    private static Color ApplyTint(Color color, uint tint) => new(
+        color.R * ((tint >> 24) & 0xff) / 255,
+        color.G * ((tint >> 16) & 0xff) / 255,
+        color.B * ((tint >> 8) & 0xff) / 255,
+        color.A * (tint & 0xff) / 255);
+
+    private static float PositiveModulo(float value, int divisor)
+    {
+        var result = value % divisor;
+        return result < 0 ? result + divisor : result;
     }
 
     private void DrawShellMenu(bool clearBackground)
@@ -1004,7 +1129,7 @@ public sealed class ShootingGame : Game
         SurfaceFormat.Color,
         DepthFormat.None,
         preferredMultiSampleCount: 0,
-        RenderTargetUsage.DiscardContents);
+        RenderTargetUsage.PreserveContents);
 
     private void PresentLogicalCanvas(RenderTarget2D logicalCanvas)
     {
@@ -1173,6 +1298,7 @@ public sealed class ShootingGame : Game
             _spriteBatch?.Dispose();
             _logicalCanvas?.Dispose();
             _audio?.Dispose();
+            foreach (var catalog in _visualAssetCatalogs.Values.Distinct()) catalog.Dispose();
         }
 
         base.Dispose(disposing);

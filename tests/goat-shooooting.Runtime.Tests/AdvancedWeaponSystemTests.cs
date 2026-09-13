@@ -199,6 +199,9 @@ public sealed class AdvancedWeaponSystemTests
         var render = new RenderSystem().Capture(world, projectiles);
         var ship = Assert.Single(render.Where(item => item.Kind == RenderKind.Player));
         Assert.Equal("ship-striker", ship.VisualId);
+        Assert.Equal(new Vector2(100, 200), ship.PreviousPosition);
+        Assert.Equal(new Vector2(200, 200), ship.Position);
+        Assert.Equal(30, ship.Layer);
         Assert.Single(render.Where(item => item.Kind == RenderKind.Option));
         Assert.Single(render.Where(item => item.Kind == RenderKind.Laser));
         Assert.Single(render.Where(item => item.Kind == RenderKind.PlayerHitbox));

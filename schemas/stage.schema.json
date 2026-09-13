@@ -16,6 +16,11 @@
       "minLength": 1,
       "description": "リザルト表示後に開始するステージIDです。省略時はゲームクリアになります。"
     },
+    "backgroundId": {
+      "type": ["string", "null"],
+      "minLength": 1,
+      "description": "assets.jsonに定義したstage background IDです。"
+    },
     "events": {
       "type": "array",
       "items": {

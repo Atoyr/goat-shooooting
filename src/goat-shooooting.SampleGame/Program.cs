@@ -13,6 +13,7 @@ public static class Program
         try
         {
             var requestedGameId = GetRequestedGameId(args);
+            var renderScreenshotPath = GetOptionValue(args, "--render-screenshot");
             if (args.Contains("--smoke-test", StringComparer.Ordinal))
             {
                 var smokeGameId = requestedGameId ?? "sample";
@@ -27,10 +28,28 @@ public static class Program
             var settings = userDataStore.LoadSettings().Value;
             var profile = userDataStore.LoadProfile().Value;
             var definitions = GetAvailableGames();
+            var visualAssets = GetVisualAssetCatalogs(definitions.Keys);
             var gameId = requestedGameId ?? profile.LastGameId;
             if (!definitions.ContainsKey(gameId))
             {
                 gameId = definitions.ContainsKey("sample") ? "sample" : definitions.Keys.First();
+            }
+
+            if (renderScreenshotPath is not null)
+            {
+                using var screenshotGame = new ShootingGame(
+                    definitions,
+                    gameId,
+                    userDataStore: null,
+                    settings: new GameSettings(),
+                    profile: new PlayerProfile { LastGameId = gameId },
+                    leaderboardService: null,
+                    replayStore: null,
+                    visualAssetCatalogs: visualAssets,
+                    renderScreenshotPath: renderScreenshotPath);
+                screenshotGame.Run();
+                Console.WriteLine($"RENDER SCREENSHOT PASSED: {Path.GetFullPath(renderScreenshotPath)}");
+                return 0;
             }
 
             if (!string.Equals(profile.LastGameId, gameId, StringComparison.Ordinal))
@@ -40,7 +59,14 @@ public static class Program
             }
 
             using var game = new ShootingGame(
-                definitions, gameId, userDataStore, settings, profile, leaderboard, replayStore);
+                definitions,
+                gameId,
+                userDataStore,
+                settings,
+                profile,
+                leaderboard,
+                replayStore,
+                visualAssets);
             game.Run();
             return 0;
         }
@@ -199,6 +225,17 @@ public static class Program
         return definitions;
     }
 
+    private static IReadOnlyDictionary<string, IVisualAssetCatalog> GetVisualAssetCatalogs(
+        IEnumerable<string> gameIds)
+    {
+        var gamesDirectory = Path.Combine(AppContext.BaseDirectory, "games");
+        return gameIds.ToDictionary(
+            static gameId => gameId,
+            gameId => (IVisualAssetCatalog)new MonoGameVisualAssetCatalog(
+                Path.Combine(gamesDirectory, gameId)),
+            StringComparer.Ordinal);
+    }
+
     private static string? GetRequestedGameId(string[] args)
     {
         var optionIndex = Array.FindIndex(args, static argument => string.Equals(argument, "--game", StringComparison.Ordinal));
@@ -216,6 +253,15 @@ public static class Program
         }
 
         return gameId;
+    }
+
+    private static string? GetOptionValue(string[] args, string option)
+    {
+        var optionIndex = Array.FindIndex(args, argument => string.Equals(argument, option, StringComparison.Ordinal));
+        if (optionIndex < 0) return null;
+        if (optionIndex + 1 >= args.Length || string.IsNullOrWhiteSpace(args[optionIndex + 1]))
+            throw new ArgumentException($"{option} requires a file path.");
+        return args[optionIndex + 1];
     }
 
     private static void Require(bool condition, string message)

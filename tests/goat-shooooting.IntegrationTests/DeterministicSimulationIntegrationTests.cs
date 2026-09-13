@@ -8,6 +8,27 @@ namespace GoatShooooting.IntegrationTests;
 public sealed class DeterministicSimulationIntegrationTests
 {
     [Fact]
+    public void PresentationOnlyBackgroundAndPreviousTransformDoNotInvalidateReplayIdentity()
+    {
+        var baseline = CreateDefinitionsWithEmptyStage(resultsDuration: 0);
+        var withBackground = new DefinitionCatalog(
+            baseline.Game,
+            baseline.Players.Values,
+            baseline.Enemies.Values,
+            baseline.Bullets.Values,
+            baseline.Weapons.Values,
+            baseline.Stages.Values.Select(stage => stage with { BackgroundId = "presentation-only" }));
+        var first = new ShootingSimulation(
+            new MemoryDefinitionRepository(baseline), new MutableInputState(), new RunConfiguration("test", 1));
+        var second = new ShootingSimulation(
+            new MemoryDefinitionRepository(baseline), new MutableInputState(), new RunConfiguration("test", 1));
+        second.Player.Get<TransformComponent>().PreviousPosition = new System.Numerics.Vector2(999, 999);
+
+        Assert.Equal(DefinitionContentHasher.Compute(baseline), DefinitionContentHasher.Compute(withBackground));
+        Assert.Equal(first.ComputeCanonicalStateHash(), second.ComputeCanonicalStateHash());
+    }
+
+    [Fact]
     public void RecordedRunPlaysBackToMatchingHashScoreBreakdownAndClear()
     {
         var definitions = CreateDefinitionsWithEmptyStage(resultsDuration: 0);

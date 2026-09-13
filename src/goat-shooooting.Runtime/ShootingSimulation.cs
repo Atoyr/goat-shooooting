@@ -42,6 +42,7 @@ public sealed class ShootingSimulation
     private readonly ItemSystem _itemSystem = new();
     private readonly ExtendSystem _extendSystem = new();
     private readonly MovementSystem _movementSystem = new();
+    private readonly TransformHistorySystem _transformHistorySystem = new();
     private readonly MotionTimelineSystem _motionTimelineSystem = new();
     private readonly AttackTimelineSystem _attackTimelineSystem;
     private readonly MovementPatternSystem _movementPatternSystem = new();
@@ -254,6 +255,8 @@ public sealed class ShootingSimulation
         {
             return;
         }
+
+        _transformHistorySystem.BeginTick(World);
 
         if (_runRuleSystem.IsTimeExpired(RunState.Frame))
         {
@@ -750,7 +753,7 @@ public sealed class ShootingSimulation
         _phaseElapsed = 0;
         _phaseTicks = 0;
 
-        Player.Get<TransformComponent>().Position = _playerStartPosition;
+        Player.Get<TransformComponent>().Snap(_playerStartPosition);
         Player.Get<VelocityComponent>().Value = System.Numerics.Vector2.Zero;
         Player.Remove<HitFlashComponent>();
         Player.Remove<PendingDestroyComponent>();

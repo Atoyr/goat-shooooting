@@ -53,6 +53,8 @@ try {
     Invoke-DotNet @('test', 'goat-shooooting.sln', '-c', 'Release', '--no-build', '--no-restore')
     Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'validate', 'games/sample')
     Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'validate', 'games/gauntlet')
+    Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'render-smoke', 'games/sample')
+    Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'render-smoke', 'games/gauntlet')
     Invoke-DotNet @('restore', $projectPath, '-r', 'win-x64', '--locked-mode')
     Invoke-DotNet @(
         'publish',
@@ -78,6 +80,21 @@ try {
     foreach ($gameId in @('sample', 'gauntlet')) {
         if (-not (Test-Path -LiteralPath (Join-Path $publishDirectory "games/$gameId/game.json") -PathType Leaf)) {
             throw "Published content pack '$gameId' is incomplete."
+        }
+
+        $assetManifestPath = Join-Path $publishDirectory "games/$gameId/assets.json"
+        if (Test-Path -LiteralPath $assetManifestPath -PathType Leaf) {
+            $assetManifest = Get-Content -Raw -LiteralPath $assetManifestPath | ConvertFrom-Json
+            $publishedGameDirectory = [System.IO.Path]::GetFullPath((Join-Path $publishDirectory "games/$gameId"))
+            $publishedGamePrefix = $publishedGameDirectory.TrimEnd([System.IO.Path]::DirectorySeparatorChar) +
+                [System.IO.Path]::DirectorySeparatorChar
+            foreach ($texture in $assetManifest.textures) {
+                $texturePath = [System.IO.Path]::GetFullPath((Join-Path $publishedGameDirectory $texture.path))
+                if (-not $texturePath.StartsWith($publishedGamePrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+                    -not (Test-Path -LiteralPath $texturePath -PathType Leaf)) {
+                    throw "Published asset '$($texture.id)' is missing or outside content pack '$gameId'."
+                }
+            }
         }
     }
 

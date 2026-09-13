@@ -211,6 +211,9 @@ public sealed class JsonDefinitionRepositoryTests
         _ = repository.Load();
         Assert.Null(repository.PollChanges());
 
+        File.WriteAllText(System.IO.Path.Combine(directory.Path, "assets.json"), "{\"schemaVersion\":1}");
+        Assert.Null(repository.PollChanges());
+
         directory.WriteEnemy("""{"id":"enemy","hp":25,"speed":0,"radius":10}""");
         var validReload = Assert.IsType<DefinitionReloadResult>(repository.PollChanges());
         Assert.True(validReload.Success);

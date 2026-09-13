@@ -2,6 +2,7 @@
   "id": "stage-01",
   "title": "THE SILENT HORIZON",
   "subtitle": "IDEAL RELEASE",
+  "backgroundId": "space-main",
   "openingDuration": 3,
   "resultsDuration": 4,
   "nextStageId": "stage-02",

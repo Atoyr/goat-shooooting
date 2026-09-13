@@ -55,6 +55,10 @@ public sealed class ReloadableJsonDefinitionRepository : IReloadableDefinitionRe
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         foreach (var path in Directory.EnumerateFiles(_rootDirectory, "*.json", SearchOption.AllDirectories)
+                     .Where(static path => !string.Equals(
+                         Path.GetFileName(path),
+                         VisualAssetManifestLoader.FileName,
+                         StringComparison.OrdinalIgnoreCase))
                      .OrderBy(static path => path, StringComparer.Ordinal))
         {
             var relativePath = Path.GetRelativePath(_rootDirectory, path);

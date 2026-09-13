@@ -45,7 +45,7 @@ public sealed class PlayerLifeCycleSystem
 
                     break;
                 case PlayerLifeCycleState.Respawning:
-                    player.Get<TransformComponent>().Position = lifeCycle.RespawnPosition;
+                    player.Get<TransformComponent>().Snap(lifeCycle.RespawnPosition);
                     player.Get<VelocityComponent>().Value = Vector2.Zero;
                     var bombs = player.Get<BombComponent>();
                     var ship = player.Get<ShipComponent>();

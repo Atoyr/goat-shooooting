@@ -61,12 +61,24 @@ public static class PrimitiveRenderLayout
     };
 
     public static Rectangle ToRectangle(RenderItem item)
+        => ToRectangle(item, item.Position);
+
+    public static Rectangle ToInterpolatedRectangle(RenderItem item, float interpolationAlpha)
+        => ToRectangle(item, Interpolate(item, interpolationAlpha));
+
+    public static System.Numerics.Vector2 Interpolate(RenderItem item, float interpolationAlpha) =>
+        System.Numerics.Vector2.Lerp(
+            item.PreviousPosition,
+            item.Position,
+            Math.Clamp(interpolationAlpha, 0, 1));
+
+    private static Rectangle ToRectangle(RenderItem item, System.Numerics.Vector2 position)
     {
         var width = item.Size.X > 0 ? item.Size.X : item.Radius * 2;
         var height = item.Size.Y > 0 ? item.Size.Y : item.Radius * 2;
         return new Rectangle(
-            (int)MathF.Round(item.Position.X - (width * 0.5f)),
-            (int)MathF.Round(item.Position.Y - (height * 0.5f)),
+            (int)MathF.Round(position.X - (width * 0.5f)),
+            (int)MathF.Round(position.Y - (height * 0.5f)),
             Math.Max(1, (int)MathF.Round(width)),
             Math.Max(1, (int)MathF.Round(height)));
     }

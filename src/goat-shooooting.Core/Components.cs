@@ -4,7 +4,14 @@ namespace GoatShooooting.Core;
 
 public sealed class TransformComponent(Vector2 position)
 {
+    public Vector2 PreviousPosition { get; set; } = position;
     public Vector2 Position { get; set; } = position;
+
+    public void Snap(Vector2 value)
+    {
+        PreviousPosition = value;
+        Position = value;
+    }
 }
 
 public sealed class VelocityComponent(Vector2 value)

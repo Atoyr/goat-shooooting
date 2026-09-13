@@ -101,6 +101,7 @@ public sealed record StageDefinition
     public float OpeningDuration { get; init; }
     public float ResultsDuration { get; init; }
     public string? NextStageId { get; init; }
+    public string? BackgroundId { get; init; }
     public IReadOnlyList<StageEventDefinition> Events { get; init; } = Array.Empty<StageEventDefinition>();
     public IReadOnlyList<StageObjectiveDefinition> Objectives { get; init; } = Array.Empty<StageObjectiveDefinition>();
 }

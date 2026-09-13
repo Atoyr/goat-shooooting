@@ -47,6 +47,13 @@ dotnet run --project src/goat-shooooting.Tooling -- validate games/sample
 dotnet run --project src/goat-shooooting.Tooling -- validate games/gauntlet
 ```
 
+visual manifestと代表asset解決をGPUなしで検査する場合:
+
+```bash
+dotnet run --project src/goat-shooooting.Tooling -- render-smoke games/sample
+dotnet run --project src/goat-shooooting.Tooling -- render-smoke games/gauntlet
+```
+
 成功時はコンテンツ数を表示してexit code 0、不正な参照・値・未知のプロパティ・JSON構文エラーはファイル、JSON Path、行・バイト位置を可能な範囲で表示してexit code 1を返します。
 
 既存の`player.json`、`bullets/`、weapon／enemy／stageはschema v1として引き続き読め、読込時だけschema v2のShip／Projectile／Capability modelへ変換されます。v2専用directory（`ships/`、`projectiles/`、`items/`、`patterns/`、`bosses/`、`rulesets/`、`difficulties/`、`visuals/`、`audio/`）では各JSONに`"schemaVersion": 2`が必須です。未知のcapability typeやparameterはvalidation errorとなり、Runtimeのhot reloadは直前の正常なcatalogを維持します。
@@ -102,6 +109,16 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet --smoke-t
 ```
 
 このモードは JSON 読込後に Production の `ShootingSimulation` を一定フレーム進め、Enemy spawn、双方のBullet spawnと移動、Collision、Damage、Enemy death、Stage Clear、リトライと状態初期化を観測して自動終了します。成功時は exit code 0、検証失敗または例外時は exit code 1 です。
+
+Texture decodeを含む実GPU描画を自動終了で確認し、代表sceneのPNGを保存する場合:
+
+```bash
+dotnet run --project src/goat-shooooting.SampleGame -- --render-screenshot docs/assets/p12-render-smoke.png
+```
+
+確認項目は、背景がplayfieldだけを覆ってscrollすること、player／enemy／projectile spriteがHUDより背面に出ること、縦横比とoriginが崩れないこと、停止中も画面が保持されることです。現在の検証画像は次です。
+
+![P12 sprite and scrolling background render smoke](docs/assets/p12-render-smoke.png)
 
 ## Project 構成
 
@@ -160,6 +177,8 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 - `bullets/*.json`: Bullet の速度、Damage、Collider 半径、Lifetime、`straight`／`homing`移動
 - `weapons/*.json`: Bullet 参照、cooldown、弾数と`spread`／`washing-machine`／`double-washing-machine`弾幕
 - `stages/*.json`: タイトル、開始／リザルト表示時間、次Stage、時刻付き `spawn-enemy` event、ボス指定、出現位置と編隊
+
+`assets.json`はtextureのcontent pack相対path、sprite sheet rectangle／origin／flip／layer、animationのframe列とduration、backgroundのscroll／parallax layerを定義します。Stageの`backgroundId`で背景を切り替えます。path traversal、重複ID、file不足、PNG dimension、範囲外rectangle、0以下または非finiteなframe durationは起動前に拒否されます。開発中の正常な差替えはGPU textureを一括交換し、失敗時は最後の正常assetを維持します。manifestやvisual IDがない場合は従来の1px primitive描画へfallbackします。完全な形式は[`assets.schema.json`](schemas/assets.schema.json)と[`sample assets.json`](games/sample/assets.json)を参照してください。
 
 新しい JSON を対象フォルダーへ追加し、一意な `id` で参照してください。Engine コードの変更は不要です。起動時に全参照と値を検証するため、不明な Player／Stage／Enemy／Weapon／Bullet ID、重複 ID、未対応 event、0 以下の HP などは `DefinitionValidationException` になります。
 
