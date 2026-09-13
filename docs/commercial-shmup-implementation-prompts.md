@@ -21,7 +21,7 @@
 - [x] P10 Mode選択、Profile v2、Local leaderboard
 - [x] P11 ReplayとTraining
 - [x] P12 Asset catalog、Sprite、Background
-- [ ] P13 Effect、HUD、視認性
+- [x] P13 Effect、HUD、視認性
 - [ ] P14 Audio、Localization、Accessibility
 - [ ] P15 Definition Editor v2
 - [ ] P16 製品vertical sliceとRelease QA

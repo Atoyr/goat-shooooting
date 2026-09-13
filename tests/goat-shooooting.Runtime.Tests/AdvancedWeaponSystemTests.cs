@@ -9,6 +9,25 @@ namespace GoatShooooting.Runtime.Tests;
 public sealed class AdvancedWeaponSystemTests
 {
     [Fact]
+    public void FrameSnapshotExposesCompleteHudStateWithoutRendererTypes()
+    {
+        var simulation = CreateSimulation(CreateDefinitions(), "striker");
+        simulation.Tick(default);
+
+        var snapshot = simulation.CaptureFrame(new RenderSystem());
+
+        Assert.Equal(simulation.RunState.Frame, snapshot.Frame);
+        Assert.Equal(simulation.RunState.Score, snapshot.Score);
+        Assert.Equal(simulation.RunState.Power, snapshot.Power);
+        Assert.Equal(simulation.RunState.Gauge, snapshot.Gauge);
+        Assert.Equal(simulation.RunState.Rank, snapshot.Rank);
+        Assert.Equal(simulation.StageNumber, snapshot.StageNumber);
+        Assert.Equal(simulation.Player.Get<LivesComponent>().Remaining, snapshot.Lives);
+        Assert.Equal(simulation.Player.Get<BombComponent>().Remaining, snapshot.Bombs);
+        Assert.NotEmpty(snapshot.Items);
+    }
+
+    [Fact]
     public void V2ShipSelectionAppliesDistinctNormalAndFocusMovementSpeeds()
     {
         var definitions = CreateDefinitions();
@@ -205,6 +224,7 @@ public sealed class AdvancedWeaponSystemTests
         Assert.Single(render.Where(item => item.Kind == RenderKind.Option));
         Assert.Single(render.Where(item => item.Kind == RenderKind.Laser));
         Assert.Single(render.Where(item => item.Kind == RenderKind.PlayerHitbox));
+        Assert.Single(render.Where(item => item.Kind == RenderKind.GrazeRing));
 
         player.Get<ShipComponent>().IsFocused = false;
         weaponSystem.Update(world, definitions, new MutableInputState { Fire = true }, 0,

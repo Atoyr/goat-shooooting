@@ -530,6 +530,12 @@ Runtimeの`RenderItem`はasset fileやMonoGame型を持たず、visual／animati
 
 manifestまたはasset IDがないcontent pack／itemは従来の1px primitiveへfallbackする。sampleにはこのrepository専用に生成したplaceholder atlasと背景、stage別`backgroundId`を追加し、gauntletはmanifestなしのfallback回帰対象として残す。Toolingの`validate`／`render-smoke`、Release publish内のmanifest file検査、実GPUの`--render-screenshot`で同じ境界を確認する。
 
+P13ではRuntimeの`FrameSnapshot`をpresentation契約とし、render itemに加えてscore、chain、multiplier、power、gauge、rank、stage、lives、bombs、boss name／phase／HP／timer／warningを不変値としてまとめる。Frameworkは各fixed tick直後のsnapshotと`GameplayEvent`だけを`PresentationEffectSystem`へ渡すため、particle、flash、hit stop、camera shakeはworld、入力、tick進行、canonical hashを変更できない。
+
+effectは512個を既定上限とする事前確保poolで、muzzle、hit、destroy、bullet cancel、item collect、bomb、special、boss transition、trailをalpha／additive passへ分ける。密度、flash、shakeは0まで設定でき、超過effectはsimulationを止めずdrop数へ記録する。10,000 bullets／600 ticksのbenchmarkはpeak 256、drop 0、8.075 ms、0 bytes allocationだった（2026-09-14 Debug、wall-clockは比較用）。
+
+情報layerはbackground < actor < player bullet < effect < enemy bullet < lock marker < graze ring < player hitboxとする。敵弾は暗色outlineと高明度本体を必須とし、particleを0にしてもhitbox、graze ring、lock marker、laser、option、HUD、boss warningは残る。`PresentationHudLayout`はfull／touhou／donpachiの論理解像度内へ統計、boss bar、warningを配置し、最終letterbox後にも切れないことを自動テストする。代表GPU画像は`docs/assets/p13-presentation.png`で確認する。
+
 ### 7.2 Audio
 
 - stage／bossごとのBGM cue、loop start／end metadata

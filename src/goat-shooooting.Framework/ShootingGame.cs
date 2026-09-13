@@ -22,8 +22,10 @@ public sealed class ShootingGame : Game
     private readonly PlayerProfileService _profileService = new();
     private readonly RunCompletionTracker _runCompletionTracker = new();
     private readonly RenderSystem _renderSystem = new();
+    private readonly PresentationEffectSystem _presentation = new();
     private readonly FixedTickAccumulator _simulationClock = new();
     private ShootingSimulation _simulation;
+    private FrameSnapshot _frameSnapshot;
     private PlayerProfile _profile;
     private string _gameId;
     private GameScreenLayout _layout;
@@ -113,6 +115,7 @@ public sealed class ShootingGame : Game
             ? null
             : Path.GetFullPath(renderScreenshotPath);
         _simulation = CreateSimulation(definitionRepository);
+        _frameSnapshot = _simulation.CaptureFrame(_renderSystem);
         _layout = PrimitiveRenderLayout.CreateGameScreenLayout(_simulation.Definitions.Game);
         var displayMode = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
         var isBorderless = settings.Display.WindowMode == WindowMode.BorderlessFullscreen;
@@ -242,7 +245,7 @@ public sealed class ShootingGame : Game
         {
             _simulationClock.Advance(
                 elapsedSeconds,
-                () => InputFrame.Capture(_input),
+                CaptureSimulationInput,
                 inputFrame =>
                 {
                     if (_simulation.Status != SimulationStatus.Running) return;
@@ -255,6 +258,8 @@ public sealed class ShootingGame : Game
                         else _replayRecorder?.Record(inputFrame, _simulation);
                     }
                     frameFeedback += _simulation.Feedback;
+                    _frameSnapshot = _simulation.CaptureFrame(_renderSystem);
+                    _presentation.ObserveTick(_frameSnapshot, _simulation.Events.Events);
                 });
         }
         catch (ReplayException exception)
@@ -298,6 +303,14 @@ public sealed class ShootingGame : Game
 
         UpdateWindowTitle();
         base.Update(gameTime);
+    }
+
+    private InputFrame CaptureSimulationInput()
+    {
+        if (_renderScreenshotPath is null) return InputFrame.Capture(_input);
+        var buttons = InputButtons.Fire | InputButtons.Focus;
+        if (_simulation.RunState.Frame == 410) buttons |= InputButtons.Bomb;
+        return new InputFrame(0, 0, buttons);
     }
 
     private void UpdateWindowTitle()
@@ -354,6 +367,7 @@ public sealed class ShootingGame : Game
                 _simulationClock.Reset();
                 _runCompletionTracker.StartRun();
                 _showControllerDisconnectedMessage = false;
+                ResetPresentation();
                 break;
             case GameShellCommand.RetryRun:
                 _simulation.Restart();
@@ -362,6 +376,7 @@ public sealed class ShootingGame : Game
                 _runCompletionTracker.StartRun();
                 _showControllerDisconnectedMessage = false;
                 if (!_simulation.Configuration.IsPractice) BeginReplayRecording();
+                ResetPresentation();
                 break;
             case GameShellCommand.StartTraining:
                 if (_definitionRepositories.TryGetValue(_shell.SelectedGameId, out var trainingRepository))
@@ -376,6 +391,7 @@ public sealed class ShootingGame : Game
                 _simulationClock.Reset();
                 _runCompletionTracker.StartRun();
                 _showControllerDisconnectedMessage = false;
+                ResetPresentation();
                 break;
             case GameShellCommand.PlayReplay:
                 StartReplayPlayback();
@@ -424,6 +440,7 @@ public sealed class ShootingGame : Game
         _userDataStore?.SaveProfile(_profile);
         ApplyLayoutChanges();
         SelectVisualAssets();
+        ResetPresentation();
     }
 
     private void SelectVisualAssets()
@@ -560,6 +577,13 @@ public sealed class ShootingGame : Game
         _simulationClock.Reset();
         _runCompletionTracker.StartRun();
         ApplyLayoutChanges();
+        ResetPresentation();
+    }
+
+    private void ResetPresentation()
+    {
+        _presentation.Reset();
+        _frameSnapshot = _simulation.CaptureFrame(_renderSystem);
     }
 
     private static GameRunOptions CreateRunOptions(string gameId, IDefinitionRepository repository)
@@ -716,30 +740,43 @@ public sealed class ShootingGame : Game
         var spriteBatch = _spriteBatch ?? throw new InvalidOperationException("Content has not been loaded.");
         var pixel = _pixel ?? throw new InvalidOperationException("Content has not been loaded.");
 
-        var shakeMagnitude = _shakeRemaining > 0
-            ? 5f * (_shakeRemaining / 0.3f) * _appliedSettings.Gameplay.ScreenShakeStrength
-            : 0;
+        var feedbackShake = _shakeRemaining > 0 ? 5f * (_shakeRemaining / 0.3f) : 0;
+        var shakeMagnitude = Math.Max(feedbackShake, _presentation.CameraShake * 8) *
+            _appliedSettings.Gameplay.ScreenShakeStrength;
         var shakeOffset = shakeMagnitude > 0
             ? new Vector2(
                 (Random.Shared.NextSingle() * 2 - 1) * shakeMagnitude,
                 (Random.Shared.NextSingle() * 2 - 1) * shakeMagnitude)
             : Vector2.Zero;
 
+        var cameraTransform = Matrix.CreateTranslation(
+            _layout.Playfield.X + shakeOffset.X,
+            shakeOffset.Y,
+            0);
         spriteBatch.Begin(
             samplerState: SamplerState.PointClamp,
-            transformMatrix: Matrix.CreateTranslation(
-                _layout.Playfield.X + shakeOffset.X,
-                shakeOffset.Y,
-                0));
-        var animationSeconds = (_simulation.RunState.Frame + _simulationClock.InterpolationAlpha) /
+            transformMatrix: cameraTransform);
+        var presentationAlpha = _presentation.HitStopRemaining > 0 ? 0 : _simulationClock.InterpolationAlpha;
+        var animationSeconds = (_simulation.RunState.Frame + presentationAlpha) /
             SimulationTiming.TicksPerSecond;
         DrawBackground(spriteBatch, animationSeconds);
-        var items = _renderSystem.Capture(_simulation.World, _simulation.Projectiles);
+        DrawEffects(spriteBatch, pixel, PresentationBlendMode.Alpha);
+        spriteBatch.End();
+
+        spriteBatch.Begin(
+            blendState: BlendState.Additive,
+            samplerState: SamplerState.PointClamp,
+            transformMatrix: cameraTransform);
+        DrawEffects(spriteBatch, pixel, PresentationBlendMode.Additive);
+        spriteBatch.End();
+
+        spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: cameraTransform);
+        var items = _frameSnapshot.Items;
         foreach (var item in items
                      .OrderBy(item => GetRenderLayer(item, animationSeconds))
                      .ThenBy(static item => item.EntityId))
         {
-            if (item.Kind == RenderKind.PlayerHitbox &&
+            if (item.Kind is RenderKind.PlayerHitbox or RenderKind.GrazeRing &&
                 ((_isReplayPlayback && !(_replayController?.ShowHitboxes ?? false)) ||
                  (_simulation.Configuration.IsPractice && !_simulation.Configuration.ShowHitboxes)))
                 continue;
@@ -754,12 +791,25 @@ public sealed class ShootingGame : Game
                 RenderKind.Laser => new Color(100, 245, 255, 190),
                 RenderKind.LockMarker => new Color(255, 80, 210, 180),
                 RenderKind.PlayerHitbox => new Color(255, 255, 255, 210),
+                RenderKind.GrazeRing => new Color(85, 225, 255, 120),
                 RenderKind.Item => new Color(110, 255, 130),
                 _ => Color.White
             };
             color = ApplyTint(color, item.Tint);
-            var interpolated = PrimitiveRenderLayout.Interpolate(item, _simulationClock.InterpolationAlpha);
-            var bounds = PrimitiveRenderLayout.ToInterpolatedRectangle(item, _simulationClock.InterpolationAlpha);
+            var interpolated = PrimitiveRenderLayout.Interpolate(item, presentationAlpha);
+            var bounds = PrimitiveRenderLayout.ToInterpolatedRectangle(item, presentationAlpha);
+            if (item.Kind == RenderKind.EnemyBullet)
+                DrawCircleOutline(spriteBatch, pixel, interpolated, item.Radius + 2, new Color(5, 8, 18, 245));
+            if (item.Kind is RenderKind.PlayerHitbox or RenderKind.GrazeRing)
+            {
+                DrawCircleOutline(spriteBatch, pixel, interpolated, item.Radius, color);
+                continue;
+            }
+            if (item.Kind == RenderKind.LockMarker)
+            {
+                DrawLockMarker(spriteBatch, pixel, bounds, color);
+                continue;
+            }
             if (TryResolveVisual(item, animationSeconds, out var frame))
             {
                 var width = item.Size.X > 0 ? item.Size.X : item.Radius * 2;
@@ -816,39 +866,10 @@ public sealed class ShootingGame : Game
             DrawSidePanel(spriteBatch, pixel, rightPanel);
         }
 
-        if (_simulation.Player.Has<PlayerComponent>())
-        {
-            DrawHudText(
-                spriteBatch,
-                pixel,
-                $"LIVES {_simulation.Player.Get<LivesComponent>().Remaining}",
-                _layout.Playfield.Left + 16,
-                16,
-                new Color(68, 210, 255));
-            DrawHudText(
-                spriteBatch,
-                pixel,
-                $"BOMBS {_simulation.Player.Get<BombComponent>().Remaining}",
-                _layout.Playfield.Left + 16,
-                36,
-                new Color(255, 180, 50));
-        }
+        if (_presentation.ScreenFlash > 0)
+            spriteBatch.Draw(pixel, _layout.Playfield, Color.White * Math.Min(0.5f, _presentation.ScreenFlash * 0.5f));
 
-        var scoreText = $"SCORE {_simulation.Telemetry.Score:D8}";
-        var scoreScale = GetScoreScale(scoreText);
-        var scoreAnchor = PrimitiveRenderLayout.GetScoreAnchor(
-            _simulation.Definitions.Game,
-            _layout,
-            scoreText,
-            scoreScale);
-        foreach (var scorePixel in PrimitiveRenderLayout.ToPixelTextRectangles(
-                     scoreText,
-                     scoreAnchor.Right,
-                     scoreAnchor.Top,
-                     scoreScale))
-        {
-            spriteBatch.Draw(pixel, scorePixel, new Color(255, 235, 84));
-        }
+        DrawGameplayHud(spriteBatch, pixel);
 
         if (_simulation.Status == SimulationStatus.Running && _simulation.Phase != StagePhase.Playing)
         {
@@ -923,6 +944,116 @@ public sealed class ShootingGame : Game
     {
         var result = value % divisor;
         return result < 0 ? result + divisor : result;
+    }
+
+    private void DrawEffects(SpriteBatch spriteBatch, Texture2D pixel, PresentationBlendMode blend)
+    {
+        for (var index = 0; index < _presentation.ActiveCount; index++)
+        {
+            var effect = _presentation.GetEffect(index);
+            if (effect.Blend != blend) continue;
+            var radius = Math.Max(1, effect.Radius);
+            var color = ApplyTint(Color.White, effect.Tint) * (1 - effect.Progress);
+            if (effect.Kind == PresentationEffectKind.Trail)
+            {
+                spriteBatch.Draw(
+                    pixel,
+                    new Rectangle(
+                        (int)MathF.Round(effect.Position.X - radius),
+                        (int)MathF.Round(effect.Position.Y - (radius * 2)),
+                        Math.Max(1, (int)MathF.Round(radius * 2)),
+                        Math.Max(2, (int)MathF.Round(radius * 4))),
+                    color);
+            }
+            else
+            {
+                DrawCircleOutline(spriteBatch, pixel, effect.Position, radius, color);
+            }
+        }
+    }
+
+    private void DrawGameplayHud(SpriteBatch spriteBatch, Texture2D pixel)
+    {
+        var hud = PrimitiveRenderLayout.CreatePresentationHudLayout(_layout);
+        if (_layout.LeftPanel is null && _layout.RightPanel is null)
+            spriteBatch.Draw(pixel, hud.Statistics, new Color(5, 12, 25, 205));
+        var highScore = Math.Max(
+            _frameSnapshot.Score,
+            _profile.GetStats(_shell.SelectedCategory)?.BestScore ??
+            _profile.HighScores.GetValueOrDefault(_gameId));
+        var lines = new[]
+        {
+            ($"HIGH {highScore:D8}", new Color(190, 205, 225)),
+            ($"SCORE {_frameSnapshot.Score:D8}", new Color(255, 235, 84)),
+            ($"CHAIN {_frameSnapshot.Chain:D4}", Color.White),
+            ($"MULTI {_frameSnapshot.Multiplier:F2}", new Color(255, 190, 90)),
+            ($"POWER {_frameSnapshot.Power:D3}/{_frameSnapshot.MaximumPower:D3}", new Color(110, 255, 130)),
+            ($"GAUGE {_frameSnapshot.Gauge:D3}/{_frameSnapshot.MaximumGauge:D3}", new Color(180, 110, 255)),
+            ($"RANK {_frameSnapshot.Rank:F3}", new Color(255, 135, 135)),
+            ($"STAGE {_frameSnapshot.StageNumber:D2}", new Color(160, 185, 210)),
+            ($"LIVES {_frameSnapshot.Lives:D2}", new Color(68, 210, 255)),
+            ($"BOMBS {_frameSnapshot.Bombs:D2}", new Color(255, 180, 50))
+        };
+        for (var index = 0; index < lines.Length; index++)
+            DrawHudText(spriteBatch, pixel, lines[index].Item1, hud.Statistics.Left + 12,
+                hud.Statistics.Top + 12 + (index * 16), lines[index].Item2);
+
+        if (_frameSnapshot.Boss is not { } boss) return;
+        spriteBatch.Draw(pixel, hud.Boss, new Color(4, 8, 18, 225));
+        DrawHudText(spriteBatch, pixel, boss.Name, hud.Boss.Left + 8, hud.Boss.Top + 5, Color.White);
+        var timerText = $"{boss.RemainingTime:F1}";
+        foreach (var rectangle in PrimitiveRenderLayout.ToPixelTextRectangles(
+                     timerText, hud.Boss.Right - 8, hud.Boss.Top + 5, 1))
+            spriteBatch.Draw(pixel, rectangle, boss.Warning ? new Color(255, 90, 70) : Color.White);
+        var bar = new Rectangle(hud.Boss.Left + 8, hud.Boss.Bottom - 11, hud.Boss.Width - 16, 5);
+        spriteBatch.Draw(pixel, bar, new Color(45, 52, 70));
+        spriteBatch.Draw(pixel, new Rectangle(bar.X, bar.Y,
+            Math.Max(0, (int)MathF.Round(bar.Width * boss.HealthFraction)), bar.Height),
+            boss.Warning ? new Color(255, 75, 55) : new Color(255, 105, 180));
+        DrawCenteredPixelText(spriteBatch, pixel, boss.PhaseName, hud.Boss.Center.X, hud.Boss.Top + 18, 1,
+            new Color(190, 205, 225));
+        if (boss.Warning)
+        {
+            spriteBatch.Draw(pixel, new Rectangle(hud.Warning.Left, hud.Warning.Top, hud.Warning.Width, 3),
+                new Color(255, 70, 45));
+            spriteBatch.Draw(pixel, new Rectangle(hud.Warning.Left, hud.Warning.Bottom - 3, hud.Warning.Width, 3),
+                new Color(255, 70, 45));
+            DrawCenteredPixelText(spriteBatch, pixel, "WARNING", hud.Warning.Center.X, hud.Warning.Center.Y - 7, 2,
+                Color.White);
+        }
+    }
+
+    private static void DrawCircleOutline(
+        SpriteBatch spriteBatch,
+        Texture2D pixel,
+        Vector2 center,
+        float radius,
+        Color color)
+    {
+        const int segments = 24;
+        for (var index = 0; index < segments; index++)
+        {
+            var angle = index * MathF.Tau / segments;
+            spriteBatch.Draw(pixel, new Rectangle(
+                (int)MathF.Round(center.X + (MathF.Cos(angle) * radius)) - 1,
+                (int)MathF.Round(center.Y + (MathF.Sin(angle) * radius)) - 1,
+                3,
+                3), color);
+        }
+    }
+
+    private static void DrawLockMarker(SpriteBatch spriteBatch, Texture2D pixel, Rectangle bounds, Color color)
+    {
+        const int thickness = 2;
+        var arm = Math.Max(3, Math.Min(bounds.Width, bounds.Height) / 3);
+        spriteBatch.Draw(pixel, new Rectangle(bounds.Left, bounds.Top, arm, thickness), color);
+        spriteBatch.Draw(pixel, new Rectangle(bounds.Left, bounds.Top, thickness, arm), color);
+        spriteBatch.Draw(pixel, new Rectangle(bounds.Right - arm, bounds.Top, arm, thickness), color);
+        spriteBatch.Draw(pixel, new Rectangle(bounds.Right - thickness, bounds.Top, thickness, arm), color);
+        spriteBatch.Draw(pixel, new Rectangle(bounds.Left, bounds.Bottom - thickness, arm, thickness), color);
+        spriteBatch.Draw(pixel, new Rectangle(bounds.Left, bounds.Bottom - arm, thickness, arm), color);
+        spriteBatch.Draw(pixel, new Rectangle(bounds.Right - arm, bounds.Bottom - thickness, arm, thickness), color);
+        spriteBatch.Draw(pixel, new Rectangle(bounds.Right - thickness, bounds.Bottom - arm, thickness, arm), color);
     }
 
     private void DrawShellMenu(bool clearBackground)

@@ -856,6 +856,7 @@ public enum RenderKind
     Laser,
     LockMarker,
     PlayerHitbox,
+    GrazeRing,
     Item
 }
 
@@ -1032,14 +1033,23 @@ public sealed class RenderSystem
             var ship = player.Get<ShipComponent>();
             if (ship.IsFocused)
             {
+                var transform = player.Get<TransformComponent>();
+                items.Add(new RenderItem(
+                    player.Id,
+                    RenderKind.GrazeRing,
+                    transform.Position,
+                    ship.GrazeRadius,
+                    1,
+                    PreviousPosition: transform.PreviousPosition,
+                    Layer: 69));
                 items.Add(new RenderItem(
                     player.Id,
                     RenderKind.PlayerHitbox,
-                    player.Get<TransformComponent>().Position,
+                    transform.Position,
                     ship.HitRadius,
                     1,
-                    PreviousPosition: player.Get<TransformComponent>().PreviousPosition,
-                    Layer: 60));
+                    PreviousPosition: transform.PreviousPosition,
+                    Layer: 70));
             }
         }
 
@@ -1058,7 +1068,7 @@ public sealed class RenderSystem
                         12,
                         1,
                         PreviousPosition: transform.PreviousPosition,
-                        Layer: 55));
+                    Layer: 65));
                 }
             }
         }
@@ -1082,7 +1092,7 @@ public sealed class RenderSystem
                     1,
                     VisualId: projectiles.VisualIdAt(index),
                     PreviousPosition: projectiles.PreviousPositionAt(index),
-                    Layer: projectiles.TeamAt(index) == ProjectileTeam.Player ? 40 : 45));
+                    Layer: projectiles.TeamAt(index) == ProjectileTeam.Player ? 40 : 60));
             }
         }
 

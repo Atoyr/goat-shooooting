@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\goat-shooooting.Core\goat-shooooting.Core.csproj" />
     <ProjectReference Include="..\goat-shooooting.Definitions\goat-shooooting.Definitions.csproj" />
+    <ProjectReference Include="..\goat-shooooting.Framework\goat-shooooting.Framework.csproj" />
     <ProjectReference Include="..\goat-shooooting.Runtime\goat-shooooting.Runtime.csproj" />
     <Content Include="..\..\schemas\*.schema.json" Link="schemas\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="editor.html" CopyToOutputDirectory="PreserveNewest" />

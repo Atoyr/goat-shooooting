@@ -66,7 +66,7 @@ v2 Shipでは通常／低速loadout、option、最大power、死亡／復帰時�
 dotnet run --project src/goat-shooooting.Tooling -- benchmark games/sample
 ```
 
-固定入力によるsample 600 ticksと、10,000 Projectileを投入するstress 600 ticksについて、active entity／projectile数、update時間、allocation、collision候補数、結果checksumを出力します。時間とallocationは環境依存の比較値であり、テストの合否条件には使用しません。
+固定入力によるsample 600 ticksと、10,000 Projectileを投入するstress 600 ticksについて、active entity／projectile数、update時間、allocation、collision候補数、結果checksumを出力します。P13以降は同じ10,000 bullets／600 ticksに対する固定容量effect poolのpeak、drop、時間、allocationも`presentation`として出力します。時間とallocationは環境依存の比較値であり、テストの合否条件には使用しません。
 
 ## SampleGame
 
@@ -99,7 +99,7 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 
 タイトルの`TRAINING`ではstage／boss checkpoint、初期power／lives／bombs／rank／gauge、無敵、slow、hitbox表示を選べます。Trainingは通常runと同じSimulationを使いますがprofile bestとofficial leaderboardには登録されず、プレイ中のR／Enterで即時retryできます。
 
-約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Scoutは直進弾、Fighterは追尾弾、Midbossは二層式洗濯機弾幕を使用します。被弾するたびに残機が1減り、0になるとGame Over、Player BulletでEnemyをすべて倒すとStage Clearです。ボムは全Enemyへ一斉にダメージを与え、画面内のEnemy Bulletを消去します。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。残機・ボム数はプレイ領域左上、スコアは設定した位置へ常時表示され、現在の残機・ボム数・スコア・Pause／終了状態はウィンドウタイトルにも表示されます。
+約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Scoutは直進弾、Fighterは追尾弾、Midbossは二層式洗濯機弾幕を使用します。被弾するたびに残機が1減り、0になるとGame Over、Player BulletでEnemyをすべて倒すとStage Clearです。ボムは全Enemyへ一斉にダメージを与え、画面内のEnemy Bulletを消去します。被弾後には短い無敵時間があり、event駆動のmuzzle／hit／destroy／cancel／item／bomb／special／boss演出、画面flash、hit stop、画面揺れで結果を伝えます。敵弾は暗いoutlineと最前面の情報layerを持ち、focus中はplayer hitboxとgraze ring、lock-on中は角形markerを常時表示します。HUDにはhigh score、score、chain、multiplier、power、gauge、rank、stage、lives、bombsを、boss戦ではname、phase、HP、timer、文字付きwarningを表示します。
 
 画面を使わない smoke test:
 
@@ -113,12 +113,12 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet --smoke-t
 Texture decodeを含む実GPU描画を自動終了で確認し、代表sceneのPNGを保存する場合:
 
 ```bash
-dotnet run --project src/goat-shooooting.SampleGame -- --render-screenshot docs/assets/p12-render-smoke.png
+dotnet run --project src/goat-shooooting.SampleGame -- --render-screenshot docs/assets/p13-presentation.png
 ```
 
-確認項目は、背景がplayfieldだけを覆ってscrollすること、player／enemy／projectile spriteがHUDより背面に出ること、縦横比とoriginが崩れないこと、停止中も画面が保持されることです。現在の検証画像は次です。
+確認項目は、背景がplayfieldだけを覆ってscrollすること、player／enemy／projectile spriteがHUDより背面に出ること、敵弾outline、focus情報、effect、10項目HUDが欠けないこと、縦横比とoriginが崩れないことです。自動QA入力は発射、focus、bombを使い、presentation経路を再現します。現在の検証画像は次です。
 
-![P12 sprite and scrolling background render smoke](docs/assets/p12-render-smoke.png)
+![P13 effect, HUD, and visibility render smoke](docs/assets/p13-presentation.png)
 
 ## Project 構成
 

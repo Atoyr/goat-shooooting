@@ -12,6 +12,11 @@ public readonly record struct GameScreenLayout(
 
 public readonly record struct ScoreHudAnchor(int Right, int Top);
 
+public readonly record struct PresentationHudLayout(
+    Rectangle Statistics,
+    Rectangle Boss,
+    Rectangle Warning);
+
 public static class PrimitiveRenderLayout
 {
     private const int GlyphWidth = 5;
@@ -141,6 +146,27 @@ public static class PrimitiveRenderLayout
                 $"Unsupported score position '{definition.ScorePosition}'.",
                 nameof(definition))
         };
+    }
+
+    public static PresentationHudLayout CreatePresentationHudLayout(GameScreenLayout layout)
+    {
+        var statistics = layout.RightPanel ?? layout.LeftPanel ?? new Rectangle(
+            layout.Playfield.Right - Math.Min(250, layout.Playfield.Width - 32),
+            layout.Playfield.Top + 58,
+            Math.Min(250, layout.Playfield.Width - 32),
+            Math.Min(190, layout.Playfield.Height - 74));
+        var bossWidth = Math.Max(80, Math.Min(520, layout.Playfield.Width - 80));
+        var boss = new Rectangle(
+            layout.Playfield.Center.X - (bossWidth / 2),
+            layout.Playfield.Top + 10,
+            bossWidth,
+            42);
+        var warning = new Rectangle(
+            layout.Playfield.Left + 24,
+            layout.Playfield.Center.Y - 22,
+            Math.Max(1, layout.Playfield.Width - 48),
+            44);
+        return new PresentationHudLayout(statistics, boss, warning);
     }
 
     public static Point MeasurePixelText(string text, int scale = 2)

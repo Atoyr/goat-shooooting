@@ -15,6 +15,11 @@ public sealed class HeadlessBenchmarkRunnerTests
 
         Assert.Equal(2, report.FormatVersion);
         Assert.Equal(60, report.TickRate);
+        Assert.NotNull(report.Presentation);
+        var presentation = report.Presentation!;
+        Assert.Equal(20, presentation.BulletCount);
+        Assert.InRange(presentation.PeakEffects, 1, 512);
+        Assert.True(presentation.AllocatedBytes >= 0);
         Assert.Collection(
             report.Scenarios,
             sample =>

@@ -196,6 +196,39 @@ public sealed class ShootingSimulation
 
     public ulong ComputeCanonicalStateHash() => SimulationStateHasher.Compute(this);
 
+    public FrameSnapshot CaptureFrame(RenderSystem renderSystem)
+    {
+        ArgumentNullException.ThrowIfNull(renderSystem);
+        var items = renderSystem.Capture(World, Projectiles);
+        var bossItem = items.FirstOrDefault(static item => item.BossName is not null);
+        var boss = bossItem.BossName is null
+            ? null
+            : new BossHudSnapshot(
+                bossItem.EntityId,
+                bossItem.BossName,
+                bossItem.BossPhaseName ?? string.Empty,
+                bossItem.HealthFraction,
+                bossItem.BossRemainingTime ?? 0,
+                bossItem.BossWarning);
+        var ship = Player.Get<ShipComponent>();
+        return new FrameSnapshot(
+            RunState.Frame,
+            items,
+            RunState.Score,
+            RunState.Chain,
+            RunState.Multiplier,
+            ship.Power,
+            ship.MaximumPower,
+            RunState.Gauge,
+            CurrentRuleSet.MaximumGauge,
+            RunState.Rank,
+            StageNumber,
+            CurrentStage.Id,
+            Player.Get<LivesComponent>().Remaining,
+            Player.Get<BombComponent>().Remaining,
+            boss);
+    }
+
     public void Restart() => Restart(InputFrame.Capture(_legacyInput));
 
     public void SetPaused(bool isPaused)

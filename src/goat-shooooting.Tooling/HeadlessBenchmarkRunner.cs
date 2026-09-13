@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Numerics;
 using GoatShooooting.Core;
 using GoatShooooting.Definitions;
+using GoatShooooting.Framework;
 using GoatShooooting.Runtime;
 
 namespace GoatShooooting.Tooling;
@@ -35,7 +36,8 @@ public sealed record HeadlessBenchmarkOptions(
 public sealed record HeadlessBenchmarkReport(
     int FormatVersion,
     int TickRate,
-    IReadOnlyList<HeadlessBenchmarkResult> Scenarios);
+    IReadOnlyList<HeadlessBenchmarkResult> Scenarios,
+    PresentationBenchmarkResult? Presentation = null);
 
 public sealed record HeadlessBenchmarkResult(
     string Name,
@@ -71,7 +73,8 @@ public static class HeadlessBenchmarkRunner
             {
                 RunSample(definitions, options.SampleTicks),
                 RunStress(definitions, options.StressBulletCount, options.StressTicks)
-            });
+            },
+            PresentationBenchmark.Run(options.StressBulletCount, options.StressTicks));
     }
 
     private static HeadlessBenchmarkResult RunSample(DefinitionCatalog definitions, int tickCount)
