@@ -54,7 +54,6 @@ public static class Program
         // The smoke runner is intentionally long-lived so it can exercise the complete stage path.
         // Retry below verifies that runtime state returns to the configured life count.
         simulation.Player.Get<LivesComponent>().Remaining = 100;
-        const float deltaTime = 1f / 60f;
         const int maximumFrames = 60 * 210;
         var stages = GetStageRoute(simulation.Definitions);
         var expectedEnemies = stages.Sum(stage =>
@@ -95,7 +94,7 @@ public static class Program
                 input.Bomb = true;
             }
 
-            simulation.Update(deltaTime);
+            simulation.Tick(InputFrame.Capture(input));
             observedDestructionFeedback |= simulation.Feedback.EnemiesDestroyed > 0;
             observedExplosionEffect |= simulation.World.Query<ExplosionComponent>().Any();
         }
@@ -129,7 +128,7 @@ public static class Program
 
         input.Fire = false;
         input.Retry = true;
-        simulation.Update(0);
+        simulation.Tick(InputFrame.Capture(input));
         Require(simulation.Status == SimulationStatus.Running, "Retry did not start a new run.");
         Require(simulation.Player.Get<LivesComponent>().Remaining == simulation.Player.Get<LivesComponent>().Initial,
             "Retry did not restore player lives.");

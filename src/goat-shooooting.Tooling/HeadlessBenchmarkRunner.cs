@@ -89,7 +89,7 @@ public static class HeadlessBenchmarkRunner
             };
             input.MoveY = tick % 180 < 90 ? -0.25f : 0.25f;
             input.Bomb = tick > 0 && tick % 300 == 0;
-            simulation.Update(SimulationTiming.TickDurationSeconds);
+            simulation.Tick(InputFrame.Capture(input));
         });
     }
 
@@ -100,9 +100,9 @@ public static class HeadlessBenchmarkRunner
     {
         var input = new MutableInputState();
         var simulation = new ShootingSimulation(new MemoryDefinitionRepository(definitions), input);
-        if (simulation.Phase == StagePhase.Opening)
+        while (simulation.Phase == StagePhase.Opening)
         {
-            simulation.Update(simulation.CurrentStage.OpeningDuration);
+            simulation.Tick(default);
         }
 
         var playerDefinition = definitions.GetPlayer(definitions.Game.PlayerId);
@@ -121,7 +121,7 @@ public static class HeadlessBenchmarkRunner
         }
 
         return Measure($"stress-{bulletCount}-bullets", simulation, tickCount, _ =>
-            simulation.Update(SimulationTiming.TickDurationSeconds));
+            simulation.Tick(default));
     }
 
     private static HeadlessBenchmarkResult Measure(

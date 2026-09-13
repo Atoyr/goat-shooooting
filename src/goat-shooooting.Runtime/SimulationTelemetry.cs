@@ -1,6 +1,43 @@
 namespace GoatShooooting.Runtime;
 
-public readonly record struct SimulationFeedback(int Hits, int EnemiesDestroyed, int PlayerHits, int BombsUsed);
+public readonly record struct SimulationFeedback(int Hits, int EnemiesDestroyed, int PlayerHits, int BombsUsed)
+{
+    public static SimulationFeedback FromEvents(IEnumerable<IGameplayEvent> events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+        var hits = 0;
+        var enemiesDestroyed = 0;
+        var playerHits = 0;
+        var bombsUsed = 0;
+        foreach (var gameplayEvent in events)
+        {
+            switch (gameplayEvent)
+            {
+                case EnemyDamagedEvent:
+                    hits++;
+                    break;
+                case EnemyDestroyedEvent:
+                    enemiesDestroyed++;
+                    break;
+                case PlayerHitEvent:
+                    hits++;
+                    playerHits++;
+                    break;
+                case BombUsedEvent:
+                    bombsUsed++;
+                    break;
+            }
+        }
+
+        return new SimulationFeedback(hits, enemiesDestroyed, playerHits, bombsUsed);
+    }
+
+    public static SimulationFeedback operator +(SimulationFeedback left, SimulationFeedback right) => new(
+        left.Hits + right.Hits,
+        left.EnemiesDestroyed + right.EnemiesDestroyed,
+        left.PlayerHits + right.PlayerHits,
+        left.BombsUsed + right.BombsUsed);
+}
 
 /// <summary>Observable facts emitted by the real simulation path for diagnostics and acceptance tests.</summary>
 public sealed class SimulationTelemetry

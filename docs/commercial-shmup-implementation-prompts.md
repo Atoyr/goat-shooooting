@@ -9,7 +9,7 @@
 進捗:
 
 - [x] P0 契約と計測基準
-- [ ] P1 固定tick、入力、乱数、Event stream
+- [x] P1 固定tick、入力、乱数、Event stream
 - [ ] P2 Projectile hot path、collision、graze
 - [ ] P3 Definition v2とRegistry
 - [ ] P4 Ship、focus、複数攻撃、laser、option

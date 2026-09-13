@@ -5,6 +5,7 @@ public static class SimulationTiming
 {
     public const int TicksPerSecond = 60;
     public const float TickDurationSeconds = 1f / TicksPerSecond;
+    public const double ExactTickDurationSeconds = 1d / TicksPerSecond;
 }
 
 /// <summary>Immutable choices that identify and reproduce one run.</summary>

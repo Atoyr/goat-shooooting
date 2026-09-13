@@ -40,7 +40,12 @@ public sealed record PlayerHitEvent(
     long Frame,
     int Sequence,
     int PlayerEntityId,
-    int ProjectileEntityId) : IGameplayEvent;
+    int? ProjectileEntityId) : IGameplayEvent;
+
+public sealed record BombUsedEvent(
+    long Frame,
+    int Sequence,
+    int PlayerEntityId) : IGameplayEvent;
 
 public sealed record BossPhaseEndedEvent(
     long Frame,

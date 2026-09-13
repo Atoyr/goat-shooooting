@@ -19,6 +19,7 @@ public sealed class ShootingGame : Game
     private readonly PlayerProfileService _profileService = new();
     private readonly RunCompletionTracker _runCompletionTracker = new();
     private readonly RenderSystem _renderSystem = new();
+    private readonly FixedTickAccumulator _simulationClock = new();
     private ShootingSimulation _simulation;
     private PlayerProfile _profile;
     private string _gameId;
@@ -78,7 +79,10 @@ public sealed class ShootingGame : Game
         _shell = new GameShell(settings, definitionRepositories.Keys, gameId);
         _appliedSettings = settings;
         _userDataStore = userDataStore;
-        _simulation = new ShootingSimulation(definitionRepository, _input);
+        _simulation = new ShootingSimulation(
+            definitionRepository,
+            _input,
+            new RunConfiguration(gameId, seed: 0));
         _layout = PrimitiveRenderLayout.CreateGameScreenLayout(_simulation.Definitions.Game);
         var displayMode = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
         var isBorderless = settings.Display.WindowMode == WindowMode.BorderlessFullscreen;
@@ -137,6 +141,7 @@ public sealed class ShootingGame : Game
             if (_shell.State == GameShellState.Pause && _input.PausePressed)
             {
                 _simulation.SetPaused(false);
+                _simulationClock.Reset();
                 _shell.Resume();
                 UpdateWindowTitle();
                 base.Update(gameTime);
@@ -159,6 +164,7 @@ public sealed class ShootingGame : Game
         {
             _showControllerDisconnectedMessage = true;
             _simulation.SetPaused(true);
+            _simulationClock.Reset();
             _shell.Pause();
         }
 
@@ -170,6 +176,7 @@ public sealed class ShootingGame : Game
         if (_input.PausePressed)
         {
             _simulation.SetPaused(true);
+            _simulationClock.Reset();
             _shell.Pause();
             UpdateWindowTitle();
             base.Update(gameTime);
@@ -177,20 +184,28 @@ public sealed class ShootingGame : Game
         }
 
         var deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-        _simulation.Update(deltaTime);
+        var frameFeedback = default(SimulationFeedback);
+        _simulationClock.Advance(
+            gameTime.ElapsedGameTime.TotalSeconds,
+            () => InputFrame.Capture(_input),
+            inputFrame =>
+            {
+                _simulation.Tick(inputFrame);
+                frameFeedback += _simulation.Feedback;
+            });
         ApplyLayoutChanges();
-        _audio?.Play(_simulation.Feedback);
-        UpdateVibration(deltaTime);
+        _audio?.Play(frameFeedback);
+        UpdateVibration(deltaTime, frameFeedback);
         _shakeRemaining = Math.Max(0, _shakeRemaining - deltaTime);
-        if (_simulation.Feedback.BombsUsed > 0)
+        if (frameFeedback.BombsUsed > 0)
         {
             _shakeRemaining = Math.Max(_shakeRemaining, 0.45f);
         }
-        else if (_simulation.Feedback.PlayerHits > 0)
+        else if (frameFeedback.PlayerHits > 0)
         {
             _shakeRemaining = Math.Max(_shakeRemaining, 0.3f);
         }
-        else if (_simulation.Feedback.EnemiesDestroyed > 0)
+        else if (frameFeedback.EnemiesDestroyed > 0)
         {
             _shakeRemaining = Math.Max(_shakeRemaining, 0.12f);
         }
@@ -201,6 +216,7 @@ public sealed class ShootingGame : Game
         }
         else if (_simulation.Status != SimulationStatus.Running)
         {
+            _simulationClock.Reset();
             RecordRunCompletion();
             _shell.ShowResult();
         }
@@ -242,11 +258,13 @@ public sealed class ShootingGame : Game
             case GameShellCommand.StartRun:
             case GameShellCommand.RetryRun:
                 _simulation.Restart();
+                _simulationClock.Reset();
                 _runCompletionTracker.StartRun();
                 _showControllerDisconnectedMessage = false;
                 break;
             case GameShellCommand.ResumeRun:
                 _simulation.SetPaused(false);
+                _simulationClock.Reset();
                 _showControllerDisconnectedMessage = false;
                 break;
             case GameShellCommand.SettingsChanged:
@@ -276,7 +294,11 @@ public sealed class ShootingGame : Game
         }
 
         _gameId = gameId;
-        _simulation = new ShootingSimulation(repository, _input);
+        _simulation = new ShootingSimulation(
+            repository,
+            _input,
+            new RunConfiguration(gameId, seed: 0));
+        _simulationClock.Reset();
         _runCompletionTracker.StartRun();
         _profile = _profileService.SelectGame(_profile, gameId);
         _userDataStore?.SaveProfile(_profile);
@@ -344,11 +366,11 @@ public sealed class ShootingGame : Game
         }
     }
 
-    private void UpdateVibration(float deltaTime)
+    private void UpdateVibration(float deltaTime, SimulationFeedback feedback)
     {
         _vibrationRemaining = Math.Max(0, _vibrationRemaining - deltaTime);
         var pulse = FeedbackVibration.GetPulse(
-            _simulation.Feedback,
+            feedback,
             _appliedSettings.Gameplay.ControllerVibration);
         if (pulse.Duration > 0)
         {

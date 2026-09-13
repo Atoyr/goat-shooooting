@@ -298,6 +298,7 @@ public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFa
     private readonly int[] _spawnedCounts = new int[definition.Events.Count];
     private readonly int _bossesKilledAtStart;
     private double _elapsed;
+    private long _elapsedTicks;
 
     public StageSystem(
         StageDefinition definition,
@@ -334,6 +335,21 @@ public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFa
     public void Update(World world, DefinitionCatalog definitions, float deltaTime, SimulationTelemetry telemetry)
     {
         _elapsed += deltaTime;
+        SpawnDueEvents(world, definitions, telemetry);
+    }
+
+    public void Tick(World world, DefinitionCatalog definitions, SimulationTelemetry telemetry)
+    {
+        _elapsedTicks++;
+        _elapsed = _elapsedTicks / (double)SimulationTiming.TicksPerSecond;
+        SpawnDueEvents(world, definitions, telemetry);
+    }
+
+    private void SpawnDueEvents(
+        World world,
+        DefinitionCatalog definitions,
+        SimulationTelemetry telemetry)
+    {
         for (var index = 0; index < _definition.Events.Count; index++)
         {
             var stageEvent = _definition.Events[index];
@@ -391,7 +407,7 @@ public sealed class CollisionSystem
     }
 }
 
-public readonly record struct DamageEvent(Entity Target, int Amount);
+public readonly record struct DamageEvent(Entity Target, int Amount, int? SourceEntityId = null);
 
 public sealed class BulletHitSystem
 {
@@ -407,7 +423,10 @@ public sealed class BulletHitSystem
                 continue;
             }
 
-            damageEvents.Add(new DamageEvent(collision.Target, collision.Bullet.Get<DamageComponent>().Value));
+            damageEvents.Add(new DamageEvent(
+                collision.Target,
+                collision.Bullet.Get<DamageComponent>().Value,
+                collision.Bullet.Id));
             collision.Bullet.Add(new PendingDestroyComponent());
             telemetry.CollisionsDetected++;
         }
@@ -425,7 +444,8 @@ public sealed class BombSystem
         World world,
         IInputState input,
         float effectRadius,
-        SimulationTelemetry telemetry)
+        SimulationTelemetry telemetry,
+        GameEventBuffer? events = null)
     {
         if (!input.Bomb)
         {
@@ -454,6 +474,7 @@ public sealed class BombSystem
 
         bombs.Remaining--;
         telemetry.BombsUsed++;
+        events?.Publish((frame, sequence) => new BombUsedEvent(frame, sequence, player.Id));
 
         foreach (var bullet in world.Query<BulletComponent, ColliderComponent>().ToArray())
         {
@@ -480,7 +501,10 @@ public sealed class BombSystem
 
 public sealed class DamageSystem
 {
-    public void Update(IReadOnlyList<DamageEvent> damageEvents, SimulationTelemetry telemetry)
+    public void Update(
+        IReadOnlyList<DamageEvent> damageEvents,
+        SimulationTelemetry telemetry,
+        GameEventBuffer? events = null)
     {
         foreach (var damageEvent in damageEvents)
         {
@@ -515,6 +539,11 @@ public sealed class DamageSystem
                 var lives = damageEvent.Target.Get<LivesComponent>();
                 lives.Remaining--;
                 telemetry.PlayerDamageEventsApplied++;
+                events?.Publish((frame, sequence) => new PlayerHitEvent(
+                    frame,
+                    sequence,
+                    damageEvent.Target.Id,
+                    damageEvent.SourceEntityId));
                 if (lives.Remaining <= 0)
                 {
                     damageEvent.Target.Add(new PendingDestroyComponent());
@@ -525,12 +554,26 @@ public sealed class DamageSystem
 
             var health = damageEvent.Target.Get<HealthComponent>();
             health.Current -= damageEvent.Amount;
+            if (damageEvent.Target.Has<EnemyComponent>())
+            {
+                events?.Publish((frame, sequence) => new EnemyDamagedEvent(
+                    frame,
+                    sequence,
+                    damageEvent.Target.Id,
+                    damageEvent.Amount));
+            }
+
             if (health.Current <= 0)
             {
                 damageEvent.Target.Add(new PendingDestroyComponent());
                 if (damageEvent.Target.Has<EnemyComponent>())
                 {
                     telemetry.EnemiesKilled++;
+                    events?.Publish((frame, sequence) => new EnemyDestroyedEvent(
+                        frame,
+                        sequence,
+                        damageEvent.Target.Id,
+                        damageEvent.Target.Get<EnemyComponent>().DefinitionId));
                     if (damageEvent.Target.Has<BossComponent>())
                     {
                         telemetry.BossesKilled++;

@@ -190,6 +190,16 @@ P0では既存ゲームの進行を変更せず、後続Phaseが共有する次�
 
 2026-09-13のP0 baseline（Debug、同一worktree）は、sampleが22.819 ms／1,813,936 bytes（最大14 entities／12 bullets）、stressが3,649.626 ms／2,084,744 bytes（10,001 entities／10,000 bullets）だった。環境差とJIT差があるため絶対値ではなく、P2移行前後を同一環境・同一commandで比較する。
 
+### 4.7 P1実装注記（固定tickと決定性）
+
+- Runtimeの正式な進行APIは`ShootingSimulation.Tick(InputFrame)`であり、常に60Hzの固定時間だけ進む。既存の`Update(float)`は互換adapterとして経過時間をfixed tickへ蓄積し、可変deltaをproduction Systemへ渡さない。既存の`Update(0)`利用箇所に限り、frameと時間を進めないcontrol／hot reload pumpとして維持する。
+- `RunState.Frame`は実際に進行したtick数である。OpeningとResultsは進むが、pause中、終了後の待機中、retry処理tick、成功したhot reload処理tickでは進まない。retryと成功したhot reloadはframe、score、RNG、event bufferをrun開始状態へ戻す。失敗したhot reloadはlast-known-goodを保持し、そのtickを通常どおり続行する。
+- Frameworkの`FixedTickAccumulator`は1描画更新につき最大8 tickを実行する。stallでこれを超えた時間は`DroppedSeconds`へ記録して破棄し、端数は次回用に保持して`InterpolationAlpha`として公開する。menu／pause／result／game切替では端数をresetする。
+- 物理入力はFramework更新でpollし、各simulation tickの直前に一度だけimmutableな`InputFrame`へ量子化する。同じ描画frameでcatch-upする場合も、各tickが独立したcapture値を受け取る。
+- gameplay用乱数は注入可能な`IRandomSource`とseed付き`SeededRandomSource`へ統一した。Runtimeには時刻seedや`Random.Shared`を置かない。Frameworkの画面揺れ乱数はpresentation専用で、canonical state hashへ含めない。
+- damage、destroy、player hit、bomb使用をframe／sequence付きeventとして発行し、`SimulationFeedback`はそのtickのevent列から互換生成する。event bufferはpauseや空tickでも開始時にclearされる。
+- `ComputeCanonicalStateHash()`はRunConfiguration、RNG state、RunState、stage状態、Telemetry、既知の全Runtime component値を安定した順序とbit表現で集約する。同一build、同一validated content、同一RunConfiguration、同一InputFrame列、同一.NET実行環境を決定性の保証範囲とする。異なるbuild／content間の互換は保証せず、content hashとversion照合はReplay Phaseで追加する。
+
 ## 5. Definition v2
 
 すべてを一度に巨大な`game.json`へ入れず、次の単位を追加する。
