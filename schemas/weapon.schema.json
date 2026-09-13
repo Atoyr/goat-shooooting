@@ -3,8 +3,13 @@
   "title": "Weapon Definition",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "cooldown"],
-  "anyOf": [{ "required": ["bulletId"] }, { "required": ["projectileId"] }],
+  "required": ["id"],
+  "anyOf": [
+    { "required": ["bulletId", "cooldown"] },
+    { "required": ["projectileId", "cooldown"] },
+    { "required": ["emitters"] },
+    { "required": ["laser"] }
+  ],
   "properties": {
     "schemaVersion": { "type": "integer", "enum": [1, 2], "default": 1 },
     "id": { "type": "string", "minLength": 1 },
@@ -32,6 +37,59 @@
       "default": 24,
       "description": "洗濯機パターンが回転方向を反転するまでの発射回数です。"
     },
-    "pattern": { "$ref": "capability.schema.json" }
+    "pattern": { "$ref": "capability.schema.json" },
+    "actionType": { "type": "string", "enum": ["projectile", "laser", "lock-on"], "default": "projectile" },
+    "emitters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "projectileId", "fireInterval"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "projectileId": { "type": "string", "minLength": 1 },
+          "offsetX": { "type": "number", "default": 0 },
+          "offsetY": { "type": "number", "default": 0 },
+          "fireInterval": { "type": "number", "minimum": 0 },
+          "burstCount": { "type": "integer", "minimum": 1, "default": 1 },
+          "burstInterval": { "type": "number", "minimum": 0, "default": 0 },
+          "angleSource": { "type": "string", "enum": ["forward", "fixed", "rotating", "aim-at-target"], "default": "forward" },
+          "fixedAngleDegrees": { "type": "number", "minimum": -360, "maximum": 360, "default": 0 },
+          "distribution": { "type": "string", "enum": ["single", "fan", "ring"], "default": "single" },
+          "projectileCount": { "type": "integer", "minimum": 1, "default": 1 },
+          "spreadDegrees": { "type": "number", "minimum": 0, "maximum": 360, "default": 0 },
+          "rotationDegreesPerShot": { "type": "number", "minimum": -360, "maximum": 360, "default": 0 },
+          "speedMultipliers": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "number", "exclusiveMinimum": 0 },
+            "default": [1]
+          }
+        }
+      }
+    },
+    "laser": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["damage", "damageInterval", "length", "width", "visualId"],
+      "properties": {
+        "damage": { "type": "integer", "minimum": 1 },
+        "damageInterval": { "type": "number", "exclusiveMinimum": 0 },
+        "length": { "type": "number", "exclusiveMinimum": 0 },
+        "width": { "type": "number", "exclusiveMinimum": 0 },
+        "visualId": { "type": "string", "minLength": 1 },
+        "projectileInteraction": { "type": "string", "enum": ["none", "cancel-soft"], "default": "none" }
+      }
+    },
+    "lockOn": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["maximumTargets", "range"],
+      "properties": {
+        "maximumTargets": { "type": "integer", "minimum": 1 },
+        "range": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    }
   }
 }

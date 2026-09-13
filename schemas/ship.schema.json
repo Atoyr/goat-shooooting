@@ -16,6 +16,41 @@
     "initialPower": { "type": "integer", "minimum": 0, "default": 0 },
     "normalWeaponIds": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
     "focusWeaponIds": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "bombWeaponId": { "type": ["string", "null"], "minLength": 1 },
+    "specialWeaponId": { "type": ["string", "null"], "minLength": 1 },
+    "options": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "offsetX", "offsetY", "normalWeaponIds", "focusWeaponIds"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "offsetX": { "type": "number" },
+          "offsetY": { "type": "number" },
+          "followSpeed": { "type": "number", "exclusiveMinimum": 0, "default": 480 },
+          "radius": { "type": "number", "exclusiveMinimum": 0, "default": 5 },
+          "normalWeaponIds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "focusWeaponIds": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+          "visualId": { "type": ["string", "null"] }
+        }
+      },
+      "default": []
+    },
+    "powerLevels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["minimumPower"],
+        "properties": {
+          "minimumPower": { "type": "integer", "minimum": 0 },
+          "additionalProjectileCount": { "type": "integer", "minimum": 0, "default": 0 },
+          "damageMultiplier": { "type": "number", "exclusiveMinimum": 0, "default": 1 }
+        }
+      },
+      "default": []
+    },
     "visualId": { "type": ["string", "null"] },
     "audioId": { "type": ["string", "null"] }
   }

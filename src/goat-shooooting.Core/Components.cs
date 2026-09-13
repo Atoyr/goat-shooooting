@@ -65,6 +65,113 @@ public sealed class PlayerComponent(string definitionId, float speed)
     public float Speed { get; } = speed;
 }
 
+public sealed class ShipComponent(
+    string definitionId,
+    float normalSpeed,
+    float focusSpeed,
+    float hitRadius,
+    float grazeRadius,
+    int initialPower,
+    IReadOnlyList<string> normalWeaponIds,
+    IReadOnlyList<string> focusWeaponIds,
+    string? bombWeaponId = null,
+    string? specialWeaponId = null,
+    string? visualId = null)
+{
+    public string DefinitionId { get; } = string.IsNullOrWhiteSpace(definitionId)
+        ? throw new ArgumentException("Ship definition id must not be empty.", nameof(definitionId))
+        : definitionId;
+    public float NormalSpeed { get; } = normalSpeed > 0 ? normalSpeed : throw new ArgumentOutOfRangeException(nameof(normalSpeed));
+    public float FocusSpeed { get; } = focusSpeed > 0 ? focusSpeed : throw new ArgumentOutOfRangeException(nameof(focusSpeed));
+    public float HitRadius { get; } = hitRadius > 0 ? hitRadius : throw new ArgumentOutOfRangeException(nameof(hitRadius));
+    public float GrazeRadius { get; } = grazeRadius >= hitRadius ? grazeRadius : throw new ArgumentOutOfRangeException(nameof(grazeRadius));
+    public int Power { get; set; } = initialPower >= 0 ? initialPower : throw new ArgumentOutOfRangeException(nameof(initialPower));
+    public IReadOnlyList<string> NormalWeaponIds { get; } = normalWeaponIds.ToArray();
+    public IReadOnlyList<string> FocusWeaponIds { get; } = focusWeaponIds.ToArray();
+    public string? BombWeaponId { get; } = bombWeaponId;
+    public string? SpecialWeaponId { get; } = specialWeaponId;
+    public string? VisualId { get; } = visualId;
+    public bool IsFocused { get; set; }
+}
+
+public sealed class OptionUnitComponent(
+    int ownerEntityId,
+    string definitionId,
+    Vector2 offset,
+    float followSpeed,
+    float radius,
+    IReadOnlyList<string> normalWeaponIds,
+    IReadOnlyList<string> focusWeaponIds,
+    string? visualId)
+{
+    public int OwnerEntityId { get; } = ownerEntityId > 0
+        ? ownerEntityId
+        : throw new ArgumentOutOfRangeException(nameof(ownerEntityId));
+    public string DefinitionId { get; } = definitionId;
+    public Vector2 Offset { get; } = offset;
+    public float FollowSpeed { get; } = followSpeed > 0
+        ? followSpeed
+        : throw new ArgumentOutOfRangeException(nameof(followSpeed));
+    public float Radius { get; } = radius > 0 ? radius : throw new ArgumentOutOfRangeException(nameof(radius));
+    public IReadOnlyList<string> NormalWeaponIds { get; } = normalWeaponIds.ToArray();
+    public IReadOnlyList<string> FocusWeaponIds { get; } = focusWeaponIds.ToArray();
+    public string? VisualId { get; } = visualId;
+}
+
+public sealed class WeaponRuntimeComponent
+{
+    private readonly Dictionary<string, WeaponActionState> _states = new(StringComparer.Ordinal);
+
+    public IReadOnlyDictionary<string, WeaponActionState> States => _states;
+
+    public WeaponActionState GetOrCreate(string key)
+    {
+        if (!_states.TryGetValue(key, out var state))
+        {
+            state = new WeaponActionState();
+            _states.Add(key, state);
+        }
+
+        return state;
+    }
+}
+
+public sealed class WeaponActionState
+{
+    public float CooldownRemaining { get; set; }
+    public int BurstShotsRemaining { get; set; }
+    public float BurstCooldownRemaining { get; set; }
+    public float PatternAngleDegrees { get; set; }
+    public int PatternDirection { get; set; } = 1;
+    public int ShotsSinceDirectionChange { get; set; }
+    public bool WasHeld { get; set; }
+    public int ActiveLaserEntityId { get; set; }
+    public List<int> LockedTargetEntityIds { get; } = new();
+}
+
+public sealed class LaserComponent(
+    int ownerEntityId,
+    CollisionLayer ownerLayer,
+    Vector2 direction,
+    float length,
+    float width,
+    int damage,
+    float damageInterval,
+    string visualId,
+    string projectileInteraction)
+{
+    public int OwnerEntityId { get; } = ownerEntityId;
+    public CollisionLayer OwnerLayer { get; } = ownerLayer;
+    public Vector2 Direction { get; set; } = direction;
+    public float Length { get; } = length;
+    public float Width { get; } = width;
+    public int Damage { get; } = damage;
+    public float DamageInterval { get; } = damageInterval;
+    public string VisualId { get; } = visualId;
+    public string ProjectileInteraction { get; } = projectileInteraction;
+    public float DamageCooldownRemaining { get; set; }
+}
+
 public sealed class EnemyComponent(string definitionId)
 {
     public string DefinitionId { get; } = definitionId;

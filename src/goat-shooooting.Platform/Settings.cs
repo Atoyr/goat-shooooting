@@ -8,7 +8,7 @@ public enum WindowMode
 
 public sealed record GameSettings
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public DisplaySettings Display { get; init; } = new();
@@ -81,6 +81,8 @@ public sealed record InputSettings
     public string MoveLeft { get; init; } = "A";
     public string MoveRight { get; init; } = "D";
     public string Fire { get; init; } = "Z";
+    public string Focus { get; init; } = "LeftControl";
+    public string Special { get; init; } = "C";
     public string Bomb { get; init; } = "X";
     public string Pause { get; init; } = "P";
     public string Confirm { get; init; } = "Enter";
@@ -97,6 +99,8 @@ public sealed record InputSettings
             MoveLeft = ValueOrDefault(MoveLeft, defaults.MoveLeft),
             MoveRight = ValueOrDefault(MoveRight, defaults.MoveRight),
             Fire = ValueOrDefault(Fire, defaults.Fire),
+            Focus = ValueOrDefault(Focus, defaults.Focus),
+            Special = ValueOrDefault(Special, defaults.Special),
             Bomb = ValueOrDefault(Bomb, defaults.Bomb),
             Pause = ValueOrDefault(Pause, defaults.Pause),
             Confirm = ValueOrDefault(Confirm, defaults.Confirm),

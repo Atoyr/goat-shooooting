@@ -215,6 +215,15 @@ P0では既存ゲームの進行を変更せず、後続Phaseが共有する次�
 - Definitions層はunknown JSON property、finite range、ID参照、stage／pattern cycle、command数4,096、repeat 64、理論spawn数100,000のtimeline budgetを検証する。Runtimeの`CapabilityValidator`はprojectile behavior、actor motion、fire pattern、stage event、score rule、special gauge ruleのtypeとparameter contractをRegistryから解決する。未登録type／parameterは論理file名とJSON pathを含むerrorになり、hot reloadはlast-known-good catalogを維持する。
 - 現行`straight`／`homing`、`straight`／`sine`／`zigzag`、`spread`／`washing-machine`／`double-washing-machine`、`spawn-enemy`の生成・実行は組み込みRegistry経由へ移した。後続Phaseのtimeline、score、gauge機能は定義recordだけを用意し、未実装command／ruleを黙って無視しない。
 
+### 4.10 P4実装注記（Ship、Focus、Weapon action）
+
+- `ShipDefinition`をRuntime生成へ接続し、通常／focus速度、hit／graze半径、通常／focusの複数weapon、bomb／special参照、option、power thresholdを`ShipComponent`へ保持する。v1 Playerは同じIDのShipへmemory上で移行し、従来の初期位置、weapon、速度、残機、ボムを維持する。
+- projectile weaponは複数Emitterを持ち、offset、fire interval、burst、single／fan／ring、forward／fixed／rotating／aim-at-target、speed layerを固定tickで処理する。power modifierは発射数とdamage倍率を受け取るが、power item取得はP5の責務とする。
+- laserはhold中だけownerへ追従し、定義したintervalごとに線分判定でdamageを発生させる。`cancel-soft`は相手teamのcancel可能なsoft Projectileだけを消し、hard／uncancelableと同team弾を残す。敵laserも同じteam境界を逆向きに利用する。
+- lock-onはrange内の対象を距離、同距離ならentity ID順で取得し、release時に一度だけ発射する。focus切替で非activeになったlaserは停止し、lock-onはreleaseとして処理する。optionはownerのfocus loadoutとpower modifierを共有してoffsetへ追従する。
+- renderer-neutralな`RenderItem`へvisual ID、矩形size、rotationを加え、ship、option、laser、lock marker、focus中のhitboxをFrameworkへ渡す。canonical hashにはShip、Option、Weapon action state、Laserを安定順序で含める。
+- keyboard既定値はFocus=`LeftControl`、Special=`C`とし、gamepadはLeft／Right Shoulderへ割り当てる。v1の`X`／Shift bomb aliasは維持する。settings schema 1以下はschema 2へ自動migrationして新しい割当を補完する。
+
 ## 5. Definition v2
 
 すべてを一度に巨大な`game.json`へ入れず、次の単位を追加する。

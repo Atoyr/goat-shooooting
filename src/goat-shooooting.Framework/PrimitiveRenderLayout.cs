@@ -62,12 +62,13 @@ public static class PrimitiveRenderLayout
 
     public static Rectangle ToRectangle(RenderItem item)
     {
-        var diameter = Math.Max(1, (int)MathF.Round(item.Radius * 2));
+        var width = item.Size.X > 0 ? item.Size.X : item.Radius * 2;
+        var height = item.Size.Y > 0 ? item.Size.Y : item.Radius * 2;
         return new Rectangle(
-            (int)MathF.Round(item.Position.X - item.Radius),
-            (int)MathF.Round(item.Position.Y - item.Radius),
-            diameter,
-            diameter);
+            (int)MathF.Round(item.Position.X - (width * 0.5f)),
+            (int)MathF.Round(item.Position.Y - (height * 0.5f)),
+            Math.Max(1, (int)MathF.Round(width)),
+            Math.Max(1, (int)MathF.Round(height)));
     }
 
     public static GameScreenLayout CreateGameScreenLayout(GameDefinition definition)

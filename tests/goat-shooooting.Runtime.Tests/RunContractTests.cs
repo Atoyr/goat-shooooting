@@ -48,6 +48,8 @@ public sealed class RunContractTests
             MoveX = 0.5f,
             MoveY = -2,
             Fire = true,
+            Focus = true,
+            Special = true,
             Pause = true
         };
 
@@ -59,7 +61,8 @@ public sealed class RunContractTests
         Assert.True(frame.IsPressed(InputButtons.Fire));
         Assert.True(frame.IsPressed(InputButtons.Pause));
         Assert.False(frame.IsPressed(InputButtons.Bomb));
-        Assert.False(frame.IsPressed(InputButtons.Focus));
+        Assert.True(frame.IsPressed(InputButtons.Focus));
+        Assert.True(frame.IsPressed(InputButtons.Special));
     }
 
     [Theory]

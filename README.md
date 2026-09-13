@@ -77,6 +77,8 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 - 起動メニューの Enter / Z / Space: 決定
 - Arrow / WASD: Player 移動
 - Z / Space: 発射
+- Left Ctrl: 低速移動／focus shot
+- C: special attack
 - X / Shift: ボム
 - P: ポーズ／再開
 - R / Enter: Game Over／Stage Clear後にリトライ

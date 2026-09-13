@@ -81,6 +81,10 @@ public sealed record WeaponDefinition
     public float RotationDegreesPerShot { get; init; } = 12;
     public int RotationSwitchShots { get; init; } = 24;
     public CapabilityDefinition? Pattern { get; init; }
+    public string ActionType { get; init; } = "projectile";
+    public IReadOnlyList<EmitterDefinition> Emitters { get; init; } = Array.Empty<EmitterDefinition>();
+    public LaserWeaponDefinition? Laser { get; init; }
+    public LockOnWeaponDefinition? LockOn { get; init; }
     [JsonIgnore]
     internal bool MigratedFromV1 { get; init; }
 }

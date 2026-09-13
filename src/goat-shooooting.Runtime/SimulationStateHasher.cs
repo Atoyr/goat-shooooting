@@ -22,6 +22,7 @@ internal static class SimulationStateHasher
         hash.Add((int)simulation.Phase);
         hash.Add(simulation.StageNumber);
         hash.Add(simulation.CurrentStage.Id);
+        hash.Add(simulation.CurrentShip.Id);
         hash.Add(simulation.Elapsed);
         hash.Add(simulation.PhaseElapsed);
         AddTelemetry(hash, simulation.Telemetry);
@@ -68,6 +69,64 @@ internal static class SimulationStateHasher
             {
                 hash.Add(player.DefinitionId);
                 hash.Add(player.Speed);
+            });
+            AddComponent(hash, entity.TryGet<ShipComponent>(out var ship), () =>
+            {
+                hash.Add(ship.DefinitionId);
+                hash.Add(ship.NormalSpeed);
+                hash.Add(ship.FocusSpeed);
+                hash.Add(ship.HitRadius);
+                hash.Add(ship.GrazeRadius);
+                hash.Add(ship.Power);
+                AddStrings(hash, ship.NormalWeaponIds);
+                AddStrings(hash, ship.FocusWeaponIds);
+                hash.Add(ship.BombWeaponId);
+                hash.Add(ship.SpecialWeaponId);
+                hash.Add(ship.VisualId);
+                hash.Add(ship.IsFocused);
+            });
+            AddComponent(hash, entity.TryGet<OptionUnitComponent>(out var option), () =>
+            {
+                hash.Add(option.OwnerEntityId);
+                hash.Add(option.DefinitionId);
+                hash.Add(option.Offset.X);
+                hash.Add(option.Offset.Y);
+                hash.Add(option.FollowSpeed);
+                hash.Add(option.Radius);
+                AddStrings(hash, option.NormalWeaponIds);
+                AddStrings(hash, option.FocusWeaponIds);
+                hash.Add(option.VisualId);
+            });
+            AddComponent(hash, entity.TryGet<WeaponRuntimeComponent>(out var weaponRuntime), () =>
+            {
+                foreach (var pair in weaponRuntime.States.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+                {
+                    hash.Add(pair.Key);
+                    hash.Add(pair.Value.CooldownRemaining);
+                    hash.Add(pair.Value.BurstShotsRemaining);
+                    hash.Add(pair.Value.BurstCooldownRemaining);
+                    hash.Add(pair.Value.PatternAngleDegrees);
+                    hash.Add(pair.Value.PatternDirection);
+                    hash.Add(pair.Value.ShotsSinceDirectionChange);
+                    hash.Add(pair.Value.WasHeld);
+                    hash.Add(pair.Value.ActiveLaserEntityId);
+                    hash.Add(pair.Value.LockedTargetEntityIds.Count);
+                    foreach (var targetId in pair.Value.LockedTargetEntityIds) hash.Add(targetId);
+                }
+            });
+            AddComponent(hash, entity.TryGet<LaserComponent>(out var laser), () =>
+            {
+                hash.Add(laser.OwnerEntityId);
+                hash.Add((int)laser.OwnerLayer);
+                hash.Add(laser.Direction.X);
+                hash.Add(laser.Direction.Y);
+                hash.Add(laser.Length);
+                hash.Add(laser.Width);
+                hash.Add(laser.Damage);
+                hash.Add(laser.DamageInterval);
+                hash.Add(laser.VisualId);
+                hash.Add(laser.ProjectileInteraction);
+                hash.Add(laser.DamageCooldownRemaining);
             });
             AddComponent(hash, entity.TryGet<EnemyComponent>(out var enemy), () =>
                 hash.Add(enemy.DefinitionId));
@@ -180,6 +239,12 @@ internal static class SimulationStateHasher
         {
             addValues();
         }
+    }
+
+    private static void AddStrings(StableHash hash, IReadOnlyList<string> values)
+    {
+        hash.Add(values.Count);
+        foreach (var value in values) hash.Add(value);
     }
 
     private sealed class StableHash

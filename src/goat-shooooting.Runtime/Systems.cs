@@ -18,7 +18,14 @@ public sealed class PlayerInputSystem
                 movement = Vector2.Normalize(movement);
             }
 
-            entity.Get<VelocityComponent>().Value = movement * entity.Get<PlayerComponent>().Speed;
+            var speed = entity.Get<PlayerComponent>().Speed;
+            if (entity.TryGet<ShipComponent>(out var ship))
+            {
+                ship.IsFocused = input.Focus;
+                speed = ship.IsFocused ? ship.FocusSpeed : ship.NormalSpeed;
+            }
+
+            entity.Get<VelocityComponent>().Value = movement * speed;
         }
     }
 }
@@ -29,6 +36,9 @@ public sealed class WeaponSystem(
 {
     private readonly BulletFactory _bulletFactory = bulletFactory ?? throw new ArgumentNullException(nameof(bulletFactory));
     private readonly RuntimeCapabilityRegistry _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
+    private readonly AdvancedWeaponSystem _advancedWeaponSystem = new(
+        bulletFactory ?? throw new ArgumentNullException(nameof(bulletFactory)),
+        capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn());
 
     public void Update(
         World world,
@@ -58,6 +68,12 @@ public sealed class WeaponSystem(
         SimulationTelemetry telemetry,
         ProjectileStore? projectiles)
     {
+        if (projectiles is not null)
+        {
+            _advancedWeaponSystem.Update(world, definitions, input, deltaTime, telemetry, projectiles);
+            return;
+        }
+
         foreach (var entity in world.Query<WeaponHolderComponent, TransformComponent>().ToArray())
         {
             var holder = entity.Get<WeaponHolderComponent>();
@@ -716,7 +732,11 @@ public enum RenderKind
     Enemy,
     PlayerBullet,
     EnemyBullet,
-    Explosion
+    Explosion,
+    Option,
+    Laser,
+    LockMarker,
+    PlayerHitbox
 }
 
 public readonly record struct RenderItem(
@@ -726,7 +746,10 @@ public readonly record struct RenderItem(
     float Radius,
     float HealthFraction,
     bool IsFlashing = false,
-    float EffectProgress = 0);
+    float EffectProgress = 0,
+    string? VisualId = null,
+    Vector2 Size = default,
+    float Rotation = 0);
 
 /// <summary>Transforms runtime state into renderer-neutral draw data.</summary>
 public sealed class RenderSystem
@@ -766,7 +789,8 @@ public sealed class RenderSystem
                 entity.Get<ColliderComponent>().Radius,
                 healthFraction,
                 entity.Has<HitFlashComponent>() ||
-                (entity.TryGet<InvincibilityComponent>(out var invincibility) && invincibility.Remaining > 0)));
+                (entity.TryGet<InvincibilityComponent>(out var invincibility) && invincibility.Remaining > 0),
+                VisualId: entity.TryGet<ShipComponent>(out var shipComponent) ? shipComponent.VisualId : null));
         }
 
         foreach (var entity in world.Query<TransformComponent, ExplosionComponent>())
@@ -780,6 +804,60 @@ public sealed class RenderSystem
                 explosion.MaxRadius * Math.Max(0.2f, progress),
                 1,
                 EffectProgress: progress));
+        }
+
+        foreach (var entity in world.Query<TransformComponent, OptionUnitComponent>())
+        {
+            var option = entity.Get<OptionUnitComponent>();
+            items.Add(new RenderItem(
+                entity.Id,
+                RenderKind.Option,
+                entity.Get<TransformComponent>().Position,
+                option.Radius,
+                1,
+                VisualId: option.VisualId));
+        }
+
+        foreach (var entity in world.Query<TransformComponent, LaserComponent>())
+        {
+            var laser = entity.Get<LaserComponent>();
+            var direction = Vector2.Normalize(laser.Direction);
+            items.Add(new RenderItem(
+                entity.Id,
+                RenderKind.Laser,
+                entity.Get<TransformComponent>().Position + (direction * laser.Length * 0.5f),
+                laser.Width,
+                1,
+                VisualId: laser.VisualId,
+                Size: new Vector2(laser.Width * 2, laser.Length),
+                Rotation: MathF.Atan2(direction.Y, direction.X) + (MathF.PI * 0.5f)));
+        }
+
+        foreach (var player in world.Query<TransformComponent, ShipComponent>())
+        {
+            var ship = player.Get<ShipComponent>();
+            if (ship.IsFocused)
+            {
+                items.Add(new RenderItem(
+                    player.Id,
+                    RenderKind.PlayerHitbox,
+                    player.Get<TransformComponent>().Position,
+                    ship.HitRadius,
+                    1));
+            }
+        }
+
+        foreach (var owner in world.Query<WeaponRuntimeComponent>())
+        {
+            foreach (var state in owner.Get<WeaponRuntimeComponent>().States.Values)
+            {
+                foreach (var targetId in state.LockedTargetEntityIds)
+                {
+                    var target = OptionFollowSystem.FindEntity(world, targetId);
+                    if (target is null || !target.TryGet<TransformComponent>(out var transform)) continue;
+                    items.Add(new RenderItem(targetId, RenderKind.LockMarker, transform.Position, 12, 1));
+                }
+            }
         }
 
         if (projectiles is not null)
@@ -798,7 +876,8 @@ public sealed class RenderSystem
                         : RenderKind.EnemyBullet,
                     projectiles.PositionAt(index),
                     projectiles.HitRadiusAt(index),
-                    1));
+                    1,
+                    VisualId: projectiles.VisualIdAt(index)));
             }
         }
 

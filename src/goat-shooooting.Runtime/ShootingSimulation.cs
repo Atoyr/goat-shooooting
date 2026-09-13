@@ -32,6 +32,8 @@ public sealed class ShootingSimulation
     private readonly ProjectileLifetimeSystem _projectileLifetimeSystem = new();
     private readonly ActorSpatialGrid _actorSpatialGrid = new();
     private readonly ProjectileCollisionSystem _projectileCollisionSystem = new();
+    private readonly OptionFollowSystem _optionFollowSystem = new();
+    private readonly LaserSystem _laserSystem = new();
     private readonly MovementSystem _movementSystem = new();
     private readonly MovementPatternSystem _movementPatternSystem = new();
     private readonly PlayerBoundsSystem _playerBoundsSystem = new();
@@ -48,6 +50,7 @@ public sealed class ShootingSimulation
     private double _legacyAccumulator;
     private int _stageStartScore;
     private int _restartGeneration;
+    private System.Numerics.Vector2 _playerStartPosition;
 
     public ShootingSimulation(IDefinitionRepository definitionRepository, IInputState input)
         : this(definitionRepository, input, new RunConfiguration("legacy", seed: 0))
@@ -83,6 +86,7 @@ public sealed class ShootingSimulation
     public World World { get; private set; }
     public DefinitionCatalog Definitions { get; private set; }
     public Entity Player { get; private set; }
+    public ShipDefinition CurrentShip { get; private set; } = null!;
     public ProjectileStore Projectiles { get; private set; } = null!;
     public SimulationTelemetry Telemetry { get; private set; }
     public RunConfiguration Configuration { get; }
@@ -248,6 +252,7 @@ public sealed class ShootingSimulation
         _movementPatternSystem.Update(World, deltaTime);
         _playerBoundsSystem.Update(World, Definitions.Game.Width, Definitions.Game.Height);
         _outOfBoundsSystem.Update(World, Definitions.Game.Width, Definitions.Game.Height);
+        _optionFollowSystem.Update(World, deltaTime);
         _invincibilitySystem.Update(World, deltaTime);
         _actorSpatialGrid.Rebuild(World);
         var bombDamage = _bombSystem.Update(
@@ -258,6 +263,8 @@ public sealed class ShootingSimulation
             Telemetry,
             Events);
         _damageSystem.Update(bombDamage, Telemetry, Events);
+        var laserDamage = _laserSystem.Update(World, Projectiles, deltaTime, Telemetry, Events);
+        _damageSystem.Update(laserDamage, Telemetry, Events);
         var damageEvents = _projectileCollisionSystem.Detect(
             Projectiles,
             _actorSpatialGrid,
@@ -344,7 +351,24 @@ public sealed class ShootingSimulation
     {
         World = new World();
         Projectiles = new ProjectileStore();
-        Player = new PlayerFactory().Create(World, Definitions.GetPlayer(Definitions.Game.PlayerId));
+        var shipId = Configuration.ShipId ??
+            (!string.IsNullOrWhiteSpace(Definitions.Game.PlayerId)
+                ? Definitions.Game.PlayerId
+                : Definitions.Game.ShipIds[0]);
+        CurrentShip = Definitions.GetShip(shipId);
+        var playerFactory = new PlayerFactory();
+        if (Definitions.Players.TryGetValue(shipId, out var legacyPlayer))
+        {
+            _playerStartPosition = new System.Numerics.Vector2(legacyPlayer.X, legacyPlayer.Y);
+            Player = playerFactory.Create(World, legacyPlayer);
+        }
+        else
+        {
+            _playerStartPosition = new System.Numerics.Vector2(
+                Definitions.Game.Width / 2f,
+                Definitions.Game.Height - Math.Max(48, CurrentShip.HitRadius * 4));
+            Player = playerFactory.Create(World, CurrentShip, _playerStartPosition);
+        }
         Telemetry = new SimulationTelemetry();
         RunState.Reset();
         _randomSource.Reset(Configuration.Seed);
@@ -358,7 +382,15 @@ public sealed class ShootingSimulation
         LastStageScore = 0;
         _legacyAccumulator = 0;
         _restartGeneration++;
-        StartStage(Definitions.Game.StageId);
+        var stageId = Configuration.StartStageId;
+        if (string.IsNullOrWhiteSpace(stageId))
+        {
+            stageId = !string.IsNullOrWhiteSpace(Definitions.Game.StageId)
+                ? Definitions.Game.StageId
+                : Definitions.GetRuleSet(Configuration.RuleSetId ?? Definitions.Game.DefaultRuleSetId).StageIds[0];
+        }
+
+        StartStage(stageId);
     }
 
     private void BeginResults()
@@ -395,8 +427,7 @@ public sealed class ShootingSimulation
         _phaseElapsed = 0;
         _phaseTicks = 0;
 
-        var playerDefinition = Definitions.GetPlayer(Definitions.Game.PlayerId);
-        Player.Get<TransformComponent>().Position = new System.Numerics.Vector2(playerDefinition.X, playerDefinition.Y);
+        Player.Get<TransformComponent>().Position = _playerStartPosition;
         Player.Get<VelocityComponent>().Value = System.Numerics.Vector2.Zero;
         Player.Remove<HitFlashComponent>();
         Player.Remove<PendingDestroyComponent>();
@@ -412,7 +443,8 @@ public sealed class ShootingSimulation
         Projectiles.CommitRemovals();
         foreach (var entity in World.Entities.ToArray())
         {
-            if (entity.Has<PlayerComponent>() || (keepEffects && entity.Has<ExplosionComponent>()))
+            if (entity.Has<PlayerComponent>() || entity.Has<OptionUnitComponent>() ||
+                (keepEffects && entity.Has<ExplosionComponent>()))
             {
                 continue;
             }
@@ -428,6 +460,8 @@ public sealed class ShootingSimulation
         public float MoveX => _frame.NormalizedMoveX;
         public float MoveY => _frame.NormalizedMoveY;
         public bool Fire => _frame.IsPressed(InputButtons.Fire);
+        public bool Focus => _frame.IsPressed(InputButtons.Focus);
+        public bool Special => _frame.IsPressed(InputButtons.Special);
         public bool Bomb => _frame.IsPressed(InputButtons.Bomb);
         public bool Retry => _frame.IsPressed(InputButtons.Retry);
         public bool Pause => _frame.IsPressed(InputButtons.Pause);

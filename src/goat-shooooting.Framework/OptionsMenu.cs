@@ -19,6 +19,8 @@ internal static class OptionsMenu
         "Space",
         "LeftShift",
         "RightShift",
+        "LeftControl",
+        "RightControl",
         "Up",
         "Down",
         "Left",
@@ -44,6 +46,8 @@ internal static class OptionsMenu
         "MOVE LEFT",
         "MOVE RIGHT",
         "FIRE",
+        "FOCUS",
+        "SPECIAL",
         "BOMB",
         "PAUSE KEY",
         "CONFIRM",
@@ -54,7 +58,7 @@ internal static class OptionsMenu
 
     public static int BackIndex => ItemLabels.Length - 1;
 
-    public static bool IsInputIndex(int index) => index is >= 8 and <= 17;
+    public static bool IsInputIndex(int index) => index is >= 8 and <= 19;
 
     public static GameSettings Adjust(GameSettings settings, int index, int direction) => index switch
     {
@@ -107,7 +111,7 @@ internal static class OptionsMenu
                 ControllerVibration = !settings.Gameplay.ControllerVibration
             }
         },
-        >= 8 and <= 17 => AdjustInput(settings, index, direction),
+        >= 8 and <= 19 => AdjustInput(settings, index, direction),
         _ => settings
     };
 
@@ -126,11 +130,13 @@ internal static class OptionsMenu
         10 => settings.Input.MoveLeft,
         11 => settings.Input.MoveRight,
         12 => settings.Input.Fire,
-        13 => settings.Input.Bomb,
-        14 => settings.Input.Pause,
-        15 => settings.Input.Confirm,
-        16 => settings.Input.Cancel,
-        17 => settings.Input.Retry,
+        13 => settings.Input.Focus,
+        14 => settings.Input.Special,
+        15 => settings.Input.Bomb,
+        16 => settings.Input.Pause,
+        17 => settings.Input.Confirm,
+        18 => settings.Input.Cancel,
+        19 => settings.Input.Retry,
         _ => string.Empty
     };
 
@@ -148,8 +154,8 @@ internal static class OptionsMenu
         }
 
         var input = settings.Input;
-        if ((index == 15 && string.Equals(key, input.Cancel, StringComparison.OrdinalIgnoreCase)) ||
-            (index == 16 && string.Equals(key, input.Confirm, StringComparison.OrdinalIgnoreCase)))
+        if ((index == 17 && string.Equals(key, input.Cancel, StringComparison.OrdinalIgnoreCase)) ||
+            (index == 18 && string.Equals(key, input.Confirm, StringComparison.OrdinalIgnoreCase)))
         {
             adjustedSettings = settings;
             return false;
@@ -162,11 +168,13 @@ internal static class OptionsMenu
             10 => input with { MoveLeft = key },
             11 => input with { MoveRight = key },
             12 => input with { Fire = key },
-            13 => input with { Bomb = key },
-            14 => input with { Pause = key },
-            15 => input with { Confirm = key },
-            16 => input with { Cancel = key },
-            17 => input with { Retry = key },
+            13 => input with { Focus = key },
+            14 => input with { Special = key },
+            15 => input with { Bomb = key },
+            16 => input with { Pause = key },
+            17 => input with { Confirm = key },
+            18 => input with { Cancel = key },
+            19 => input with { Retry = key },
             _ => input
         };
         adjustedSettings = settings with { Input = adjusted };
@@ -178,8 +186,8 @@ internal static class OptionsMenu
         var input = settings.Input;
         var current = GetValue(settings, index);
         var next = CycleKey(current, direction);
-        if ((index == 15 && string.Equals(next, input.Cancel, StringComparison.OrdinalIgnoreCase)) ||
-            (index == 16 && string.Equals(next, input.Confirm, StringComparison.OrdinalIgnoreCase)))
+        if ((index == 17 && string.Equals(next, input.Cancel, StringComparison.OrdinalIgnoreCase)) ||
+            (index == 18 && string.Equals(next, input.Confirm, StringComparison.OrdinalIgnoreCase)))
         {
             next = CycleKey(next, direction);
         }
@@ -191,11 +199,13 @@ internal static class OptionsMenu
             10 => input with { MoveLeft = next },
             11 => input with { MoveRight = next },
             12 => input with { Fire = next },
-            13 => input with { Bomb = next },
-            14 => input with { Pause = next },
-            15 => input with { Confirm = next },
-            16 => input with { Cancel = next },
-            17 => input with { Retry = next },
+            13 => input with { Focus = next },
+            14 => input with { Special = next },
+            15 => input with { Bomb = next },
+            16 => input with { Pause = next },
+            17 => input with { Confirm = next },
+            18 => input with { Cancel = next },
+            19 => input with { Retry = next },
             _ => input
         };
         return settings with { Input = adjusted };

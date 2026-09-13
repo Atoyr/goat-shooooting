@@ -27,6 +27,8 @@ public sealed class GameInputState : IInputState, IMenuInput
     public float MoveX { get; private set; }
     public float MoveY { get; private set; }
     public bool Fire { get; private set; }
+    public bool Focus { get; private set; }
+    public bool Special { get; private set; }
     public bool Bomb { get; private set; }
     public bool Retry { get; private set; }
     public bool RetryPressed { get; private set; }
@@ -86,6 +88,10 @@ public sealed class GameInputState : IInputState, IMenuInput
         MoveX = Math.Clamp(keyboardMoveX + dPadMoveX + stick.X, -1.0f, 1.0f);
         MoveY = Math.Clamp(keyboardMoveY + dPadMoveY - stick.Y, -1.0f, 1.0f);
         Fire = IsDown(keys, _bindings.Fire, Keys.Space) || IsGamePadButtonDown(gamePadState, isGamePadConnected, Buttons.A, Buttons.X);
+        Focus = IsDown(keys, _bindings.Focus) ||
+            IsGamePadButtonDown(gamePadState, isGamePadConnected, Buttons.LeftShoulder);
+        Special = IsDown(keys, _bindings.Special) ||
+            IsGamePadButtonDown(gamePadState, isGamePadConnected, Buttons.RightShoulder);
         Bomb = IsDown(keys, _bindings.Bomb, Keys.LeftShift, Keys.RightShift) ||
             IsGamePadButtonDown(gamePadState, isGamePadConnected, Buttons.B, Buttons.Y);
         Retry = IsDown(keys, _bindings.Retry, Keys.Enter) ||
@@ -186,6 +192,8 @@ public sealed class GameInputState : IInputState, IMenuInput
                 Buttons.B,
                 Buttons.X,
                 Buttons.Y,
+                Buttons.LeftShoulder,
+                Buttons.RightShoulder,
                 Buttons.Start,
                 Buttons.Back,
                 Buttons.DPadUp,
@@ -217,6 +225,8 @@ public sealed class GameInputState : IInputState, IMenuInput
             MoveLeft = Parse(settings.MoveLeft);
             MoveRight = Parse(settings.MoveRight);
             Fire = Parse(settings.Fire);
+            Focus = Parse(settings.Focus);
+            Special = Parse(settings.Special);
             Bomb = Parse(settings.Bomb);
             Pause = Parse(settings.Pause);
             Confirm = Parse(settings.Confirm);
@@ -230,6 +240,8 @@ public sealed class GameInputState : IInputState, IMenuInput
         public Keys MoveLeft { get; }
         public Keys MoveRight { get; }
         public Keys Fire { get; }
+        public Keys Focus { get; }
+        public Keys Special { get; }
         public Keys Bomb { get; }
         public Keys Pause { get; }
         public Keys Confirm { get; }
@@ -252,6 +264,8 @@ public sealed class GameInputState : IInputState, IMenuInput
                 MoveLeft = NormalizeKey(requested.MoveLeft, defaults.MoveLeft),
                 MoveRight = NormalizeKey(requested.MoveRight, defaults.MoveRight),
                 Fire = NormalizeKey(requested.Fire, defaults.Fire),
+                Focus = NormalizeKey(requested.Focus, defaults.Focus),
+                Special = NormalizeKey(requested.Special, defaults.Special),
                 Bomb = NormalizeKey(requested.Bomb, defaults.Bomb),
                 Pause = NormalizeKey(requested.Pause, defaults.Pause),
                 Confirm = NormalizeKey(requested.Confirm, defaults.Confirm),

@@ -11,19 +11,66 @@ public sealed class PlayerFactory
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(definition);
 
-        var entity = world.CreateEntity()
-            .Add(new TransformComponent(new Vector2(definition.X, definition.Y)))
-            .Add(new VelocityComponent(Vector2.Zero))
-            .Add(new LivesComponent(definition.Lives))
-            .Add(new BombComponent(definition.Bombs, definition.BombDamage))
-            .Add(new ColliderComponent(definition.Radius, CollisionLayer.Player))
-            .Add(new GrazeRadiusComponent(definition.Radius + 20))
-            .Add(new PlayerComponent(definition.Id, definition.Speed))
-            .Add(new WeaponHolderComponent(definition.WeaponId));
+        var ship = DefinitionMigrator.FromPlayer(DefinitionMigrator.Migrate(definition));
+        return Create(world, ship, new Vector2(definition.X, definition.Y), definition.BombDamage, definition.InvincibilitySeconds);
+    }
 
-        if (definition.InvincibilitySeconds > 0)
+    public Entity Create(
+        World world,
+        ShipDefinition definition,
+        Vector2 position,
+        int bombDamage = 50,
+        float invincibilitySeconds = 1)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(definition);
+
+        var entity = world.CreateEntity()
+            .Add(new TransformComponent(position))
+            .Add(new VelocityComponent(Vector2.Zero))
+            .Add(new LivesComponent(definition.InitialLives))
+            .Add(new BombComponent(definition.InitialBombs, bombDamage))
+            .Add(new ColliderComponent(definition.HitRadius, CollisionLayer.Player))
+            .Add(new GrazeRadiusComponent(definition.GrazeRadius))
+            .Add(new PlayerComponent(definition.Id, definition.NormalSpeed))
+            .Add(new ShipComponent(
+                definition.Id,
+                definition.NormalSpeed,
+                definition.FocusSpeed,
+                definition.HitRadius,
+                definition.GrazeRadius,
+                definition.InitialPower,
+                definition.NormalWeaponIds,
+                definition.FocusWeaponIds,
+                definition.BombWeaponId,
+                definition.SpecialWeaponId,
+                definition.VisualId))
+            .Add(new WeaponRuntimeComponent());
+
+        if (definition.NormalWeaponIds.Count > 0)
         {
-            entity.Add(new InvincibilityComponent(definition.InvincibilitySeconds));
+            entity.Add(new WeaponHolderComponent(definition.NormalWeaponIds[0]));
+        }
+
+        if (invincibilitySeconds > 0)
+        {
+            entity.Add(new InvincibilityComponent(invincibilitySeconds));
+        }
+
+        foreach (var option in definition.Options)
+        {
+            world.CreateEntity()
+                .Add(new TransformComponent(position + new Vector2(option.OffsetX, option.OffsetY)))
+                .Add(new OptionUnitComponent(
+                    entity.Id,
+                    option.Id,
+                    new Vector2(option.OffsetX, option.OffsetY),
+                    option.FollowSpeed,
+                    option.Radius,
+                    option.NormalWeaponIds,
+                    option.FocusWeaponIds,
+                    option.VisualId))
+                .Add(new WeaponRuntimeComponent());
         }
 
         return entity;
@@ -87,6 +134,31 @@ public sealed class BulletFactory(RuntimeCapabilityRegistry? capabilities = null
             throw new ArgumentException("Bullet direction cannot be zero.", nameof(direction));
         }
 
+        return Create(
+            projectiles,
+            DefinitionMigrator.FromBullet(definition),
+            position,
+            direction,
+            ownerLayer,
+            ownerEntityId);
+    }
+
+    public int Create(
+        ProjectileStore projectiles,
+        ProjectileDefinition definition,
+        Vector2 position,
+        Vector2 direction,
+        CollisionLayer ownerLayer,
+        int ownerEntityId,
+        float speedMultiplier = 1,
+        float damageMultiplier = 1)
+    {
+        ArgumentNullException.ThrowIfNull(projectiles);
+        ArgumentNullException.ThrowIfNull(definition);
+        if (direction == Vector2.Zero) throw new ArgumentException("Projectile direction cannot be zero.", nameof(direction));
+        if (!float.IsFinite(speedMultiplier) || speedMultiplier <= 0) throw new ArgumentOutOfRangeException(nameof(speedMultiplier));
+        if (!float.IsFinite(damageMultiplier) || damageMultiplier <= 0) throw new ArgumentOutOfRangeException(nameof(damageMultiplier));
+
         var team = ownerLayer switch
         {
             CollisionLayer.Player => ProjectileTeam.Player,
@@ -94,26 +166,32 @@ public sealed class BulletFactory(RuntimeCapabilityRegistry? capabilities = null
             _ => throw new ArgumentOutOfRangeException(
                 nameof(ownerLayer),
                 ownerLayer,
-                "Only player or enemy entities may own bullets.")
+                "Only player or enemy entities may own projectiles.")
         };
-        var behaviorDefinition = definition.Behavior!;
+        var behaviorDefinition = definition.Behavior;
         var behaviorFactory = _capabilities.ProjectileBehaviors.Resolve(
             behaviorDefinition.Type,
-            $"bullet '{definition.Id}' behavior");
-        behaviorFactory.Validate(behaviorDefinition, $"bullet '{definition.Id}' behavior");
+            $"projectile '{definition.Id}' behavior");
+        behaviorFactory.Validate(behaviorDefinition, $"projectile '{definition.Id}' behavior");
         var behavior = behaviorFactory.Create(behaviorDefinition);
         return projectiles.QueueSpawn(new ProjectileSpawnCommand(
             ownerEntityId,
             team,
             definition.Id,
             position,
-            Vector2.Normalize(direction) * definition.Speed,
-            definition.Radius,
-            definition.Damage,
+            Vector2.Normalize(direction) * definition.Speed * speedMultiplier,
+            definition.HitRadius,
+            Math.Max(1, (int)MathF.Round(definition.Damage * damageMultiplier)),
             definition.Lifetime,
-            definition.Id,
+            definition.VisualId,
             behavior.Behavior,
-            behavior.HomingTurnRadiansPerSecond));
+            behavior.HomingTurnRadiansPerSecond,
+            definition.CanDamage,
+            definition.CanBeCancelled,
+            ParseCancelResistance(definition.CancelResistance),
+            definition.PierceCount,
+            ProjectileDamageType.Normal,
+            ProjectileClearBehavior.Remove));
     }
 
     public Entity Create(
@@ -162,4 +240,12 @@ public sealed class BulletFactory(RuntimeCapabilityRegistry? capabilities = null
 
         return entity;
     }
+
+    private static ProjectileCancelResistance ParseCancelResistance(string value) => value switch
+    {
+        "soft" => ProjectileCancelResistance.Soft,
+        "hard" => ProjectileCancelResistance.Hard,
+        "uncancelable" => ProjectileCancelResistance.Uncancelable,
+        _ => throw new ArgumentException($"Unknown projectile cancel resistance '{value}'.", nameof(value))
+    };
 }

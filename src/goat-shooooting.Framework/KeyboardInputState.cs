@@ -11,6 +11,8 @@ public sealed class KeyboardInputState : IInputState
     public float MoveX => _input.MoveX;
     public float MoveY => _input.MoveY;
     public bool Fire => _input.Fire;
+    public bool Focus => _input.Focus;
+    public bool Special => _input.Special;
     public bool Bomb => _input.Bomb;
     public bool Retry => _input.Retry;
     public bool Pause => _input.Pause;

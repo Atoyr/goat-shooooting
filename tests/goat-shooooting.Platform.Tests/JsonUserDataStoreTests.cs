@@ -67,6 +67,8 @@ public sealed class JsonUserDataStoreTests
         Assert.Equal(0.4f, loadedSettings.Value.Gameplay.ScreenShakeStrength);
         Assert.False(loadedSettings.Value.Gameplay.ControllerVibration);
         Assert.Equal("Space", loadedSettings.Value.Input.Fire);
+        Assert.Equal("LeftControl", loadedSettings.Value.Input.Focus);
+        Assert.Equal("C", loadedSettings.Value.Input.Special);
         Assert.Equal("LeftShift", loadedSettings.Value.Input.Bomb);
         Assert.Equal(LoadStatus.Loaded, loadedProfile.Status);
         Assert.Equal("gauntlet", loadedProfile.Value.LastGameId);
@@ -97,7 +99,7 @@ public sealed class JsonUserDataStoreTests
             System.IO.Path.Combine(directory.Path, "settings.json"),
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "display": { "windowScale": -20 },
               "audio": { "masterVolume": 7, "effectsVolume": -1 },
               "gameplay": { "screenShakeStrength": 8 }
@@ -119,7 +121,7 @@ public sealed class JsonUserDataStoreTests
             System.IO.Path.Combine(directory.Path, "settings.json"),
             """
             {
-              "schemaVersion": 1,
+              "schemaVersion": 2,
               "futureRootSetting": true,
               "display": { "windowScale": 2, "futureDisplaySetting": "kept-by-a-future-version" },
               "audio": { "masterVolume": 0.5 }
@@ -187,7 +189,9 @@ public sealed class JsonUserDataStoreTests
         Assert.Equal(LoadStatus.Migrated, result.Status);
         Assert.Equal(GameSettings.CurrentSchemaVersion, result.Value.SchemaVersion);
         Assert.Equal(2, result.Value.Display.WindowScale);
-        Assert.Contains("\"schemaVersion\": 1", File.ReadAllText(settingsPath), StringComparison.Ordinal);
+        Assert.Equal("LeftControl", result.Value.Input.Focus);
+        Assert.Equal("C", result.Value.Input.Special);
+        Assert.Contains("\"schemaVersion\": 2", File.ReadAllText(settingsPath), StringComparison.Ordinal);
     }
 
     [Fact]

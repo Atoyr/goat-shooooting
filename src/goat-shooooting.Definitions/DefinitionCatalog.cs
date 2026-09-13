@@ -188,7 +188,76 @@ public sealed class DefinitionCatalog
             EnsurePositive(weapon.ProjectileCount, $"Weapon '{weapon.Id}' projectile count");
             EnsureRange(weapon.SpreadDegrees, 0, 180, $"Weapon '{weapon.Id}' spread degrees");
             ValidateCapabilityShape(weapon.Pattern!, $"Weapon '{weapon.Id}' pattern");
-            _ = GetProjectile(weapon.ProjectileId);
+            EnsureKnownValue(
+                weapon.ActionType,
+                new[] { "projectile", "laser", "lock-on" },
+                $"Weapon '{weapon.Id}' action type");
+            if (weapon.ActionType is "projectile" or "lock-on")
+            {
+                EnsureNonEmptyList(weapon.Emitters, $"Weapon '{weapon.Id}' emitters");
+            }
+
+            var emitterIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var emitter in weapon.Emitters)
+            {
+                EnsureNotEmpty(emitter.Id, $"Weapon '{weapon.Id}' emitter id");
+                if (!emitterIds.Add(emitter.Id))
+                {
+                    throw new DefinitionValidationException(
+                        $"Weapon '{weapon.Id}' has duplicate emitter id '{emitter.Id}'.");
+                }
+
+                _ = GetProjectile(emitter.ProjectileId);
+                EnsureNonNegative(emitter.FireInterval, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' fire interval");
+                EnsurePositive(emitter.BurstCount, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' burst count");
+                EnsureNonNegative(emitter.BurstInterval, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' burst interval");
+                EnsureKnownValue(
+                    emitter.AngleSource,
+                    new[] { "forward", "fixed", "aim-at-target", "rotating" },
+                    $"Weapon '{weapon.Id}' emitter '{emitter.Id}' angle source");
+                EnsureKnownValue(
+                    emitter.Distribution,
+                    new[] { "legacy", "single", "fan", "ring" },
+                    $"Weapon '{weapon.Id}' emitter '{emitter.Id}' distribution");
+                EnsurePositive(emitter.ProjectileCount, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' projectile count");
+                EnsureRange(emitter.SpreadDegrees, 0, 360, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' spread degrees");
+                EnsureFinite(emitter.FixedAngleDegrees, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' fixed angle");
+                EnsureFinite(emitter.RotationDegreesPerShot, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' rotation");
+                EnsureNonEmptyList(emitter.SpeedMultipliers, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' speed layers");
+                foreach (var speed in emitter.SpeedMultipliers)
+                {
+                    EnsurePositive(speed, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' speed multiplier");
+                }
+            }
+
+            if (weapon.ActionType == "laser")
+            {
+                if (weapon.Laser is null)
+                {
+                    throw new DefinitionValidationException($"Weapon '{weapon.Id}' laser settings are required.");
+                }
+
+                EnsurePositive(weapon.Laser.Damage, $"Weapon '{weapon.Id}' laser damage");
+                EnsurePositive(weapon.Laser.DamageInterval, $"Weapon '{weapon.Id}' laser damage interval");
+                EnsurePositive(weapon.Laser.Length, $"Weapon '{weapon.Id}' laser length");
+                EnsurePositive(weapon.Laser.Width, $"Weapon '{weapon.Id}' laser width");
+                EnsureNotEmpty(weapon.Laser.VisualId, $"Weapon '{weapon.Id}' laser visual id");
+                EnsureKnownValue(
+                    weapon.Laser.ProjectileInteraction,
+                    new[] { "none", "cancel-soft" },
+                    $"Weapon '{weapon.Id}' laser projectile interaction");
+            }
+
+            if (weapon.ActionType == "lock-on")
+            {
+                if (weapon.LockOn is null)
+                {
+                    throw new DefinitionValidationException($"Weapon '{weapon.Id}' lock-on settings are required.");
+                }
+
+                EnsurePositive(weapon.LockOn.MaximumTargets, $"Weapon '{weapon.Id}' maximum lock targets");
+                EnsurePositive(weapon.LockOn.Range, $"Weapon '{weapon.Id}' lock-on range");
+            }
         }
 
         foreach (var stage in Stages.Values)
@@ -226,8 +295,42 @@ public sealed class DefinitionCatalog
             EnsureNonEmptyList(ship.FocusWeaponIds, $"Ship '{ship.Id}' focus weapon ids");
             foreach (var id in ship.NormalWeaponIds) _ = GetWeapon(id);
             foreach (var id in ship.FocusWeaponIds) _ = GetWeapon(id);
+            ValidateOptionalReference(ship.BombWeaponId, Weapons, "weapon", $"Ship '{ship.Id}'");
+            ValidateOptionalReference(ship.SpecialWeaponId, Weapons, "weapon", $"Ship '{ship.Id}'");
             ValidateOptionalReference(ship.VisualId, Visuals, "visual", $"Ship '{ship.Id}'");
             ValidateOptionalReference(ship.AudioId, Audio, "audio", $"Ship '{ship.Id}'");
+            var optionIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var option in ship.Options)
+            {
+                EnsureNotEmpty(option.Id, $"Ship '{ship.Id}' option id");
+                if (!optionIds.Add(option.Id))
+                {
+                    throw new DefinitionValidationException($"Ship '{ship.Id}' has duplicate option '{option.Id}'.");
+                }
+
+                EnsurePositive(option.FollowSpeed, $"Ship '{ship.Id}' option '{option.Id}' follow speed");
+                EnsurePositive(option.Radius, $"Ship '{ship.Id}' option '{option.Id}' radius");
+                EnsureFinite(option.OffsetX, $"Ship '{ship.Id}' option '{option.Id}' offset x");
+                EnsureFinite(option.OffsetY, $"Ship '{ship.Id}' option '{option.Id}' offset y");
+                foreach (var id in option.NormalWeaponIds) _ = GetWeapon(id);
+                foreach (var id in option.FocusWeaponIds) _ = GetWeapon(id);
+                ValidateOptionalReference(option.VisualId, Visuals, "visual", $"Ship '{ship.Id}' option '{option.Id}'");
+            }
+
+            var previousPower = -1;
+            foreach (var power in ship.PowerLevels)
+            {
+                EnsureNonNegative(power.MinimumPower, $"Ship '{ship.Id}' power threshold");
+                if (power.MinimumPower <= previousPower)
+                {
+                    throw new DefinitionValidationException(
+                        $"Ship '{ship.Id}' power thresholds must be unique and ascending.");
+                }
+
+                EnsureNonNegative(power.AdditionalProjectileCount, $"Ship '{ship.Id}' power projectile count");
+                EnsurePositive(power.DamageMultiplier, $"Ship '{ship.Id}' power damage multiplier");
+                previousPower = power.MinimumPower;
+            }
         }
 
         foreach (var projectile in Projectiles.Values)

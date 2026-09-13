@@ -12,13 +12,22 @@ public sealed class GameInputStateTests
     public void GamePadMapsDocumentedGameplayAndMenuControls()
     {
         var input = new GameInputState();
-        var state = CreateGamePadState(Buttons.DPadLeft, Buttons.DPadUp, Buttons.A, Buttons.Y, Buttons.Start);
+        var state = CreateGamePadState(
+            Buttons.DPadLeft,
+            Buttons.DPadUp,
+            Buttons.A,
+            Buttons.Y,
+            Buttons.LeftShoulder,
+            Buttons.RightShoulder,
+            Buttons.Start);
 
         input.Apply([], state, isGamePadConnected: true);
 
         Assert.Equal(-1, input.MoveX);
         Assert.Equal(-1, input.MoveY);
         Assert.True(input.Fire);
+        Assert.True(input.Focus);
+        Assert.True(input.Special);
         Assert.True(input.Bomb);
         Assert.True(input.Retry);
         Assert.True(input.Pause);
@@ -126,6 +135,23 @@ public sealed class GameInputStateTests
         Assert.Equal("X", normalized.Bomb);
         Assert.True(input.Fire);
         Assert.True(input.Bomb);
+    }
+
+    [Fact]
+    public void KeyboardSettingsMapFocusAndSpecialIndependentlyFromBomb()
+    {
+        var input = new GameInputState(new InputSettings
+        {
+            Focus = "F",
+            Special = "G",
+            Bomb = "H"
+        });
+
+        input.Apply(new[] { Keys.F, Keys.G }, default, isGamePadConnected: false);
+
+        Assert.True(input.Focus);
+        Assert.True(input.Special);
+        Assert.False(input.Bomb);
     }
 
     [Fact]

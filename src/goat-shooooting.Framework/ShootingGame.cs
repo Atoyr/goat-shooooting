@@ -443,10 +443,30 @@ public sealed class ShootingGame : Game
                 RenderKind.PlayerBullet => new Color(255, 235, 84),
                 RenderKind.EnemyBullet => new Color(255, 140, 60),
                 RenderKind.Explosion => new Color(255, 180, 50, (int)(255 * (1 - item.EffectProgress))),
+                RenderKind.Option => new Color(120, 235, 255),
+                RenderKind.Laser => new Color(100, 245, 255, 190),
+                RenderKind.LockMarker => new Color(255, 80, 210, 180),
+                RenderKind.PlayerHitbox => new Color(255, 255, 255, 210),
                 _ => Color.White
             };
             var bounds = PrimitiveRenderLayout.ToRectangle(item);
-            spriteBatch.Draw(pixel, bounds, color);
+            if (item.Rotation == 0)
+            {
+                spriteBatch.Draw(pixel, bounds, color);
+            }
+            else
+            {
+                spriteBatch.Draw(
+                    pixel,
+                    new Vector2(item.Position.X, item.Position.Y),
+                    null,
+                    color,
+                    item.Rotation,
+                    new Vector2(0.5f, 0.5f),
+                    new Vector2(bounds.Width, bounds.Height),
+                    SpriteEffects.None,
+                    0);
+            }
 
             if (item.Kind == RenderKind.Enemy && item.HealthFraction < 1)
             {

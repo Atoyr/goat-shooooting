@@ -22,10 +22,69 @@ public sealed record ShipDefinition
     public int InitialPower { get; init; }
     public IReadOnlyList<string> NormalWeaponIds { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> FocusWeaponIds { get; init; } = Array.Empty<string>();
+    public string? BombWeaponId { get; init; }
+    public string? SpecialWeaponId { get; init; }
+    public IReadOnlyList<OptionUnitDefinition> Options { get; init; } = Array.Empty<OptionUnitDefinition>();
+    public IReadOnlyList<PowerLevelModifierDefinition> PowerLevels { get; init; } =
+        Array.Empty<PowerLevelModifierDefinition>();
     public string? VisualId { get; init; }
     public string? AudioId { get; init; }
     [System.Text.Json.Serialization.JsonIgnore]
     internal bool MigratedFromV1 { get; init; }
+}
+
+public sealed record OptionUnitDefinition
+{
+    public string Id { get; init; } = string.Empty;
+    public float OffsetX { get; init; }
+    public float OffsetY { get; init; }
+    public float FollowSpeed { get; init; } = 480;
+    public float Radius { get; init; } = 5;
+    public IReadOnlyList<string> NormalWeaponIds { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> FocusWeaponIds { get; init; } = Array.Empty<string>();
+    public string? VisualId { get; init; }
+}
+
+public sealed record PowerLevelModifierDefinition
+{
+    public int MinimumPower { get; init; }
+    public int AdditionalProjectileCount { get; init; }
+    public float DamageMultiplier { get; init; } = 1;
+}
+
+public sealed record EmitterDefinition
+{
+    public string Id { get; init; } = string.Empty;
+    public string ProjectileId { get; init; } = string.Empty;
+    public float OffsetX { get; init; }
+    public float OffsetY { get; init; }
+    public float FireInterval { get; init; }
+    public int BurstCount { get; init; } = 1;
+    public float BurstInterval { get; init; }
+    public string AngleSource { get; init; } = "forward";
+    public float FixedAngleDegrees { get; init; }
+    public string Distribution { get; init; } = "single";
+    public int ProjectileCount { get; init; } = 1;
+    public float SpreadDegrees { get; init; }
+    public float RotationDegreesPerShot { get; init; }
+    public IReadOnlyList<float> SpeedMultipliers { get; init; } = new[] { 1f };
+    public bool UsesLegacyPattern { get; init; }
+}
+
+public sealed record LaserWeaponDefinition
+{
+    public int Damage { get; init; }
+    public float DamageInterval { get; init; }
+    public float Length { get; init; }
+    public float Width { get; init; }
+    public string VisualId { get; init; } = string.Empty;
+    public string ProjectileInteraction { get; init; } = "none";
+}
+
+public sealed record LockOnWeaponDefinition
+{
+    public int MaximumTargets { get; init; } = 1;
+    public float Range { get; init; }
 }
 
 public sealed record ProjectileDefinition

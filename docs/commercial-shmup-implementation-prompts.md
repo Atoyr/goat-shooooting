@@ -12,7 +12,7 @@
 - [x] P1 固定tick、入力、乱数、Event stream
 - [x] P2 Projectile hot path、collision、graze
 - [x] P3 Definition v2とRegistry
-- [ ] P4 Ship、focus、複数攻撃、laser、option
+- [x] P4 Ship、focus、複数攻撃、laser、option
 - [ ] P5 Item、power、death、extend、continue
 - [ ] P6 Motion／Attack timeline
 - [ ] P7 Boss phase

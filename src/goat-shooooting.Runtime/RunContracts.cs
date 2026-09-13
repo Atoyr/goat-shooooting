@@ -114,6 +114,8 @@ public readonly record struct InputFrame
         ArgumentNullException.ThrowIfNull(input);
         var buttons = InputButtons.None;
         if (input.Fire) buttons |= InputButtons.Fire;
+        if (input.Focus) buttons |= InputButtons.Focus;
+        if (input.Special) buttons |= InputButtons.Special;
         if (input.Bomb) buttons |= InputButtons.Bomb;
         if (input.Retry) buttons |= InputButtons.Retry;
         if (input.Pause) buttons |= InputButtons.Pause;

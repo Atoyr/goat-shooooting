@@ -89,7 +89,25 @@ public static class DefinitionMigrator
                         ("projectileCount", definition.ProjectileCount),
                         ("rotationDegreesPerShot", definition.RotationDegreesPerShot),
                         ("rotationSwitchShots", definition.RotationSwitchShots))
+                },
+            Emitters = migrateLegacyCapability ||
+                definition.ActionType != "laser" && definition.Emitters.Count == 0
+                ? new[]
+                {
+                    new EmitterDefinition
+                    {
+                        Id = "primary",
+                        ProjectileId = string.IsNullOrWhiteSpace(definition.ProjectileId)
+                            ? definition.BulletId
+                            : definition.ProjectileId,
+                        FireInterval = definition.Cooldown,
+                        ProjectileCount = definition.ProjectileCount,
+                        SpreadDegrees = definition.SpreadDegrees,
+                        RotationDegreesPerShot = definition.RotationDegreesPerShot,
+                        UsesLegacyPattern = true
+                    }
                 }
+                : definition.Emitters
         };
     }
 
@@ -114,6 +132,7 @@ public static class DefinitionMigrator
         InitialBombs = definition.Bombs,
         NormalWeaponIds = new[] { definition.WeaponId },
         FocusWeaponIds = new[] { definition.WeaponId },
+        PowerLevels = new[] { new PowerLevelModifierDefinition() },
         MigratedFromV1 = true
     };
 

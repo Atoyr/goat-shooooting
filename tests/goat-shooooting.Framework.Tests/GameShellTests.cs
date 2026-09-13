@@ -98,7 +98,7 @@ public sealed class GameShellTests
     [Fact]
     public void ConflictingConfirmAndCancelBindingKeepsWaiting()
     {
-        var shell = OpenOptionsAtInputIndex(15);
+        var shell = OpenOptionsAtInputIndex(17);
         shell.Update(new MenuInput(confirm: true));
 
         Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(newlyPressedKey: "Escape")));
