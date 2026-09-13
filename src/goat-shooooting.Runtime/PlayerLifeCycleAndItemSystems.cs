@@ -241,21 +241,40 @@ public sealed class ItemDropSystem(ItemFactory? itemFactory = null)
         {
             var enemy = OptionFollowSystem.FindEntity(world, destroyed.EnemyEntityId);
             if (enemy is null || !enemy.TryGet<TransformComponent>(out var transform)) continue;
-            foreach (var drop in definitions.GetEnemy(destroyed.EnemyDefinitionId).DropTable)
+            SpawnDropTable(
+                world,
+                definitions,
+                definitions.GetEnemy(destroyed.EnemyDefinitionId).DropTable,
+                transform.Position,
+                random,
+                telemetry,
+                events);
+        }
+    }
+
+    public void SpawnDropTable(
+        World world,
+        DefinitionCatalog definitions,
+        IReadOnlyList<DropEntryDefinition> dropTable,
+        Vector2 position,
+        IRandomSource random,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        foreach (var drop in dropTable)
+        {
+            for (var index = 0; index < drop.Count; index++)
             {
-                for (var index = 0; index < drop.Count; index++)
-                {
-                    if (random.NextSingle() >= drop.Chance) continue;
-                    var angle = random.NextSingle() * MathF.Tau;
-                    var speed = drop.ScatterSpeed * (0.5f + (random.NextSingle() * 0.5f));
-                    _itemFactory.Create(
-                        world,
-                        definitions.GetItem(drop.ItemId),
-                        transform.Position,
-                        new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed,
-                        telemetry,
-                        events);
-                }
+                if (random.NextSingle() >= drop.Chance) continue;
+                var angle = random.NextSingle() * MathF.Tau;
+                var speed = drop.ScatterSpeed * (0.5f + (random.NextSingle() * 0.5f));
+                _itemFactory.Create(
+                    world,
+                    definitions.GetItem(drop.ItemId),
+                    position,
+                    new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed,
+                    telemetry,
+                    events);
             }
         }
     }

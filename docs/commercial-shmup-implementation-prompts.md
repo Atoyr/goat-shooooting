@@ -15,7 +15,7 @@
 - [x] P4 Ship、focus、複数攻撃、laser、option
 - [x] P5 Item、power、death、extend、continue
 - [x] P6 Motion／Attack timeline
-- [ ] P7 Boss phase
+- [x] P7 Boss phase
 - [ ] P8 Score engine
 - [ ] P9 Special gauge、Rank、Difficulty、RuleSet
 - [ ] P10 Mode選択、Profile v2、Local leaderboard

@@ -164,7 +164,9 @@ public sealed record BossDefinition
 {
     public int SchemaVersion { get; init; } = 2;
     public string Id { get; init; } = string.Empty;
+    public string DisplayName { get; init; } = string.Empty;
     public string EnemyId { get; init; } = string.Empty;
+    public float WarningSeconds { get; init; } = 5;
     public IReadOnlyList<BossPhaseDefinition> Phases { get; init; } = Array.Empty<BossPhaseDefinition>();
 }
 
@@ -176,6 +178,15 @@ public sealed record BossPhaseDefinition
     public float TimeLimit { get; init; }
     public string? MotionPatternId { get; init; }
     public IReadOnlyList<string> AttackPatternIds { get; init; } = Array.Empty<string>();
+    public float InvulnerabilitySeconds { get; init; }
+    public string? CheckpointId { get; init; }
+    public string StartProjectileCancel { get; init; } = "none";
+    public string EndProjectileCancel { get; init; } = "soft";
+    public long BaseBonus { get; init; }
+    public long TimeBonusPerSecond { get; init; }
+    public long NoMissBonus { get; init; }
+    public long NoBombBonus { get; init; }
+    public IReadOnlyList<DropEntryDefinition> DropTable { get; init; } = Array.Empty<DropEntryDefinition>();
 }
 
 public sealed record RuleSetDefinition

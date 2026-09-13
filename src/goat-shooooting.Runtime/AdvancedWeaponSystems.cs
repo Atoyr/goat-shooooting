@@ -156,7 +156,8 @@ public sealed class AdvancedWeaponSystem
 
         foreach (var enemy in world.Query<EnemyComponent, WeaponHolderComponent, TransformComponent>().ToArray())
         {
-            if (enemy.Has<PendingDestroyComponent>() || enemy.Has<AttackTimelineComponent>()) continue;
+            if (enemy.Has<PendingDestroyComponent>() || enemy.Has<AttackTimelineComponent>() ||
+                enemy.TryGet<BossComponent>(out var boss) && boss.IsManaged) continue;
             ProcessWeapons(
                 world,
                 definitions,

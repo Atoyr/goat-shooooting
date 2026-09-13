@@ -337,6 +337,38 @@ public sealed class DefinitionCatalog
                 EnsureNonNegative(stageEvent.SpawnInterval, $"Stage '{stage.Id}' event spawn interval");
                 EnsureFinite(stageEvent.SpacingX, $"Stage '{stage.Id}' event spacing x");
                 if (stageEvent.Type == "spawn-enemy") _ = GetEnemy(stageEvent.EnemyId);
+                if (!string.IsNullOrWhiteSpace(stageEvent.BossId))
+                {
+                    var boss = GetBoss(stageEvent.BossId);
+                    if (boss.EnemyId != stageEvent.EnemyId)
+                    {
+                        throw new DefinitionValidationException(
+                            $"Stage '{stage.Id}' event boss '{boss.Id}' requires enemy '{boss.EnemyId}'.");
+                    }
+                }
+            }
+
+            foreach (var objective in stage.Objectives)
+            {
+                EnsureKnownValue(
+                    objective.Type,
+                    new[] { "defeat-all-enemies", "complete-boss" },
+                    $"Stage '{stage.Id}' objective type");
+                if (objective.Type == "complete-boss")
+                {
+                    if (string.IsNullOrWhiteSpace(objective.BossId))
+                    {
+                        throw new DefinitionValidationException(
+                            $"Stage '{stage.Id}' complete-boss objective requires bossId.");
+                    }
+
+                    _ = GetBoss(objective.BossId);
+                }
+                else if (!string.IsNullOrWhiteSpace(objective.BossId))
+                {
+                    throw new DefinitionValidationException(
+                        $"Stage '{stage.Id}' defeat-all-enemies objective must not declare bossId.");
+                }
             }
         }
     }
@@ -468,12 +500,16 @@ public sealed class DefinitionCatalog
         foreach (var boss in Bosses.Values)
         {
             EnsureSchemaV2(boss.SchemaVersion, "boss", boss.Id);
+            EnsureNotEmpty(boss.DisplayName, $"Boss '{boss.Id}' display name");
             _ = GetEnemy(boss.EnemyId);
+            EnsureNonNegative(boss.WarningSeconds, $"Boss '{boss.Id}' warning seconds");
             EnsureNonEmptyList(boss.Phases, $"Boss '{boss.Id}' phases");
             var phaseIds = new HashSet<string>(StringComparer.Ordinal);
+            var checkpointIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (var phase in boss.Phases)
             {
                 EnsureNotEmpty(phase.Id, $"Boss '{boss.Id}' phase id");
+                EnsureNotEmpty(phase.DisplayName, $"Boss '{boss.Id}' phase '{phase.Id}' display name");
                 if (!phaseIds.Add(phase.Id)) throw new DefinitionValidationException($"Boss '{boss.Id}' has duplicate phase '{phase.Id}'.");
                 EnsurePositive(phase.Hp, $"Boss '{boss.Id}' phase '{phase.Id}' hp");
                 EnsurePositive(phase.TimeLimit, $"Boss '{boss.Id}' phase '{phase.Id}' time limit");
@@ -487,6 +523,27 @@ public sealed class DefinitionCatalog
                 {
                     var attack = GetPattern(id);
                     if (attack.Kind != "attack") throw new DefinitionValidationException($"Boss '{boss.Id}' phase '{phase.Id}' requires attack patterns.");
+                }
+
+                EnsureNonNegative(phase.InvulnerabilitySeconds, $"Boss '{boss.Id}' phase '{phase.Id}' invulnerability");
+                if (!string.IsNullOrWhiteSpace(phase.CheckpointId) && !checkpointIds.Add(phase.CheckpointId))
+                {
+                    throw new DefinitionValidationException(
+                        $"Boss '{boss.Id}' has duplicate checkpoint '{phase.CheckpointId}'.");
+                }
+
+                EnsureKnownValue(phase.StartProjectileCancel, new[] { "none", "soft", "all" }, $"Boss '{boss.Id}' phase '{phase.Id}' start cancel policy");
+                EnsureKnownValue(phase.EndProjectileCancel, new[] { "none", "soft", "all" }, $"Boss '{boss.Id}' phase '{phase.Id}' end cancel policy");
+                EnsureNonNegative(phase.BaseBonus, $"Boss '{boss.Id}' phase '{phase.Id}' base bonus");
+                EnsureNonNegative(phase.TimeBonusPerSecond, $"Boss '{boss.Id}' phase '{phase.Id}' time bonus");
+                EnsureNonNegative(phase.NoMissBonus, $"Boss '{boss.Id}' phase '{phase.Id}' no-miss bonus");
+                EnsureNonNegative(phase.NoBombBonus, $"Boss '{boss.Id}' phase '{phase.Id}' no-bomb bonus");
+                foreach (var drop in phase.DropTable)
+                {
+                    _ = GetItem(drop.ItemId);
+                    EnsureRange(drop.Count, 1, 100, $"Boss '{boss.Id}' phase '{phase.Id}' drop count");
+                    EnsureRange(drop.Chance, 0, 1, $"Boss '{boss.Id}' phase '{phase.Id}' drop chance");
+                    EnsureNonNegative(drop.ScatterSpeed, $"Boss '{boss.Id}' phase '{phase.Id}' drop scatter speed");
                 }
             }
         }

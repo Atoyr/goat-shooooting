@@ -242,6 +242,14 @@ P0では既存ゲームの進行を変更せず、後続Phaseが共有する次�
 - pause中はrunnerを更新せず、sequence完了時はcomponentを除去する。enemy death／stage transitionはEntity cleanupと同時にrunnerを破棄し、hot reload／retryはWorld再生成により旧runner stateを持ち越さない。runner stateとProjectile加速度はcanonical state hashへ含める。
 - v1 Enemyにはpattern参照を補完しないため、既存sample／gauntletのmotionと自動発射、既存保存データのschema 2 migrationは変わらない。JSON loader fixtureで入場→停止→攻撃→退場を構成し、Editor UIはP15まで追加しない。
 
+### 4.13 P7実装注記（Boss phaseとStage objective）
+
+- v2 Stage eventは`bossId`で`BossDefinition`を明示し、Boss本体Entityへmanaged `BossComponent`を付ける。各phaseはid／表示名、HP、time limit、invulnerability、practice checkpoint、P6 motion／attack pattern、開始／終了時の敵弾cancel policy、drop table、base／time／no-miss／no-bomb bonusを持つ。legacy `isBoss` markerは既存content互換の単一HP撃破経路として残す。
+- `BossPhaseSystem`は未初期化→phase開始→HP撃破またはtimeout→phase終了→次phase開始→boss完了を処理する。同tickでHPとtimeoutが成立した場合はHP撃破を優先する。phase間ではEntity IDとTransformを維持し、Health、invincibility、Weapon runtime、Motion／Attack runnerを置換するため、前phaseのcooldownやtrackは漏れない。
+- phase開始／終了の`none`／`soft`／`all` cancelはProjectileStoreへ直接適用し、cancel eventとtelemetryを発行する。phase dropはEnemy dropと同じseed付きscatter実装を再利用する。`BossPhaseStartedEvent`、`BossPhaseEndedEvent`、`BossPhaseBonusEvent`、`BossCompletedEvent`により、後続P8はBoss Systemへ得点計算を埋め込まずbonusを構成できる。
+- Stageは`complete-boss`と`defeat-all-enemies`の明示objectiveを評価し、完了Boss IDをEntity cleanup後も保持する。objective未指定のv1 stageだけは従来のspawn完了／敵全滅／legacy boss撃破判定へfallbackする。retry／next stageではStageSystemごと完了集合を作り直す。
+- `RenderItem`はmanaged Bossについてboss名、phase名、phase HP比、残り時間、warning状態をrenderer-neutral値で公開する。Boss phase state、完了objective集合はcanonical hashへ含める。3-phase JSON fixtureとRuntime testでHP、timeout、bomb、最後のphase、retry、次stage、Bossなしstageを保護する。
+
 ## 5. Definition v2
 
 すべてを一度に巨大な`game.json`へ入れず、次の単位を追加する。

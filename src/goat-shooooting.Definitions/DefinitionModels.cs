@@ -102,6 +102,13 @@ public sealed record StageDefinition
     public float ResultsDuration { get; init; }
     public string? NextStageId { get; init; }
     public IReadOnlyList<StageEventDefinition> Events { get; init; } = Array.Empty<StageEventDefinition>();
+    public IReadOnlyList<StageObjectiveDefinition> Objectives { get; init; } = Array.Empty<StageObjectiveDefinition>();
+}
+
+public sealed record StageObjectiveDefinition
+{
+    public string Type { get; init; } = string.Empty;
+    public string? BossId { get; init; }
 }
 
 public sealed record StageEventDefinition
@@ -116,4 +123,5 @@ public sealed record StageEventDefinition
     public float SpawnInterval { get; init; }
     public float SpacingX { get; init; }
     public bool IsBoss { get; init; }
+    public string? BossId { get; init; }
 }

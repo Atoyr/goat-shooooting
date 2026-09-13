@@ -112,7 +112,34 @@ public sealed record BossPhaseEndedEvent(
     int Sequence,
     string BossDefinitionId,
     string PhaseId,
-    bool TimedOut) : IGameplayEvent;
+    bool TimedOut,
+    int BossEntityId = 0) : IGameplayEvent;
+
+public sealed record BossPhaseStartedEvent(
+    long Frame,
+    int Sequence,
+    int BossEntityId,
+    string BossDefinitionId,
+    string PhaseId,
+    int PhaseIndex,
+    string? CheckpointId) : IGameplayEvent;
+
+public sealed record BossPhaseBonusEvent(
+    long Frame,
+    int Sequence,
+    int BossEntityId,
+    string BossDefinitionId,
+    string PhaseId,
+    long BaseBonus,
+    long TimeBonus,
+    long NoMissBonus,
+    long NoBombBonus) : IGameplayEvent;
+
+public sealed record BossCompletedEvent(
+    long Frame,
+    int Sequence,
+    int BossEntityId,
+    string BossDefinitionId) : IGameplayEvent;
 
 /// <summary>Collects ordered gameplay facts for the current simulation tick only.</summary>
 public sealed class GameEventBuffer

@@ -238,7 +238,22 @@ internal static class SimulationStateHasher
                 hash.Add(explosion.Duration);
                 hash.Add(explosion.Remaining);
             });
-            hash.Add(entity.Has<BossComponent>());
+            AddComponent(hash, entity.TryGet<BossComponent>(out var boss), () =>
+            {
+                hash.Add(boss.DefinitionId);
+                hash.Add(boss.DisplayName);
+                hash.Add(boss.PhaseIndex);
+                hash.Add(boss.PhaseId);
+                hash.Add(boss.PhaseDisplayName);
+                hash.Add(boss.PhaseElapsed);
+                hash.Add(boss.PhaseTimeLimit);
+                hash.Add(boss.WarningSeconds);
+                hash.Add(boss.CheckpointId);
+                hash.Add(boss.PlayerDeathsAtPhaseStart);
+                hash.Add(boss.BombsUsedAtPhaseStart);
+                hash.Add(boss.IsInitialized);
+                hash.Add(boss.IsComplete);
+            });
             hash.Add(entity.Has<PendingDestroyComponent>());
         }
 
@@ -271,6 +286,12 @@ internal static class SimulationStateHasher
             hash.Add(projectile.AccelerationPerSecond);
             hash.Add(projectile.GrazedPlayerEntityId);
             hash.Add(projectile.PendingRemoval);
+        }
+
+        hash.Add(simulation.CompletedBossIds.Count);
+        foreach (var bossId in simulation.CompletedBossIds.OrderBy(static value => value, StringComparer.Ordinal))
+        {
+            hash.Add(bossId);
         }
 
         return hash.Value;

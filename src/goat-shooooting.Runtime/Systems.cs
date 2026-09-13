@@ -300,6 +300,7 @@ public sealed class StageSystem
     private readonly RuntimeCapabilityRegistry _capabilities;
     private readonly int[] _spawnedCounts;
     private readonly int _bossesKilledAtStart;
+    private readonly HashSet<string> _completedBossIds = new(StringComparer.Ordinal);
     private double _elapsed;
     private long _elapsedTicks;
 
@@ -320,6 +321,7 @@ public sealed class StageSystem
     public int BossCount => _definition.Events
         .Where(static stageEvent => stageEvent.IsBoss)
         .Sum(static stageEvent => stageEvent.Count);
+    internal IReadOnlyCollection<string> CompletedBossIds => _completedBossIds;
     public bool IsComplete => _definition.Events
         .Select((stageEvent, index) => _spawnedCounts[index] >= stageEvent.Count)
         .All(static complete => complete);
@@ -328,6 +330,17 @@ public sealed class StageSystem
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(telemetry);
+        if (_definition.Objectives.Count > 0)
+        {
+            return IsComplete && _definition.Objectives.All(objective => objective.Type switch
+            {
+                "defeat-all-enemies" => !world.Query<EnemyComponent>()
+                    .Any(static enemy => !enemy.Has<PendingDestroyComponent>()),
+                "complete-boss" => _completedBossIds.Contains(objective.BossId!),
+                _ => false
+            });
+        }
+
         if (BossCount > 0)
         {
             var allBossesSpawned = _definition.Events
@@ -337,6 +350,11 @@ public sealed class StageSystem
         }
 
         return IsComplete && !world.Query<EnemyComponent>().Any();
+    }
+
+    public void ObserveEvents(IEnumerable<IGameplayEvent> events)
+    {
+        foreach (var completed in events.OfType<BossCompletedEvent>()) _completedBossIds.Add(completed.BossDefinitionId);
     }
 
     public void Update(World world, DefinitionCatalog definitions, float deltaTime, SimulationTelemetry telemetry)
@@ -696,6 +714,11 @@ public sealed class DamageSystem
 
             if (health.Current <= 0)
             {
+                if (damageEvent.Target.TryGet<BossComponent>(out var boss) && boss.IsManaged)
+                {
+                    continue;
+                }
+
                 damageEvent.Target.Add(new PendingDestroyComponent());
                 if (damageEvent.Target.Has<EnemyComponent>())
                 {
@@ -830,7 +853,11 @@ public readonly record struct RenderItem(
     float EffectProgress = 0,
     string? VisualId = null,
     Vector2 Size = default,
-    float Rotation = 0);
+    float Rotation = 0,
+    string? BossName = null,
+    string? BossPhaseName = null,
+    float? BossRemainingTime = null,
+    bool BossWarning = false);
 
 /// <summary>Transforms runtime state into renderer-neutral draw data.</summary>
 public sealed class RenderSystem
@@ -871,6 +898,7 @@ public sealed class RenderSystem
             var healthFraction = entity.TryGet<HealthComponent>(out var health)
                 ? Math.Clamp((float)health.Current / health.Maximum, 0, 1)
                 : 1;
+            entity.TryGet<BossComponent>(out var boss);
             items.Add(new RenderItem(
                 entity.Id,
                 kind.Value,
@@ -879,7 +907,11 @@ public sealed class RenderSystem
                 healthFraction,
                 entity.Has<HitFlashComponent>() ||
                 (entity.TryGet<InvincibilityComponent>(out var invincibility) && invincibility.Remaining > 0),
-                VisualId: entity.TryGet<ShipComponent>(out var shipComponent) ? shipComponent.VisualId : null));
+                VisualId: entity.TryGet<ShipComponent>(out var shipComponent) ? shipComponent.VisualId : null,
+                BossName: boss?.IsManaged == true ? boss.DisplayName : null,
+                BossPhaseName: boss?.IsManaged == true ? boss.PhaseDisplayName : null,
+                BossRemainingTime: boss?.IsManaged == true ? boss.RemainingTime : null,
+                BossWarning: boss?.IsWarning == true));
         }
 
         foreach (var entity in world.Query<TransformComponent, ExplosionComponent>())

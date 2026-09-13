@@ -388,11 +388,16 @@ internal sealed class SpawnEnemyStageEventHandler : IStageEventHandler
         DefinitionCatalog definitions,
         StageEventDefinition stageEvent,
         int spawnIndex,
-        EnemyFactory enemyFactory) => enemyFactory.Create(
+        EnemyFactory enemyFactory)
+    {
+        var boss = string.IsNullOrWhiteSpace(stageEvent.BossId) ? null : definitions.GetBoss(stageEvent.BossId);
+        enemyFactory.Create(
             world,
             definitions.GetEnemy(stageEvent.EnemyId),
             new Vector2(stageEvent.X + (spawnIndex * stageEvent.SpacingX), stageEvent.Y),
-            stageEvent.IsBoss);
+            stageEvent.IsBoss || boss is not null,
+            boss);
+    }
 }
 
 internal static class CapabilityParameters

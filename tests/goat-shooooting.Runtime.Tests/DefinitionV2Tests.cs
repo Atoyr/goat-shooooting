@@ -212,10 +212,10 @@ public sealed class DefinitionV2Tests
                 {"schemaVersion":2,"id":"attack-a","kind":"attack","commands":[{"type":"wait","parameters":{"duration":0.5}},{"type":"fire","parameters":{"weaponId":"weapon"},"maximumSpawnCount":1,"difficultyTags":["arcade"]}]}
                 """);
             fixture.Write("bosses/boss-a.json", """
-                {"schemaVersion":2,"id":"boss-a","enemyId":"enemy","phases":[{"id":"phase-1","displayName":"Opening","hp":1000,"timeLimit":30,"motionPatternId":"motion-a","attackPatternIds":["attack-a"]}]}
+                {"schemaVersion":2,"id":"boss-a","displayName":"Fixture Guardian","enemyId":"enemy","warningSeconds":3,"phases":[{"id":"phase-1","displayName":"Opening","hp":1000,"timeLimit":30,"motionPatternId":"motion-a","attackPatternIds":["attack-a"],"checkpointId":"opening","endProjectileCancel":"soft","baseBonus":1000},{"id":"phase-2","displayName":"Pressure","hp":1500,"timeLimit":25,"attackPatternIds":["attack-a"],"invulnerabilitySeconds":0.5,"checkpointId":"pressure","startProjectileCancel":"all","timeBonusPerSecond":10},{"id":"phase-3","displayName":"Finale","hp":2000,"timeLimit":20,"attackPatternIds":["attack-a"],"checkpointId":"finale","endProjectileCancel":"all","noMissBonus":500,"noBombBonus":500,"dropTable":[{"itemId":"power-small","count":2}]}]}
                 """);
             fixture.Write("stages/stage.json", """
-                {"schemaVersion":2,"id":"stage","events":[{"schemaVersion":2,"time":0,"type":"spawn-enemy","enemyId":"enemy","x":400,"y":-30}]}
+                {"schemaVersion":2,"id":"stage","events":[{"schemaVersion":2,"time":0,"type":"spawn-enemy","enemyId":"enemy","bossId":"boss-a","x":400,"y":-30}],"objectives":[{"type":"complete-boss","bossId":"boss-a"}]}
                 """);
             fixture.Write("rulesets/rules.json", """
                 {"schemaVersion":2,"id":"rules","stageRouteId":"main","stageIds":["stage"],"allowContinue":true,"initialCredits":2,"continueCreditCost":1,"manualBombCost":1,"autoBombCost":2,"bombInvincibilitySeconds":1,"deathClearsProjectiles":true,"extendScoreThresholds":[100000,300000],"collectionLineY":120,"itemFallSpeed":90,"itemMagnetSpeed":480,"focusMagnetRadius":120,"itemCollectionRadius":18,"maximumGauge":100,"maximumPowerItemScoreValue":1000,"scoreRules":[]}

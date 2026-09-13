@@ -258,8 +258,26 @@ public sealed class EnemyComponent(string definitionId)
     public string DefinitionId { get; } = definitionId;
 }
 
-/// <summary>Marks the enemy whose defeat completes the current stage.</summary>
-public sealed class BossComponent;
+/// <summary>Renderer-neutral state for a legacy boss marker or a managed multi-phase boss.</summary>
+public sealed class BossComponent(string? definitionId = null, string? displayName = null)
+{
+    public string? DefinitionId { get; } = definitionId;
+    public string DisplayName { get; } = displayName ?? definitionId ?? string.Empty;
+    public int PhaseIndex { get; set; } = -1;
+    public string PhaseId { get; set; } = string.Empty;
+    public string PhaseDisplayName { get; set; } = string.Empty;
+    public float PhaseElapsed { get; set; }
+    public float PhaseTimeLimit { get; set; }
+    public float WarningSeconds { get; set; }
+    public string? CheckpointId { get; set; }
+    public int PlayerDeathsAtPhaseStart { get; set; }
+    public int BombsUsedAtPhaseStart { get; set; }
+    public bool IsInitialized { get; set; }
+    public bool IsComplete { get; set; }
+    public bool IsManaged => !string.IsNullOrWhiteSpace(DefinitionId);
+    public float RemainingTime => Math.Max(0, PhaseTimeLimit - PhaseElapsed);
+    public bool IsWarning => IsInitialized && !IsComplete && RemainingTime <= WarningSeconds;
+}
 
 public sealed class ScoreValueComponent(int value)
 {

@@ -36,9 +36,23 @@
             "type": "boolean",
             "default": false,
             "description": "trueの敵をすべて倒すと、残っている通常敵に関係なくステージクリアになります。"
-          }
+          },
+          "bossId": { "type": ["string", "null"], "minLength": 1 }
         }
       }
+    },
+    "objectives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type"],
+        "properties": {
+          "type": { "enum": ["defeat-all-enemies", "complete-boss"] },
+          "bossId": { "type": ["string", "null"], "minLength": 1 }
+        }
+      },
+      "default": []
     }
   }
 }

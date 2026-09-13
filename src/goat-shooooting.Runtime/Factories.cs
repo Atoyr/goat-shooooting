@@ -89,7 +89,12 @@ public sealed class EnemyFactory(RuntimeCapabilityRegistry? capabilities = null)
 {
     private readonly RuntimeCapabilityRegistry _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
 
-    public Entity Create(World world, EnemyDefinition definition, Vector2 position, bool isBoss = false)
+    public Entity Create(
+        World world,
+        EnemyDefinition definition,
+        Vector2 position,
+        bool isBoss = false,
+        BossDefinition? boss = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(definition);
@@ -97,7 +102,7 @@ public sealed class EnemyFactory(RuntimeCapabilityRegistry? capabilities = null)
 
         var entity = world.CreateEntity()
             .Add(new TransformComponent(position))
-            .Add(new VelocityComponent(string.IsNullOrWhiteSpace(definition.MotionPatternId)
+            .Add(new VelocityComponent(boss is null && string.IsNullOrWhiteSpace(definition.MotionPatternId)
                 ? new Vector2(0, definition.Speed)
                 : Vector2.Zero))
             .Add(new HealthComponent(definition.Hp))
@@ -105,7 +110,11 @@ public sealed class EnemyFactory(RuntimeCapabilityRegistry? capabilities = null)
             .Add(new EnemyComponent(definition.Id))
             .Add(new ScoreValueComponent(definition.Score));
 
-        if (isBoss)
+        if (boss is not null)
+        {
+            entity.Add(new BossComponent(boss.Id, boss.DisplayName));
+        }
+        else if (isBoss)
         {
             entity.Add(new BossComponent());
         }
@@ -115,17 +124,17 @@ public sealed class EnemyFactory(RuntimeCapabilityRegistry? capabilities = null)
             entity.Add(new WeaponHolderComponent(definition.WeaponId));
         }
 
-        if (!string.IsNullOrWhiteSpace(definition.MotionPatternId))
+        if (boss is null && !string.IsNullOrWhiteSpace(definition.MotionPatternId))
         {
             entity.Add(new MotionTimelineComponent(definition.MotionPatternId));
         }
 
-        if (definition.AttackPatternIds.Count > 0)
+        if (boss is null && definition.AttackPatternIds.Count > 0)
         {
             entity.Add(new AttackTimelineComponent(definition.AttackPatternIds));
         }
 
-        if (string.IsNullOrWhiteSpace(definition.MotionPatternId))
+        if (boss is null && string.IsNullOrWhiteSpace(definition.MotionPatternId))
         {
             var motion = definition.Motion!;
             var factory = _capabilities.ActorMotions.Resolve(motion.Type, $"enemy '{definition.Id}' motion");

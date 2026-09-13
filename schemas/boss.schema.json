@@ -7,7 +7,9 @@
   "properties": {
     "schemaVersion": { "const": 2 },
     "id": { "type": "string", "minLength": 1 },
+    "displayName": { "type": "string", "minLength": 1 },
     "enemyId": { "type": "string", "minLength": 1 },
+    "warningSeconds": { "type": "number", "minimum": 0, "default": 5 },
     "phases": {
       "type": "array",
       "minItems": 1,
@@ -21,7 +23,30 @@
           "hp": { "type": "integer", "minimum": 1 },
           "timeLimit": { "type": "number", "exclusiveMinimum": 0 },
           "motionPatternId": { "type": ["string", "null"] },
-          "attackPatternIds": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+          "attackPatternIds": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "invulnerabilitySeconds": { "type": "number", "minimum": 0, "default": 0 },
+          "checkpointId": { "type": ["string", "null"], "minLength": 1 },
+          "startProjectileCancel": { "enum": ["none", "soft", "all"], "default": "none" },
+          "endProjectileCancel": { "enum": ["none", "soft", "all"], "default": "soft" },
+          "baseBonus": { "type": "integer", "minimum": 0, "default": 0 },
+          "timeBonusPerSecond": { "type": "integer", "minimum": 0, "default": 0 },
+          "noMissBonus": { "type": "integer", "minimum": 0, "default": 0 },
+          "noBombBonus": { "type": "integer", "minimum": 0, "default": 0 },
+          "dropTable": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["itemId"],
+              "properties": {
+                "itemId": { "type": "string", "minLength": 1 },
+                "count": { "type": "integer", "minimum": 1, "maximum": 100, "default": 1 },
+                "chance": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
+                "scatterSpeed": { "type": "number", "minimum": 0, "default": 80 }
+              }
+            },
+            "default": []
+          }
         }
       }
     }

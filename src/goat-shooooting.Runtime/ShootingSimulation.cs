@@ -36,6 +36,7 @@ public sealed class ShootingSimulation
     private readonly LaserSystem _laserSystem = new();
     private readonly PlayerLifeCycleSystem _playerLifeCycleSystem = new();
     private readonly ItemDropSystem _itemDropSystem = new();
+    private readonly BossPhaseSystem _bossPhaseSystem;
     private readonly ItemSystem _itemSystem = new();
     private readonly ExtendSystem _extendSystem = new();
     private readonly MovementSystem _movementSystem = new();
@@ -84,6 +85,7 @@ public sealed class ShootingSimulation
             _randomSource,
             configuration.DifficultyId);
         _attackTimelineSystem = new AttackTimelineSystem(_weaponSystem.Advanced);
+        _bossPhaseSystem = new BossPhaseSystem(_itemDropSystem);
         Definitions = _definitionRepository.Load();
         new CapabilityValidator().Validate(Definitions, _capabilities);
         World = null!;
@@ -119,6 +121,7 @@ public sealed class ShootingSimulation
     public string? DefinitionReloadError { get; private set; }
     public RunResult? Result { get; private set; }
     internal ulong RandomState => _randomSource.State;
+    internal IReadOnlyCollection<string> CompletedBossIds => _stageSystem.CompletedBossIds;
 
     /// <summary>Advances exactly one 60Hz simulation tick using an immutable input sample.</summary>
     public void Tick(InputFrame inputFrame) =>
@@ -264,6 +267,13 @@ public sealed class ShootingSimulation
         {
             _stageSystem.Update(World, Definitions, deltaTime, Telemetry);
         }
+        _bossPhaseSystem.BeginAndAdvance(
+            World,
+            Definitions,
+            deltaTime,
+            Projectiles,
+            Telemetry,
+            Events);
         _playerInputSystem.Update(World, _tickInput);
         _motionTimelineSystem.Update(World, Definitions, Configuration.DifficultyId, deltaTime, Telemetry);
         _attackTimelineSystem.Update(
@@ -319,6 +329,14 @@ public sealed class ShootingSimulation
             Events);
         _damageSystem.Update(allDamage, Telemetry, Events);
         _damageSystem.Update(autoBombDamage, Telemetry, Events);
+        _bossPhaseSystem.Resolve(
+            World,
+            Definitions,
+            Projectiles,
+            _randomSource,
+            Telemetry,
+            Events);
+        _stageSystem.ObserveEvents(Events.Events);
         _itemDropSystem.SpawnDrops(World, Definitions, Events.Events, _randomSource, Telemetry, Events);
         RunState.Score = Telemetry.Score;
         _itemSystem.Update(
