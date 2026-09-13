@@ -9,7 +9,7 @@ namespace GoatShooooting.Tooling;
 public sealed record HeadlessBenchmarkOptions(
     int SampleTicks = 600,
     int StressBulletCount = 10_000,
-    int StressTicks = 1)
+    int StressTicks = 600)
 {
     public const int MaximumStressBulletCount = 100_000;
 
@@ -48,12 +48,13 @@ public sealed record HeadlessBenchmarkResult(
     int FinalActiveBullets,
     double UpdateMilliseconds,
     long AllocatedBytes,
+    long CollisionCandidatesChecked,
     long WorkloadChecksum);
 
 /// <summary>Runs repeatable, renderer-free workloads while keeping timing informational.</summary>
 public static class HeadlessBenchmarkRunner
 {
-    public const int ReportFormatVersion = 1;
+    public const int ReportFormatVersion = 2;
 
     public static HeadlessBenchmarkReport Run(
         DefinitionCatalog definitions,
@@ -117,8 +118,16 @@ public static class HeadlessBenchmarkRunner
             var position = new Vector2(
                 ((column + 0.5f) / columns) * definitions.Game.Width,
                 ((row % columns) + 0.5f) / columns * definitions.Game.Height);
-            factory.Create(simulation.World, bullet, position, -Vector2.UnitY, CollisionLayer.Player);
+            factory.Create(
+                simulation.Projectiles,
+                bullet,
+                position,
+                -Vector2.UnitY,
+                CollisionLayer.Player,
+                simulation.Player.Id);
         }
+
+        simulation.Projectiles.CommitSpawns();
 
         return Measure($"stress-{bulletCount}-bullets", simulation, tickCount, _ =>
             simulation.Tick(default));
@@ -130,8 +139,8 @@ public static class HeadlessBenchmarkRunner
         int tickCount,
         Action<int> update)
     {
-        var initialEntities = CountActiveEntities(simulation.World);
-        var initialBullets = CountActiveBullets(simulation.World);
+        var initialEntities = CountActiveEntities(simulation);
+        var initialBullets = simulation.Projectiles.ActiveCount;
         var peakEntities = initialEntities;
         var peakBullets = initialBullets;
         long allocatedBytes = 0;
@@ -144,12 +153,12 @@ public static class HeadlessBenchmarkRunner
             update(tick);
             elapsedTimestampTicks += Stopwatch.GetTimestamp() - started;
             allocatedBytes += GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
-            peakEntities = Math.Max(peakEntities, CountActiveEntities(simulation.World));
-            peakBullets = Math.Max(peakBullets, CountActiveBullets(simulation.World));
+            peakEntities = Math.Max(peakEntities, CountActiveEntities(simulation));
+            peakBullets = Math.Max(peakBullets, simulation.Projectiles.ActiveCount);
         }
 
-        var finalEntities = CountActiveEntities(simulation.World);
-        var finalBullets = CountActiveBullets(simulation.World);
+        var finalEntities = CountActiveEntities(simulation);
+        var finalBullets = simulation.Projectiles.ActiveCount;
         return new HeadlessBenchmarkResult(
             name,
             tickCount,
@@ -161,14 +170,13 @@ public static class HeadlessBenchmarkRunner
             finalBullets,
             Math.Round(elapsedTimestampTicks * 1000d / Stopwatch.Frequency, 3),
             allocatedBytes,
+            simulation.Telemetry.CollisionCandidatesChecked,
             ComputeChecksum(simulation, finalEntities, finalBullets));
     }
 
-    private static int CountActiveEntities(World world) =>
-        world.Entities.Count(static entity => !entity.Has<PendingDestroyComponent>());
-
-    private static int CountActiveBullets(World world) =>
-        world.Query<BulletComponent>().Count(static entity => !entity.Has<PendingDestroyComponent>());
+    private static int CountActiveEntities(ShootingSimulation simulation) =>
+        simulation.World.Entities.Count(static entity => !entity.Has<PendingDestroyComponent>()) +
+        simulation.Projectiles.ActiveCount;
 
     private static long ComputeChecksum(
         ShootingSimulation simulation,
@@ -185,6 +193,7 @@ public static class HeadlessBenchmarkRunner
                      simulation.Telemetry.EnemiesSpawned,
                      simulation.Telemetry.BulletsSpawned,
                      simulation.Telemetry.CollisionsDetected,
+                     simulation.Telemetry.CollisionCandidatesChecked,
                      simulation.Telemetry.DamageEventsApplied,
                      simulation.Telemetry.Score
                  })

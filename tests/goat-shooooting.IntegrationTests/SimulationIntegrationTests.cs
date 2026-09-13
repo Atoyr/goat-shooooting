@@ -126,16 +126,14 @@ public sealed class SimulationIntegrationTests
                 enemyWeaponId: "weapon")),
             input);
         simulation.Update(0);
-        Assert.NotEmpty(simulation.World.Query<BulletComponent>()
-            .Where(static bullet => bullet.Get<ColliderComponent>().Layer == CollisionLayer.EnemyBullet));
+        Assert.True(CountProjectiles(simulation.Projectiles, ProjectileTeam.Enemy) > 0);
 
         input.Bomb = true;
         simulation.Update(0);
 
         var enemy = Assert.Single(simulation.World.Query<EnemyComponent>());
         Assert.Equal(50, enemy.Get<HealthComponent>().Current);
-        Assert.Empty(simulation.World.Query<BulletComponent>()
-            .Where(static bullet => bullet.Get<ColliderComponent>().Layer == CollisionLayer.EnemyBullet));
+        Assert.Equal(0, CountProjectiles(simulation.Projectiles, ProjectileTeam.Enemy));
         Assert.Equal(1, simulation.Player.Get<BombComponent>().Remaining);
         Assert.Equal(1, simulation.Telemetry.BombsUsed);
         Assert.True(simulation.Telemetry.EnemyBulletsCleared > 0);
@@ -272,6 +270,21 @@ public sealed class SimulationIntegrationTests
                     }
                 }
             });
+    }
+
+    private static int CountProjectiles(ProjectileStore projectiles, ProjectileTeam team)
+    {
+        var count = 0;
+        for (var index = 0; index < projectiles.ActiveCount; index++)
+        {
+            var projectile = projectiles.GetSnapshot(index);
+            if (!projectile.PendingRemoval && projectile.Team == team)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static DefinitionCatalog CreateStageFlowDefinitions()

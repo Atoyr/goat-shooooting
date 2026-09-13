@@ -433,7 +433,7 @@ public sealed class ShootingGame : Game
                 _layout.Playfield.X + shakeOffset.X,
                 shakeOffset.Y,
                 0));
-        var items = _renderSystem.Capture(_simulation.World);
+        var items = _renderSystem.Capture(_simulation.World, _simulation.Projectiles);
         foreach (var item in items)
         {
             var color = item.IsFlashing ? Color.White : item.Kind switch

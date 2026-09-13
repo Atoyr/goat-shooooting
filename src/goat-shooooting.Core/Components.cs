@@ -54,6 +54,11 @@ public sealed class ColliderComponent(float radius, CollisionLayer layer)
     public CollisionLayer Layer { get; } = layer;
 }
 
+public sealed class GrazeRadiusComponent(float radius)
+{
+    public float Radius { get; } = radius > 0 ? radius : throw new ArgumentOutOfRangeException(nameof(radius));
+}
+
 public sealed class PlayerComponent(string definitionId, float speed)
 {
     public string DefinitionId { get; } = definitionId;

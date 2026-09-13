@@ -17,6 +17,7 @@ public sealed class PlayerFactory
             .Add(new LivesComponent(definition.Lives))
             .Add(new BombComponent(definition.Bombs, definition.BombDamage))
             .Add(new ColliderComponent(definition.Radius, CollisionLayer.Player))
+            .Add(new GrazeRadiusComponent(definition.Radius + 20))
             .Add(new PlayerComponent(definition.Id, definition.Speed))
             .Add(new WeaponHolderComponent(definition.WeaponId));
 
@@ -75,6 +76,47 @@ public sealed class EnemyFactory
 
 public sealed class BulletFactory
 {
+    public int Create(
+        ProjectileStore projectiles,
+        BulletDefinition definition,
+        Vector2 position,
+        Vector2 direction,
+        CollisionLayer ownerLayer,
+        int ownerEntityId)
+    {
+        ArgumentNullException.ThrowIfNull(projectiles);
+        ArgumentNullException.ThrowIfNull(definition);
+        if (direction == Vector2.Zero)
+        {
+            throw new ArgumentException("Bullet direction cannot be zero.", nameof(direction));
+        }
+
+        var team = ownerLayer switch
+        {
+            CollisionLayer.Player => ProjectileTeam.Player,
+            CollisionLayer.Enemy => ProjectileTeam.Enemy,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(ownerLayer),
+                ownerLayer,
+                "Only player or enemy entities may own bullets.")
+        };
+        var behavior = string.Equals(definition.MovementPattern, "homing", StringComparison.Ordinal)
+            ? ProjectileBehavior.Homing
+            : ProjectileBehavior.Straight;
+        return projectiles.QueueSpawn(new ProjectileSpawnCommand(
+            ownerEntityId,
+            team,
+            definition.Id,
+            position,
+            Vector2.Normalize(direction) * definition.Speed,
+            definition.Radius,
+            definition.Damage,
+            definition.Lifetime,
+            definition.Id,
+            behavior,
+            definition.HomingTurnDegreesPerSecond * (MathF.PI / 180)));
+    }
+
     public Entity Create(
         World world,
         BulletDefinition definition,

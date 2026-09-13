@@ -13,7 +13,7 @@ public sealed class HeadlessBenchmarkRunnerTests
             CreateDefinitions(),
             new HeadlessBenchmarkOptions(SampleTicks: 2, StressBulletCount: 20, StressTicks: 1));
 
-        Assert.Equal(1, report.FormatVersion);
+        Assert.Equal(2, report.FormatVersion);
         Assert.Equal(60, report.TickRate);
         Assert.Collection(
             report.Scenarios,
@@ -30,6 +30,7 @@ public sealed class HeadlessBenchmarkRunnerTests
                 Assert.Equal(20, stress.InitialActiveBullets);
                 Assert.Equal(20, stress.PeakActiveBullets);
                 Assert.Equal(20, stress.FinalActiveBullets);
+                Assert.True(stress.CollisionCandidatesChecked >= 0);
                 Assert.NotEqual(0, stress.WorkloadChecksum);
             });
     }
@@ -46,6 +47,20 @@ public sealed class HeadlessBenchmarkRunnerTests
         Assert.Equal(10_000, stress.InitialActiveBullets);
         Assert.Equal(10_001, stress.InitialActiveEntities);
         Assert.Equal(0, stress.TickCount);
+    }
+
+    [Fact]
+    public void TenThousandBulletsCompleteSixHundredTickFunctionalStressRun()
+    {
+        var report = HeadlessBenchmarkRunner.Run(
+            CreateDefinitions(),
+            new HeadlessBenchmarkOptions(SampleTicks: 0, StressBulletCount: 10_000, StressTicks: 600));
+
+        var stress = report.Scenarios[1];
+        Assert.Equal(600, stress.TickCount);
+        Assert.Equal(10_000, stress.PeakActiveBullets);
+        Assert.Equal(0, stress.FinalActiveBullets);
+        Assert.True(stress.AllocatedBytes >= 0);
     }
 
     [Theory]

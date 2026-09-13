@@ -24,6 +24,21 @@ public sealed record PlayerGrazedEvent(
     int PlayerEntityId,
     int ProjectileEntityId) : IGameplayEvent;
 
+public sealed record ProjectileSpawnedEvent(
+    long Frame,
+    int Sequence,
+    int ProjectileEntityId,
+    int OwnerEntityId,
+    ProjectileTeam Team,
+    string ProjectileDefinitionId) : IGameplayEvent;
+
+public sealed record ProjectileHitEvent(
+    long Frame,
+    int Sequence,
+    int ProjectileEntityId,
+    int TargetEntityId,
+    int Damage) : IGameplayEvent;
+
 public sealed record ProjectileCancelledEvent(
     long Frame,
     int Sequence,

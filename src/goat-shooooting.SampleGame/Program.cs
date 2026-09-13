@@ -87,9 +87,7 @@ public static class Program
             input.Bomb = false;
             if (!bombWasPressed &&
                 simulation.Player.Get<BombComponent>().Remaining > 0 &&
-                simulation.World.Query<BulletComponent, ColliderComponent>()
-                    .Count(static bullet =>
-                        bullet.Get<ColliderComponent>().Layer == CollisionLayer.EnemyBullet) >= 8)
+                CountEnemyProjectiles(simulation.Projectiles) >= 8)
             {
                 input.Bomb = true;
             }
@@ -159,6 +157,21 @@ public static class Program
 
             stage = definitions.GetStage(stage.NextStageId);
         }
+    }
+
+    private static int CountEnemyProjectiles(ProjectileStore projectiles)
+    {
+        var count = 0;
+        for (var index = 0; index < projectiles.ActiveCount; index++)
+        {
+            var projectile = projectiles.GetSnapshot(index);
+            if (!projectile.PendingRemoval && projectile.Team == ProjectileTeam.Enemy)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static IReadOnlyDictionary<string, IDefinitionRepository> GetAvailableGames()

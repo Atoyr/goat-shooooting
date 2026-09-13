@@ -53,7 +53,7 @@ dotnet run --project src/goat-shooooting.Tooling -- validate games/gauntlet
 dotnet run --project src/goat-shooooting.Tooling -- benchmark games/sample
 ```
 
-固定入力によるsample 600 updatesと、10,000 Bullet entityを保持するstress 1 updateについて、active entity／bullet数、update時間、allocation、結果checksumを出力します。時間とallocationは環境依存の比較値であり、テストの合否条件には使用しません。
+固定入力によるsample 600 ticksと、10,000 Projectileを投入するstress 600 ticksについて、active entity／projectile数、update時間、allocation、collision候補数、結果checksumを出力します。時間とallocationは環境依存の比較値であり、テストの合否条件には使用しません。
 
 ## SampleGame
 

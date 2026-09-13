@@ -26,18 +26,18 @@ public sealed class ShootingSimulation
     private readonly IRandomSource _randomSource;
     private readonly PlayerInputSystem _playerInputSystem = new();
     private readonly WeaponSystem _weaponSystem = new(new BulletFactory());
-    private readonly HomingMovementSystem _homingMovementSystem = new();
+    private readonly ProjectileMovementSystem _projectileMovementSystem = new();
+    private readonly ProjectileLifetimeSystem _projectileLifetimeSystem = new();
+    private readonly ActorSpatialGrid _actorSpatialGrid = new();
+    private readonly ProjectileCollisionSystem _projectileCollisionSystem = new();
     private readonly MovementSystem _movementSystem = new();
     private readonly MovementPatternSystem _movementPatternSystem = new();
     private readonly PlayerBoundsSystem _playerBoundsSystem = new();
     private readonly OutOfBoundsSystem _outOfBoundsSystem = new();
-    private readonly CollisionSystem _collisionSystem = new();
-    private readonly BulletHitSystem _bulletHitSystem = new();
     private readonly BombSystem _bombSystem = new();
     private readonly DamageSystem _damageSystem = new();
     private readonly InvincibilitySystem _invincibilitySystem = new();
     private readonly FeedbackSystem _feedbackSystem = new();
-    private readonly LifetimeSystem _lifetimeSystem = new();
     private readonly CleanupSystem _cleanupSystem = new();
     private StageSystem _stageSystem = null!;
     private bool _pauseWasPressed;
@@ -76,6 +76,7 @@ public sealed class ShootingSimulation
     public World World { get; private set; }
     public DefinitionCatalog Definitions { get; private set; }
     public Entity Player { get; private set; }
+    public ProjectileStore Projectiles { get; private set; } = null!;
     public SimulationTelemetry Telemetry { get; private set; }
     public RunConfiguration Configuration { get; }
     public RunState RunState { get; }
@@ -227,26 +228,39 @@ public sealed class ShootingSimulation
             _stageSystem.Update(World, Definitions, deltaTime, Telemetry);
         }
         _playerInputSystem.Update(World, _tickInput);
-        _weaponSystem.Update(World, Definitions, _tickInput, deltaTime, Telemetry);
-        _homingMovementSystem.Update(World, deltaTime);
+        _weaponSystem.Update(World, Definitions, _tickInput, deltaTime, Telemetry, Projectiles);
+        Projectiles.CommitSpawns(Events);
+        _projectileMovementSystem.Update(
+            Projectiles,
+            World,
+            deltaTime,
+            Definitions.Game.Width,
+            Definitions.Game.Height,
+            Telemetry);
         _movementSystem.Update(World, deltaTime, Telemetry);
         _movementPatternSystem.Update(World, deltaTime);
         _playerBoundsSystem.Update(World, Definitions.Game.Width, Definitions.Game.Height);
         _outOfBoundsSystem.Update(World, Definitions.Game.Width, Definitions.Game.Height);
         _invincibilitySystem.Update(World, deltaTime);
+        _actorSpatialGrid.Rebuild(World);
         var bombDamage = _bombSystem.Update(
             World,
+            Projectiles,
             _tickInput,
             Math.Min(Definitions.Game.Width, Definitions.Game.Height) * 0.4f,
             Telemetry,
             Events);
         _damageSystem.Update(bombDamage, Telemetry, Events);
-        var collisions = _collisionSystem.Detect(World);
-        var damageEvents = _bulletHitSystem.Update(collisions, Telemetry);
+        var damageEvents = _projectileCollisionSystem.Detect(
+            Projectiles,
+            _actorSpatialGrid,
+            Telemetry,
+            Events);
         _damageSystem.Update(damageEvents, Telemetry, Events);
-        _lifetimeSystem.Update(World, deltaTime);
+        _projectileLifetimeSystem.Update(Projectiles);
         _feedbackSystem.Update(World, deltaTime);
         _cleanupSystem.Update(World);
+        Projectiles.CommitRemovals();
 
         if (!World.Query<PlayerComponent>().Any())
         {
@@ -312,6 +326,7 @@ public sealed class ShootingSimulation
     private void Restart(InputFrame inputFrame)
     {
         World = new World();
+        Projectiles = new ProjectileStore();
         Player = new PlayerFactory().Create(World, Definitions.GetPlayer(Definitions.Game.PlayerId));
         Telemetry = new SimulationTelemetry();
         RunState.Reset();
@@ -376,6 +391,8 @@ public sealed class ShootingSimulation
 
     private void ClearStageEntities(bool keepEffects)
     {
+        Projectiles.QueueRemoveAll();
+        Projectiles.CommitRemovals();
         foreach (var entity in World.Entities.ToArray())
         {
             if (entity.Has<PlayerComponent>() || (keepEffects && entity.Has<ExplosionComponent>()))

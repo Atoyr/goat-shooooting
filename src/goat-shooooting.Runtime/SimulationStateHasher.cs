@@ -62,6 +62,8 @@ internal static class SimulationStateHasher
                 hash.Add(collider.Radius);
                 hash.Add((int)collider.Layer);
             });
+            AddComponent(hash, entity.TryGet<GrazeRadiusComponent>(out var graze), () =>
+                hash.Add(graze.Radius));
             AddComponent(hash, entity.TryGet<PlayerComponent>(out var player), () =>
             {
                 hash.Add(player.DefinitionId);
@@ -119,6 +121,36 @@ internal static class SimulationStateHasher
             hash.Add(entity.Has<PendingDestroyComponent>());
         }
 
+        hash.Add(simulation.Projectiles.ActiveCount);
+        for (var index = 0; index < simulation.Projectiles.ActiveCount; index++)
+        {
+            var projectile = simulation.Projectiles.GetSnapshot(index);
+            hash.Add(projectile.Id);
+            hash.Add(projectile.OwnerEntityId);
+            hash.Add((int)projectile.Team);
+            hash.Add(projectile.DefinitionId);
+            hash.Add(projectile.PreviousPosition.X);
+            hash.Add(projectile.PreviousPosition.Y);
+            hash.Add(projectile.Position.X);
+            hash.Add(projectile.Position.Y);
+            hash.Add(projectile.Velocity.X);
+            hash.Add(projectile.Velocity.Y);
+            hash.Add(projectile.HitRadius);
+            hash.Add(projectile.Damage);
+            hash.Add(projectile.Age);
+            hash.Add(projectile.Lifetime);
+            hash.Add(projectile.VisualId);
+            hash.Add((int)projectile.Behavior);
+            hash.Add(projectile.CanDamage);
+            hash.Add(projectile.CanBeCancelled);
+            hash.Add((int)projectile.CancelResistance);
+            hash.Add(projectile.PierceCount);
+            hash.Add((int)projectile.DamageType);
+            hash.Add((int)projectile.ClearBehavior);
+            hash.Add(projectile.GrazedPlayerEntityId);
+            hash.Add(projectile.PendingRemoval);
+        }
+
         return hash.Value;
     }
 
@@ -130,6 +162,8 @@ internal static class SimulationStateHasher
         hash.Add(telemetry.EnemyBulletsSpawned);
         hash.Add(telemetry.BulletMovementFrames);
         hash.Add(telemetry.CollisionsDetected);
+        hash.Add(telemetry.CollisionCandidatesChecked);
+        hash.Add(telemetry.PlayerGrazes);
         hash.Add(telemetry.DamageEventsApplied);
         hash.Add(telemetry.PlayerDamageEventsApplied);
         hash.Add(telemetry.BombsUsed);

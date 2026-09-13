@@ -48,6 +48,8 @@ public sealed class SimulationTelemetry
     public int EnemyBulletsSpawned { get; internal set; }
     public int BulletMovementFrames { get; internal set; }
     public int CollisionsDetected { get; internal set; }
+    public long CollisionCandidatesChecked { get; internal set; }
+    public int PlayerGrazes { get; internal set; }
     public int DamageEventsApplied { get; internal set; }
     public int PlayerDamageEventsApplied { get; internal set; }
     public int BombsUsed { get; internal set; }

@@ -200,6 +200,14 @@ P0では既存ゲームの進行を変更せず、後続Phaseが共有する次�
 - damage、destroy、player hit、bomb使用をframe／sequence付きeventとして発行し、`SimulationFeedback`はそのtickのevent列から互換生成する。event bufferはpauseや空tickでも開始時にclearされる。
 - `ComputeCanonicalStateHash()`はRunConfiguration、RNG state、RunState、stage状態、Telemetry、既知の全Runtime component値を安定した順序とbit表現で集約する。同一build、同一validated content、同一RunConfiguration、同一InputFrame列、同一.NET実行環境を決定性の保証範囲とする。異なるbuild／content間の互換は保証せず、content hashとversion照合はReplay Phaseで追加する。
 
+### 4.8 P2実装注記（Projectile hot path）
+
+- productionのProjectileはActor ECSから`ProjectileStore`のdenseなstructure-of-arraysへ移した。spawn／removeはcommand bufferへ積み、tick内の走査終了後に反映する。swap-back removalと確保済み配列の再利用により、active領域を連続に保つ。
+- Storeはowner／team、previous／current position、hit radius、damage／damage可否、lifetime、visual、behavior state、cancel resistance、pierce、damage type、clear behaviorを保持する。v1のBullet／Weapon定義は`BulletFactory`で同じ速度、homing、damage、radius、lifetimeへ変換し、既存ECS向けoverloadも互換APIとして残す。
+- Actorは中心cellでuniform gridへ登録し、Projectileのswept segmentと最大interaction radiusが交差し得るcellだけを調べる。hitはsegment上で最も近い1 targetを選び、既定ではProjectileをremoveする。pierce countは将来の複数target拡張点である。同一enemy Projectileから現行single playerへのgrazeは1回だけ発行する。
+- `ProjectileSpawnedEvent`、`ProjectileHitEvent`、`PlayerGrazedEvent`、`ProjectileCancelledEvent`を固定tickのevent streamへ追加した。canonical state hashにはProjectileの全simulation field、graze状態、候補数を含める。
+- benchmark JSONはformat version 2とし、`collisionCandidatesChecked`を追加した。P2からstress workloadを要件どおり10,000 Projectileの600 ticksへ変更したため、P0の1 update値とは総時間を直接比較しない。2026-09-13のDebug計測では、sample 600 ticksが20.287 ms／749,848 bytes（P2直前22.617 ms／1,816,712 bytes）、stress 600 ticksが211.153 ms／33,546,576 bytes（平均0.352 ms／55,911 bytes per tick）だった。P2直前のECS stress 1 tickは3,522.505 ms／2,084,752 bytesである。wall-clockとallocationは回帰観測用で、CI閾値にはしない。
+
 ## 5. Definition v2
 
 すべてを一度に巨大な`game.json`へ入れず、次の単位を追加する。

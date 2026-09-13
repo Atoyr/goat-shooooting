@@ -32,7 +32,28 @@ public sealed class WeaponSystem(BulletFactory bulletFactory)
         DefinitionCatalog definitions,
         IInputState input,
         float deltaTime,
-        SimulationTelemetry telemetry)
+        SimulationTelemetry telemetry) =>
+        UpdateCore(world, definitions, input, deltaTime, telemetry, projectiles: null);
+
+    public void Update(
+        World world,
+        DefinitionCatalog definitions,
+        IInputState input,
+        float deltaTime,
+        SimulationTelemetry telemetry,
+        ProjectileStore projectiles)
+    {
+        ArgumentNullException.ThrowIfNull(projectiles);
+        UpdateCore(world, definitions, input, deltaTime, telemetry, projectiles);
+    }
+
+    private void UpdateCore(
+        World world,
+        DefinitionCatalog definitions,
+        IInputState input,
+        float deltaTime,
+        SimulationTelemetry telemetry,
+        ProjectileStore? projectiles)
     {
         foreach (var entity in world.Query<WeaponHolderComponent, TransformComponent>().ToArray())
         {
@@ -60,12 +81,26 @@ public sealed class WeaponSystem(BulletFactory bulletFactory)
             var baseDirection = ownerLayer == CollisionLayer.Player ? -Vector2.UnitY : Vector2.UnitY;
             foreach (var direction in GetDirections(weapon, holder, baseDirection))
             {
-                _bulletFactory.Create(
-                    world,
-                    bullet,
-                    entity.Get<TransformComponent>().Position,
-                    direction,
-                    ownerLayer.Value);
+                if (projectiles is null)
+                {
+                    _bulletFactory.Create(
+                        world,
+                        bullet,
+                        entity.Get<TransformComponent>().Position,
+                        direction,
+                        ownerLayer.Value);
+                }
+                else
+                {
+                    _bulletFactory.Create(
+                        projectiles,
+                        bullet,
+                        entity.Get<TransformComponent>().Position,
+                        direction,
+                        ownerLayer.Value,
+                        entity.Id);
+                }
+
                 telemetry.BulletsSpawned++;
                 if (ownerLayer == CollisionLayer.Enemy)
                 {
@@ -447,34 +482,11 @@ public sealed class BombSystem
         SimulationTelemetry telemetry,
         GameEventBuffer? events = null)
     {
-        if (!input.Bomb)
-        {
-            _bombWasPressed = false;
-            return Array.Empty<DamageEvent>();
-        }
-
-        if (_bombWasPressed)
-        {
-            return Array.Empty<DamageEvent>();
-        }
-
-        _bombWasPressed = true;
-        var player = world.Query<PlayerComponent, BombComponent, TransformComponent>()
-            .FirstOrDefault(static entity => !entity.Has<PendingDestroyComponent>());
+        var player = TryUseBomb(world, input, telemetry, events);
         if (player is null)
         {
             return Array.Empty<DamageEvent>();
         }
-
-        var bombs = player.Get<BombComponent>();
-        if (bombs.Remaining <= 0)
-        {
-            return Array.Empty<DamageEvent>();
-        }
-
-        bombs.Remaining--;
-        telemetry.BombsUsed++;
-        events?.Publish((frame, sequence) => new BombUsedEvent(frame, sequence, player.Id));
 
         foreach (var bullet in world.Query<BulletComponent, ColliderComponent>().ToArray())
         {
@@ -486,6 +498,89 @@ public sealed class BombSystem
             }
         }
 
+        return CreateEffectAndDamage(world, player, effectRadius);
+    }
+
+    public IReadOnlyList<DamageEvent> Update(
+        World world,
+        ProjectileStore projectiles,
+        IInputState input,
+        float effectRadius,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        ArgumentNullException.ThrowIfNull(projectiles);
+        ArgumentNullException.ThrowIfNull(events);
+        var player = TryUseBomb(world, input, telemetry, events);
+        if (player is null)
+        {
+            return Array.Empty<DamageEvent>();
+        }
+
+        for (var index = 0; index < projectiles.ActiveCount; index++)
+        {
+            if (projectiles.TeamAt(index) != ProjectileTeam.Enemy ||
+                projectiles.IsPendingRemovalAt(index) ||
+                !projectiles.CanBeCancelledAt(index))
+            {
+                continue;
+            }
+
+            projectiles.QueueRemoveAt(index);
+            telemetry.EnemyBulletsCleared++;
+            var projectileId = projectiles.IdAt(index);
+            events.Publish((frame, sequence) => new ProjectileCancelledEvent(frame, sequence, projectileId));
+        }
+
+        return CreateEffectAndDamage(world, player, effectRadius);
+    }
+
+    public void Reset(bool bombPressed) => _bombWasPressed = bombPressed;
+
+    private Entity? TryUseBomb(
+        World world,
+        IInputState input,
+        SimulationTelemetry telemetry,
+        GameEventBuffer? events)
+    {
+        if (!input.Bomb)
+        {
+            _bombWasPressed = false;
+            return null;
+        }
+
+        if (_bombWasPressed)
+        {
+            return null;
+        }
+
+        _bombWasPressed = true;
+        var player = world.Query<PlayerComponent, BombComponent, TransformComponent>()
+            .FirstOrDefault(static entity => !entity.Has<PendingDestroyComponent>());
+        if (player is null)
+        {
+            return null;
+        }
+
+        var bombs = player.Get<BombComponent>();
+        if (bombs.Remaining <= 0)
+        {
+            return null;
+        }
+
+        bombs.Remaining--;
+        telemetry.BombsUsed++;
+        events?.Publish((frame, sequence) => new BombUsedEvent(frame, sequence, player.Id));
+        return player;
+    }
+
+    private static IReadOnlyList<DamageEvent> CreateEffectAndDamage(
+        World world,
+        Entity player,
+        float effectRadius)
+    {
+        var bombs = player.Get<BombComponent>();
+
         world.CreateEntity()
             .Add(new TransformComponent(player.Get<TransformComponent>().Position))
             .Add(new ExplosionComponent(effectRadius, EffectDuration));
@@ -495,8 +590,6 @@ public sealed class BombSystem
             .Select(enemy => new DamageEvent(enemy, bombs.Damage))
             .ToArray();
     }
-
-    public void Reset(bool bombPressed) => _bombWasPressed = bombPressed;
 }
 
 public sealed class DamageSystem
@@ -696,8 +789,17 @@ public readonly record struct RenderItem(
 /// <summary>Transforms runtime state into renderer-neutral draw data.</summary>
 public sealed class RenderSystem
 {
-    public IReadOnlyList<RenderItem> Capture(World world)
+    public IReadOnlyList<RenderItem> Capture(World world) => CaptureCore(world, projectiles: null);
+
+    public IReadOnlyList<RenderItem> Capture(World world, ProjectileStore projectiles)
     {
+        ArgumentNullException.ThrowIfNull(projectiles);
+        return CaptureCore(world, projectiles);
+    }
+
+    private static IReadOnlyList<RenderItem> CaptureCore(World world, ProjectileStore? projectiles)
+    {
+        ArgumentNullException.ThrowIfNull(world);
         var items = new List<RenderItem>();
         foreach (var entity in world.Query<TransformComponent, ColliderComponent>())
         {
@@ -736,6 +838,26 @@ public sealed class RenderSystem
                 explosion.MaxRadius * Math.Max(0.2f, progress),
                 1,
                 EffectProgress: progress));
+        }
+
+        if (projectiles is not null)
+        {
+            for (var index = 0; index < projectiles.ActiveCount; index++)
+            {
+                if (projectiles.IsPendingRemovalAt(index))
+                {
+                    continue;
+                }
+
+                items.Add(new RenderItem(
+                    projectiles.IdAt(index),
+                    projectiles.TeamAt(index) == ProjectileTeam.Player
+                        ? RenderKind.PlayerBullet
+                        : RenderKind.EnemyBullet,
+                    projectiles.PositionAt(index),
+                    projectiles.HitRadiusAt(index),
+                    1));
+            }
         }
 
         return items;
