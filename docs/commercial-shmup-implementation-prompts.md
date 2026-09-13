@@ -16,7 +16,7 @@
 - [x] P5 Item、power、death、extend、continue
 - [x] P6 Motion／Attack timeline
 - [x] P7 Boss phase
-- [ ] P8 Score engine
+- [x] P8 Score engine
 - [ ] P9 Special gauge、Rank、Difficulty、RuleSet
 - [ ] P10 Mode選択、Profile v2、Local leaderboard
 - [ ] P11 ReplayとTraining

@@ -97,9 +97,13 @@ public sealed class BossPhaseSystem(ItemDropSystem? itemDropSystem = null)
         entity.Add(new PendingDestroyComponent());
         telemetry.EnemiesKilled++;
         telemetry.BossesKilled++;
-        telemetry.Score += entity.Get<ScoreValueComponent>().Value;
         events.Publish((frame, sequence) => new EnemyDestroyedEvent(
-            frame, sequence, entity.Id, entity.Get<EnemyComponent>().DefinitionId));
+            frame,
+            sequence,
+            entity.Id,
+            entity.Get<EnemyComponent>().DefinitionId,
+            entity.Get<ScoreValueComponent>().Value,
+            DistanceToPlayer(world, entity)));
         events.Publish((frame, sequence) => new BossCompletedEvent(frame, sequence, entity.Id, boss.Id));
     }
 
@@ -176,8 +180,21 @@ public sealed class BossPhaseSystem(ItemDropSystem? itemDropSystem = null)
             projectiles.QueueRemoveAt(index);
             telemetry.EnemyBulletsCleared++;
             var projectileId = projectiles.IdAt(index);
-            events.Publish((frame, sequence) => new ProjectileCancelledEvent(frame, sequence, projectileId));
+            events.Publish((frame, sequence) => new ProjectileCancelledEvent(frame, sequence, projectileId, AwardsScore: false));
         }
+    }
+
+    private static float? DistanceToPlayer(World world, Entity boss)
+    {
+        var player = world.Query<PlayerComponent, TransformComponent>()
+            .Where(static entity => !entity.Has<PendingDestroyComponent>())
+            .OrderBy(static entity => entity.Id)
+            .FirstOrDefault();
+        return player is null
+            ? null
+            : System.Numerics.Vector2.Distance(
+                boss.Get<TransformComponent>().Position,
+                player.Get<TransformComponent>().Position);
     }
 
     private static long MultiplySaturating(long value, float multiplier)

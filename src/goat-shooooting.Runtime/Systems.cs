@@ -647,7 +647,8 @@ public sealed class DamageSystem
     public void Update(
         IReadOnlyList<DamageEvent> damageEvents,
         SimulationTelemetry telemetry,
-        GameEventBuffer? events = null)
+        GameEventBuffer? events = null,
+        World? world = null)
     {
         foreach (var damageEvent in damageEvents)
         {
@@ -727,16 +728,30 @@ public sealed class DamageSystem
                         frame,
                         sequence,
                         damageEvent.Target.Id,
-                        damageEvent.Target.Get<EnemyComponent>().DefinitionId));
+                        damageEvent.Target.Get<EnemyComponent>().DefinitionId,
+                        damageEvent.Target.Get<ScoreValueComponent>().Value,
+                        DistanceToPlayer(world, damageEvent.Target)));
                     if (damageEvent.Target.Has<BossComponent>())
                     {
                         telemetry.BossesKilled++;
                     }
-
-                    telemetry.Score += damageEvent.Target.Get<ScoreValueComponent>().Value;
                 }
             }
         }
+    }
+
+    private static float? DistanceToPlayer(World? world, Entity enemy)
+    {
+        if (world is null) return null;
+        var player = world.Query<PlayerComponent, TransformComponent>()
+            .Where(static entity => !entity.Has<PendingDestroyComponent>())
+            .OrderBy(static entity => entity.Id)
+            .FirstOrDefault();
+        return player is null
+            ? null
+            : Vector2.Distance(
+                enemy.Get<TransformComponent>().Position,
+                player.Get<TransformComponent>().Position);
     }
 }
 

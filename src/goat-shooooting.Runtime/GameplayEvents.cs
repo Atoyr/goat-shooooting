@@ -16,7 +16,9 @@ public sealed record EnemyDestroyedEvent(
     long Frame,
     int Sequence,
     int EnemyEntityId,
-    string EnemyDefinitionId) : IGameplayEvent;
+    string EnemyDefinitionId,
+    int BaseScore = 0,
+    float? DistanceToPlayer = null) : IGameplayEvent;
 
 public sealed record PlayerGrazedEvent(
     long Frame,
@@ -37,19 +39,23 @@ public sealed record ProjectileHitEvent(
     int Sequence,
     int ProjectileEntityId,
     int TargetEntityId,
-    int Damage) : IGameplayEvent;
+    int Damage,
+    ProjectileTeam Team = ProjectileTeam.Player) : IGameplayEvent;
 
 public sealed record ProjectileCancelledEvent(
     long Frame,
     int Sequence,
-    int ProjectileEntityId) : IGameplayEvent;
+    int ProjectileEntityId,
+    bool AwardsScore = true) : IGameplayEvent;
 
 public sealed record ItemCollectedEvent(
     long Frame,
     int Sequence,
     int PlayerEntityId,
     string ItemDefinitionId,
-    int Value) : IGameplayEvent;
+    int Value,
+    string Kind = "",
+    int ScoreValue = 0) : IGameplayEvent;
 
 public sealed record ItemSpawnedEvent(
     long Frame,
@@ -140,6 +146,29 @@ public sealed record BossCompletedEvent(
     int Sequence,
     int BossEntityId,
     string BossDefinitionId) : IGameplayEvent;
+
+public sealed record StageClearedEvent(
+    long Frame,
+    int Sequence,
+    string StageId,
+    int StageNumber) : IGameplayEvent;
+
+public sealed record AllClearedEvent(
+    long Frame,
+    int Sequence,
+    string StageId,
+    int RemainingLives,
+    int RemainingBombs) : IGameplayEvent;
+
+public sealed record ScoreAwardedEvent(
+    long Frame,
+    int Sequence,
+    string Reason,
+    long BaseAmount,
+    double Multiplier,
+    long FinalAmount,
+    string Source,
+    string Category) : IGameplayEvent;
 
 /// <summary>Collects ordered gameplay facts for the current simulation tick only.</summary>
 public sealed class GameEventBuffer

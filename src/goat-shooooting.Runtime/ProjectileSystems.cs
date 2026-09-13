@@ -313,7 +313,8 @@ public sealed class ProjectileCollisionSystem
                 sequence,
                 projectileId,
                 nearestHit.Id,
-                damage));
+                damage,
+                projectiles.TeamAt(projectileIndex)));
             ref var pierceCount = ref projectiles.PierceCountAt(projectileIndex);
             if (pierceCount > 0)
             {

@@ -55,9 +55,10 @@ public sealed class ShootingSimulation
     private double _phaseElapsed;
     private long _phaseTicks;
     private double _legacyAccumulator;
-    private int _stageStartScore;
+    private long _stageStartScore;
     private int _restartGeneration;
     private System.Numerics.Vector2 _playerStartPosition;
+    private ScoreRulePipeline _scorePipeline = null!;
 
     public ShootingSimulation(IDefinitionRepository definitionRepository, IInputState input)
         : this(definitionRepository, input, new RunConfiguration("legacy", seed: 0))
@@ -112,8 +113,8 @@ public sealed class ShootingSimulation
     public int StageNumber { get; private set; }
     public StagePhase Phase { get; private set; }
     public double PhaseElapsed => _phaseElapsed;
-    public int StageScore => Telemetry.Score - _stageStartScore;
-    public int LastStageScore { get; private set; }
+    public long StageScore => RunState.Score - _stageStartScore;
+    public long LastStageScore { get; private set; }
     public SimulationStatus Status { get; private set; }
     public bool IsPaused { get; private set; }
     public SimulationFeedback Feedback { get; private set; }
@@ -244,7 +245,10 @@ public sealed class ShootingSimulation
             AdvancePhaseTime(deltaTime, fixedTick);
             if (_phaseElapsed >= CurrentStage.ResultsDuration)
             {
+                var scoreEventStart = Events.Events.Count;
                 AdvanceStageOrFinish();
+                ApplyScores(scoreEventStart);
+                _extendSystem.Update(Player, CurrentRuleSet, RunState, Telemetry, Events);
             }
 
             CompleteStep(advanceFrame);
@@ -308,7 +312,7 @@ public sealed class ShootingSimulation
             Events,
             CurrentRuleSet.ManualBombCost,
             CurrentRuleSet.BombInvincibilitySeconds);
-        _damageSystem.Update(bombDamage, Telemetry, Events);
+        _damageSystem.Update(bombDamage, Telemetry, Events, World);
         var laserDamage = _laserSystem.Update(World, Projectiles, deltaTime, Telemetry, Events);
         var damageEvents = _projectileCollisionSystem.Detect(
             Projectiles,
@@ -327,8 +331,8 @@ public sealed class ShootingSimulation
             RunState,
             Telemetry,
             Events);
-        _damageSystem.Update(allDamage, Telemetry, Events);
-        _damageSystem.Update(autoBombDamage, Telemetry, Events);
+        _damageSystem.Update(allDamage, Telemetry, Events, World);
+        _damageSystem.Update(autoBombDamage, Telemetry, Events, World);
         _bossPhaseSystem.Resolve(
             World,
             Definitions,
@@ -338,7 +342,6 @@ public sealed class ShootingSimulation
             Events);
         _stageSystem.ObserveEvents(Events.Events);
         _itemDropSystem.SpawnDrops(World, Definitions, Events.Events, _randomSource, Telemetry, Events);
-        RunState.Score = Telemetry.Score;
         _itemSystem.Update(
             World,
             CurrentRuleSet,
@@ -347,6 +350,7 @@ public sealed class ShootingSimulation
             RunState,
             Telemetry,
             Events);
+        ApplyScores(0);
         _extendSystem.Update(Player, CurrentRuleSet, RunState, Telemetry, Events);
         _projectileLifetimeSystem.Update(Projectiles);
         _feedbackSystem.Update(World, deltaTime);
@@ -362,7 +366,18 @@ public sealed class ShootingSimulation
             Player.Get<PlayerLifeCycleComponent>().State is
                 PlayerLifeCycleState.Active or PlayerLifeCycleState.Invincible)
         {
+            var scoreEventStart = Events.Events.Count;
             BeginResults();
+            ApplyScores(scoreEventStart);
+            _extendSystem.Update(Player, CurrentRuleSet, RunState, Telemetry, Events);
+            LastStageScore = StageScore;
+            if (CurrentStage.ResultsDuration <= 0)
+            {
+                scoreEventStart = Events.Events.Count;
+                AdvanceStageOrFinish();
+                ApplyScores(scoreEventStart);
+                _extendSystem.Update(Player, CurrentRuleSet, RunState, Telemetry, Events);
+            }
         }
 
         CompleteStep(advanceFrame);
@@ -370,7 +385,7 @@ public sealed class ShootingSimulation
 
     private void CompleteStep(bool advanceFrame)
     {
-        RunState.Score = Telemetry.Score;
+        Telemetry.Score = RunState.Score;
         Feedback = SimulationFeedback.FromEvents(Events.Events);
         if (advanceFrame)
         {
@@ -448,6 +463,7 @@ public sealed class ShootingSimulation
                 : Definitions.Game.ShipIds[0]);
         CurrentShip = Definitions.GetShip(shipId);
         CurrentRuleSet = ResolveRuleSet();
+        _scorePipeline = ScoreRulePipeline.Create(CurrentRuleSet, _capabilities);
         CurrentDifficulty = ResolveDifficulty();
         var playerFactory = new PlayerFactory();
         if (Definitions.Players.TryGetValue(shipId, out var legacyPlayer))
@@ -552,20 +568,23 @@ public sealed class ShootingSimulation
 
     private void BeginResults()
     {
-        LastStageScore = StageScore;
+        Events.Publish((frame, sequence) => new StageClearedEvent(
+            frame, sequence, CurrentStage.Id, StageNumber));
         Phase = StagePhase.Results;
         _phaseElapsed = 0;
         ClearStageEntities(keepEffects: true);
-        if (CurrentStage.ResultsDuration <= 0)
-        {
-            AdvanceStageOrFinish();
-        }
     }
 
     private void AdvanceStageOrFinish()
     {
         if (string.IsNullOrWhiteSpace(CurrentStage.NextStageId))
         {
+            Events.Publish((frame, sequence) => new AllClearedEvent(
+                frame,
+                sequence,
+                CurrentStage.Id,
+                Player.Get<LivesComponent>().Remaining,
+                Player.Get<BombComponent>().Remaining));
             Status = SimulationStatus.StageClear;
             return;
         }
@@ -578,7 +597,7 @@ public sealed class ShootingSimulation
         ClearStageEntities(keepEffects: false);
         CurrentStage = Definitions.GetStage(stageId);
         StageNumber++;
-        _stageStartScore = Telemetry.Score;
+        _stageStartScore = RunState.Score;
         _stageSystem = new StageSystem(CurrentStage, _enemyFactory, Telemetry.BossesKilled, _capabilities);
         Phase = CurrentStage.OpeningDuration > 0 ? StagePhase.Opening : StagePhase.Playing;
         _phaseElapsed = 0;
@@ -592,6 +611,13 @@ public sealed class ShootingSimulation
         {
             invincibility.Remaining = 0;
         }
+    }
+
+    private void ApplyScores(int eventStartIndex)
+    {
+        var inputs = Events.Events.Skip(eventStartIndex).ToArray();
+        _scorePipeline.Apply(inputs, RunState, Events);
+        Telemetry.Score = RunState.Score;
     }
 
     private void ClearStageEntities(bool keepEffects)

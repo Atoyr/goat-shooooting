@@ -250,6 +250,28 @@ P0では既存ゲームの進行を変更せず、後続Phaseが共有する次�
 - Stageは`complete-boss`と`defeat-all-enemies`の明示objectiveを評価し、完了Boss IDをEntity cleanup後も保持する。objective未指定のv1 stageだけは従来のspawn完了／敵全滅／legacy boss撃破判定へfallbackする。retry／next stageではStageSystemごと完了集合を作り直す。
 - `RenderItem`はmanaged Bossについてboss名、phase名、phase HP比、残り時間、warning状態をrenderer-neutral値で公開する。Boss phase state、完了objective集合はcanonical hashへ含める。3-phase JSON fixtureとRuntime testでHP、timeout、bomb、最後のphase、retry、次stage、Bossなしstageを保護する。
 
+### 4.14 P8実装注記（Score rule pipeline）
+
+- 正式scoreは`RunState.Score`の`long`とし、category別`ScoreBreakdown`、Chain／MaximumChain、HitCombo、ConsecutiveItems、現在Multiplierを同じstateからHUDへ公開する。`SimulationTelemetry.Score`もlongへ揃えるが観測用mirrorであり、得点のauthoritativeな更新は`RunState.AwardScore`だけが行う。加算とcategory内訳は`long.MaxValue`で飽和し、例外やwrapは起こさない。
+- `ScoreRulePipeline`はtyped `GameplayEvent`をsequence順に読み、`RuleSetDefinition.ScoreRules`を記載順に適用する。各候補はreason、base amount、適用倍率、実加算額、source、categoryを持つ`ScoreAwardedEvent`になる。chain／hit／item timeoutはframeで評価し、ruleの並びにより「今回のeventでstateを更新してから倍率を読むか」を明示できる。
+- 組み込みrule typeは`base-kill`、`chain`、`hit-combo`、`multiplier`、`point-blank`、`graze`、`projectile-cancel`、`item-growth`、`boss-bonus`、`stage-clear`、`resource-conversion`、`extend-threshold`。Boss bonusはP7の内訳event、stage／all clearと残resourceは専用eventだけを入力にする。death／phase policyによる強制cancelは`AwardsScore=false`で通常cancelと区別する。score extendの付与は得点適用直後にP5 `ExtendSystem`がascending thresholdを一度だけclaimする。
+- ScoreRulesが空のv1／既存RuleSetにはlegacy ruleを自動構成し、Enemyの`ScoreValueComponent`とscore item／最大power変換を従来と同額で加算する。Profile schema 1のhigh scoreはP10 migrationまでint互換を維持するため保存境界だけ`int.MaxValue`へclampし、simulation内のlong scoreは失わない。
+
+制作者向けの最小構成例:
+
+```json
+"scoreRules": [
+  { "type": "chain", "parameters": { "timeoutFrames": 120, "bonusPerChain": 10 } },
+  { "type": "multiplier", "parameters": { "base": 1, "perChain": 0.1, "perHit": 0.01, "maximum": 4 } },
+  { "type": "base-kill", "parameters": {} },
+  { "type": "point-blank", "parameters": { "distance": 96, "multiplier": 1.5 } },
+  { "type": "graze", "parameters": { "points": 25 } },
+  { "type": "boss-bonus", "parameters": {} }
+]
+```
+
+独自ruleを追加する場合は、(1) eventだけを読む`IScoreRule`、(2) unknown parameterと範囲を検証してruleを生成する`IScoreRuleFactory`を実装し、(3) composition rootで`RuntimeCapabilityRegistry.ScoreRules`へ一意typeを登録する。Simulationや他ruleへ分岐を追加せず、同じevent列を直接与えるunit testでrule順、timeout、overflow、award内訳を固定する。
+
 ## 5. Definition v2
 
 すべてを一度に巨大な`game.json`へ入れず、次の単位を追加する。

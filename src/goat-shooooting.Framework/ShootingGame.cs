@@ -316,7 +316,7 @@ public sealed class ShootingGame : Game
         _profile = _profileService.RecordCompletedRun(
             _profile,
             _gameId,
-            completion.Value.Score,
+            (int)Math.Min(int.MaxValue, completion.Value.Score),
             completion.Value.Cleared);
         _userDataStore?.SaveProfile(_profile);
     }

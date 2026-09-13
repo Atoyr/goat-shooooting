@@ -35,6 +35,7 @@ public interface IFirePatternFactory : IRuntimeCapability
 public interface IScoreRuleFactory : IRuntimeCapability
 {
     void Validate(CapabilityDefinition capability, string path);
+    IScoreRule Create(CapabilityDefinition capability);
 }
 
 public interface ISpecialGaugeRuleFactory : IRuntimeCapability
@@ -137,6 +138,7 @@ public sealed class RuntimeCapabilityRegistry
             new BuiltInFirePatternFactory("washing-machine", FirePatternKind.WashingMachine),
             new BuiltInFirePatternFactory("double-washing-machine", FirePatternKind.DoubleWashingMachine)
         },
+        scoreRules: BuiltInScoreRuleFactory.CreateAll(),
         stageEventHandlers: new IStageEventHandler[] { new SpawnEnemyStageEventHandler() });
 }
 

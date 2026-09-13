@@ -138,6 +138,8 @@ public sealed class PlayerLifeCycleAndItemSystemTests
         }
 
         new ItemSystem().Update(world, rules, 0, 600, runState, telemetry, events);
+        ScoreRulePipeline.Create(rules, RuntimeCapabilityRegistry.CreateBuiltIn())
+            .Apply(events.Events, runState, events);
 
         Assert.Equal(100, player.Get<ShipComponent>().Power);
         Assert.Equal(100, runState.Power);
@@ -205,6 +207,8 @@ public sealed class PlayerLifeCycleAndItemSystemTests
             Vector2.Zero, telemetry, events);
         var rules = Rules() with { ExtendScoreThresholds = new long[] { 1000 } };
         new ItemSystem().Update(world, rules, 0, 600, runState, telemetry, events);
+        ScoreRulePipeline.Create(rules, RuntimeCapabilityRegistry.CreateBuiltIn())
+            .Apply(events.Events, runState, events);
         var system = new ExtendSystem();
 
         system.Update(player, rules, runState, telemetry, events);

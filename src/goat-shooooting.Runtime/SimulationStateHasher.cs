@@ -23,6 +23,20 @@ internal static class SimulationStateHasher
         hash.Add(simulation.RunState.CreditsRemaining);
         hash.Add(simulation.RunState.ContinuesUsed);
         hash.Add(simulation.RunState.Continued);
+        hash.Add(simulation.RunState.Chain);
+        hash.Add(simulation.RunState.MaximumChain);
+        hash.Add(simulation.RunState.HitCombo);
+        hash.Add(simulation.RunState.ConsecutiveItems);
+        hash.Add(simulation.RunState.Multiplier);
+        hash.Add(simulation.RunState.LastKillFrame);
+        hash.Add(simulation.RunState.LastHitFrame);
+        hash.Add(simulation.RunState.LastItemFrame);
+        hash.Add(simulation.RunState.ScoreBreakdown.Count);
+        foreach (var entry in simulation.RunState.ScoreBreakdown.OrderBy(static item => item.Key, StringComparer.Ordinal))
+        {
+            hash.Add(entry.Key);
+            hash.Add(entry.Value);
+        }
         hash.Add(simulation.RunState.ClaimedExtendThresholds.Count);
         foreach (var threshold in simulation.RunState.ClaimedExtendThresholds.Order()) hash.Add(threshold);
         hash.Add((int)simulation.Status);

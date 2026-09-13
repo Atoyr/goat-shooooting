@@ -23,16 +23,21 @@ public sealed class CollisionAndDamageTests
     {
         var world = CreateOverlappingWorld(out _, out var enemy);
         var telemetry = new SimulationTelemetry();
+        var events = new GameEventBuffer();
+        events.BeginTick(0);
         var collisions = new CollisionSystem().Detect(world);
         var damage = new BulletHitSystem().Update(collisions, telemetry);
 
-        new DamageSystem().Update(damage, telemetry);
+        new DamageSystem().Update(damage, telemetry, events, world);
+        var runState = new RunState();
+        ScoreRulePipeline.Create(new GoatShooooting.Definitions.RuleSetDefinition(), RuntimeCapabilityRegistry.CreateBuiltIn())
+            .Apply(events.Events, runState, events);
 
         Assert.Equal(0, enemy.Get<HealthComponent>().Current);
         Assert.True(enemy.Has<PendingDestroyComponent>());
         Assert.Equal(1, telemetry.DamageEventsApplied);
         Assert.Equal(1, telemetry.EnemiesKilled);
-        Assert.Equal(250, telemetry.Score);
+        Assert.Equal(250, runState.Score);
 
         new CleanupSystem().Update(world);
         Assert.Empty(world.Query<EnemyComponent>());

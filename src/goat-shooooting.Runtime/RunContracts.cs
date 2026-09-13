@@ -58,6 +58,7 @@ public sealed record RunConfiguration
 public sealed class RunState
 {
     private readonly HashSet<long> _claimedExtendThresholds = new();
+    private readonly Dictionary<string, long> _scoreBreakdown = new(StringComparer.Ordinal);
 
     public long Frame { get; internal set; }
     public long Score { get; internal set; }
@@ -66,6 +67,15 @@ public sealed class RunState
     public int CreditsRemaining { get; internal set; }
     public int ContinuesUsed { get; internal set; }
     public bool Continued { get; internal set; }
+    public int Chain { get; internal set; }
+    public int MaximumChain { get; internal set; }
+    public int HitCombo { get; internal set; }
+    public int ConsecutiveItems { get; internal set; }
+    public double Multiplier { get; internal set; } = 1;
+    public long LastKillFrame { get; internal set; } = -1;
+    public long LastHitFrame { get; internal set; } = -1;
+    public long LastItemFrame { get; internal set; } = -1;
+    public IReadOnlyDictionary<string, long> ScoreBreakdown => _scoreBreakdown;
     public IReadOnlyCollection<long> ClaimedExtendThresholds => _claimedExtendThresholds;
 
     internal void Reset(int initialPower = 0, int initialCredits = 0)
@@ -77,10 +87,30 @@ public sealed class RunState
         CreditsRemaining = initialCredits;
         ContinuesUsed = 0;
         Continued = false;
+        Chain = 0;
+        MaximumChain = 0;
+        HitCombo = 0;
+        ConsecutiveItems = 0;
+        Multiplier = 1;
+        LastKillFrame = -1;
+        LastHitFrame = -1;
+        LastItemFrame = -1;
+        _scoreBreakdown.Clear();
         _claimedExtendThresholds.Clear();
     }
 
     internal bool ClaimExtend(long threshold) => _claimedExtendThresholds.Add(threshold);
+
+    internal long AwardScore(string category, long amount)
+    {
+        if (amount <= 0) return 0;
+        var available = long.MaxValue - Score;
+        var awarded = Math.Min(available, amount);
+        Score += awarded;
+        _scoreBreakdown.TryGetValue(category, out var current);
+        _scoreBreakdown[category] = current > long.MaxValue - awarded ? long.MaxValue : current + awarded;
+        return awarded;
+    }
 }
 
 public sealed record RunResult(

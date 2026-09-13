@@ -58,8 +58,11 @@ public sealed class DeterministicSimulationIntegrationTests
             simulation.Events.Events,
             gameplayEvent => Assert.IsType<BombUsedEvent>(gameplayEvent),
             gameplayEvent => Assert.IsType<EnemyDamagedEvent>(gameplayEvent),
-            gameplayEvent => Assert.IsType<EnemyDestroyedEvent>(gameplayEvent));
-        Assert.Equal(new[] { 0, 1, 2 }, simulation.Events.Events.Select(static item => item.Sequence));
+            gameplayEvent => Assert.IsType<EnemyDestroyedEvent>(gameplayEvent),
+            gameplayEvent => Assert.IsType<ScoreAwardedEvent>(gameplayEvent),
+            gameplayEvent => Assert.IsType<StageClearedEvent>(gameplayEvent),
+            gameplayEvent => Assert.IsType<AllClearedEvent>(gameplayEvent));
+        Assert.Equal(new[] { 0, 1, 2, 3, 4, 5 }, simulation.Events.Events.Select(static item => item.Sequence));
         Assert.All(simulation.Events.Events, static gameplayEvent => Assert.Equal(0, gameplayEvent.Frame));
         Assert.Equal(new SimulationFeedback(Hits: 1, EnemiesDestroyed: 1, PlayerHits: 0, BombsUsed: 1),
             simulation.Feedback);

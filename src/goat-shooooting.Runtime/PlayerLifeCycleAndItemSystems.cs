@@ -191,7 +191,7 @@ public sealed class PlayerLifeCycleSystem
             projectiles.QueueRemoveAt(index);
             telemetry.EnemyBulletsCleared++;
             var projectileId = projectiles.IdAt(index);
-            events.Publish((frame, sequence) => new ProjectileCancelledEvent(frame, sequence, projectileId));
+            events.Publish((frame, sequence) => new ProjectileCancelledEvent(frame, sequence, projectileId, AwardsScore: false));
         }
     }
 
@@ -357,12 +357,13 @@ public sealed class ItemSystem
     {
         var item = itemEntity.Get<ItemComponent>();
         var ship = player.Get<ShipComponent>();
+        var scoreValue = 0;
         switch (item.Kind)
         {
             case "power":
                 if (ship.Power >= ship.MaximumPower)
                 {
-                    AddScore(runState, telemetry, rules.MaximumPowerItemScoreValue);
+                    scoreValue = rules.MaximumPowerItemScoreValue;
                 }
                 else
                 {
@@ -375,7 +376,7 @@ public sealed class ItemSystem
 
                 break;
             case "score":
-                AddScore(runState, telemetry, item.Value);
+                scoreValue = item.Value;
                 break;
             case "bomb":
                 var bombs = player.Get<BombComponent>();
@@ -401,14 +402,8 @@ public sealed class ItemSystem
 
         telemetry.ItemsCollected++;
         events.Publish((frame, sequence) => new ItemCollectedEvent(
-            frame, sequence, player.Id, item.DefinitionId, item.Value));
+            frame, sequence, player.Id, item.DefinitionId, item.Value, item.Kind, scoreValue));
         itemEntity.Add(new PendingDestroyComponent());
-    }
-
-    private static void AddScore(RunState runState, SimulationTelemetry telemetry, int value)
-    {
-        runState.Score += value;
-        telemetry.Score = (int)Math.Min(int.MaxValue, (long)telemetry.Score + value);
     }
 
     private static float MoveTowards(float current, float target, float maximumDelta)
