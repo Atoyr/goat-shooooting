@@ -42,6 +42,9 @@ public sealed class DefinitionV2Tests
         Assert.Equal("motion-a", catalog.GetPattern("motion-a").Id);
         Assert.Equal("boss-a", catalog.GetBoss("boss-a").Id);
         Assert.Equal("rules", catalog.GetRuleSet("rules").Id);
+        Assert.Equal("time-attack", catalog.GetRuleSet("sprint").ClearCondition);
+        Assert.Equal(3, catalog.Difficulties.Count);
+        Assert.Equal(new[] { "forgiving" }, catalog.GetDifficulty("novice").PatternTags);
         Assert.Equal("arcade", catalog.GetDifficulty("arcade").Id);
         Assert.Equal("ship-visual", catalog.GetVisual("ship-visual").Id);
         Assert.Equal("shot-sound", catalog.GetAudio("shot-sound").Id);
@@ -190,7 +193,7 @@ public sealed class DefinitionV2Tests
             Directory.CreateDirectory(root);
             var fixture = new V2Directory(root);
             fixture.Write("game.json", """
-                {"schemaVersion":2,"id":"commercial","defaultRuleSetId":"rules","ruleSetIds":["rules"],"difficultyIds":["arcade"],"shipIds":["ship-a"],"stageRouteId":"main"}
+                {"schemaVersion":2,"id":"commercial","defaultRuleSetId":"rules","ruleSetIds":["rules","sprint"],"difficultyIds":["novice","arcade","expert"],"shipIds":["ship-a"],"stageRouteId":"main"}
                 """);
             fixture.Write("ships/ship-a.json", """
                 {"schemaVersion":2,"id":"ship-a","hitRadius":3,"grazeRadius":24,"normalSpeed":240,"focusSpeed":120,"initialPower":40,"maximumPower":100,"deathAnimationSeconds":0.4,"respawnDelaySeconds":0.5,"respawnInvincibilitySeconds":2,"powerLossOnDeath":20,"bombsAfterRespawn":2,"normalWeaponIds":["weapon"],"focusWeaponIds":["weapon"],"visualId":"ship-visual","audioId":"shot-sound"}
@@ -218,10 +221,19 @@ public sealed class DefinitionV2Tests
                 {"schemaVersion":2,"id":"stage","events":[{"schemaVersion":2,"time":0,"type":"spawn-enemy","enemyId":"enemy","bossId":"boss-a","x":400,"y":-30}],"objectives":[{"type":"complete-boss","bossId":"boss-a"}]}
                 """);
             fixture.Write("rulesets/rules.json", """
-                {"schemaVersion":2,"id":"rules","stageRouteId":"main","stageIds":["stage"],"allowContinue":true,"initialCredits":2,"continueCreditCost":1,"manualBombCost":1,"autoBombCost":2,"bombInvincibilitySeconds":1,"deathClearsProjectiles":true,"extendScoreThresholds":[100000,300000],"collectionLineY":120,"itemFallSpeed":90,"itemMagnetSpeed":480,"focusMagnetRadius":120,"itemCollectionRadius":18,"maximumGauge":100,"maximumPowerItemScoreValue":1000,"scoreRules":[{"type":"chain","parameters":{"timeoutFrames":120,"bonusPerChain":10}},{"type":"multiplier","parameters":{"base":1,"perChain":0.1,"perHit":0.01,"maximum":4}},{"type":"base-kill","parameters":{}},{"type":"graze","parameters":{"points":25}},{"type":"boss-bonus","parameters":{}},{"type":"extend-threshold","parameters":{}}]}
+                {"schemaVersion":2,"id":"rules","stageRouteId":"main","stageIds":["stage"],"allowContinue":true,"initialCredits":2,"initialLives":3,"initialBombs":2,"initialPower":20,"initialGauge":0,"continueCreditCost":1,"manualBombCost":1,"autoBombCost":2,"bombInvincibilitySeconds":1,"deathClearsProjectiles":true,"extendScoreThresholds":[100000,300000],"collectionLineY":120,"itemFallSpeed":90,"itemMagnetSpeed":480,"focusMagnetRadius":120,"itemCollectionRadius":18,"maximumGauge":100,"maximumPowerItemScoreValue":1000,"scoreRules":[{"type":"chain","parameters":{"timeoutFrames":120,"bonusPerChain":10}},{"type":"multiplier","parameters":{"base":1,"perChain":0.1,"perHit":0.01,"maximum":4}},{"type":"base-kill","parameters":{}},{"type":"graze","parameters":{"points":25}},{"type":"boss-bonus","parameters":{}},{"type":"extend-threshold","parameters":{}}],"specialGaugeRule":{"type":"radiant-drive","parameters":{"activation":"staged","stageCost":25,"maximumLevel":4,"damageCharge":0.1,"killCharge":5,"grazeCharge":2,"cancelCharge":1,"itemCharge":3,"lockCharge":1,"drainPerSecond":20,"killExtensionSeconds":0.2,"cooldownSeconds":1,"damageMultiplier":1.5,"fireIntervalMultiplier":0.8,"scoreMultiplier":2,"cancelProjectiles":true,"invincible":false,"visualCue":"radiant","audioCue":"radiant-on"}},"rankRule":{"type":"dynamic-rank","parameters":{"initial":0.2,"minimum":0,"maximum":1,"damageGain":0.001,"killGain":0.02,"grazeGain":0.005,"bombLoss":0.15,"deathLoss":0.3,"decayPerSecond":0.001,"bulletSpeedPerRank":0.25,"fireRatePerRank":0.2,"additionalProjectileEvery":0.5,"revengeEvery":0.75,"revengeCount":1,"revengeProjectileId":"shot"}}}
+                """);
+            fixture.Write("rulesets/sprint.json", """
+                {"schemaVersion":2,"id":"sprint","stageRouteId":"sprint-route","stageIds":["stage"],"allowContinue":false,"maximumGauge":100,"clearCondition":"time-attack","timeLimitSeconds":120}
+                """);
+            fixture.Write("difficulties/novice.json", """
+                {"schemaVersion":2,"id":"novice","projectileSpeedMultiplier":0.8,"fireIntervalMultiplier":1.2,"enemyHpMultiplier":0.8,"autoBomb":true,"patternTags":["forgiving"]}
                 """);
             fixture.Write("difficulties/arcade.json", """
-                {"schemaVersion":2,"id":"arcade","projectileSpeedMultiplier":1,"fireIntervalMultiplier":1,"enemyHpMultiplier":1}
+                {"schemaVersion":2,"id":"arcade","projectileSpeedMultiplier":1,"fireIntervalMultiplier":1,"enemyHpMultiplier":1,"patternTags":["standard"]}
+                """);
+            fixture.Write("difficulties/expert.json", """
+                {"schemaVersion":2,"id":"expert","projectileSpeedMultiplier":1.2,"fireIntervalMultiplier":0.85,"enemyHpMultiplier":1.15,"additionalProjectileCount":1,"patternTags":["dense"]}
                 """);
             fixture.Write("visuals/ship-visual.json", """
                 {"schemaVersion":2,"id":"ship-visual","assetId":"sprites/ship.png"}

@@ -447,6 +447,63 @@ Scoreは`long`を使う。加算のたびに理由を持つ`ScoreAwardedEvent`�
 
 Rankは隠れた謎の値にせず、少なくともdebug HUDとReplay metadataから観測可能にする。加算源、減算源、clamp、弾速／発射頻度／追加emitterへのmappingをDefinition化する。難易度は選択した基準、Rankはrun中の動的変化として分離する。
 
+P9では`radiant-drive`と`dynamic-rank`を組み込みcapabilityとして提供する。`SpecialGaugeSystem`と`RankSystem`はtick内の型付きevent列だけを観測し、解決済みの効果を`RunModifierState`へ公開する。weapon、enemy、boss factoryはこのstateを読むため、作品固有のモード分岐を`ShootingSimulation`へ追加しない。処理順は「既存active効果のdrain／入力発動 → gameplay event生成 → gauge／rank更新 → score」の順で固定し、自動発動で得た倍率は次の得点eventから適用する。
+
+```json
+{
+  "specialGaugeRule": {
+    "type": "radiant-drive",
+    "parameters": {
+      "activation": "staged",
+      "stageCost": 25,
+      "maximumLevel": 4,
+      "damageCharge": 0.1,
+      "killCharge": 5,
+      "grazeCharge": 2,
+      "cancelCharge": 1,
+      "itemCharge": 3,
+      "lockCharge": 1,
+      "drainPerSecond": 20,
+      "killExtensionSeconds": 0.2,
+      "cooldownSeconds": 1,
+      "endOnBomb": true,
+      "endOnDeath": true,
+      "damageMultiplier": 1.5,
+      "fireIntervalMultiplier": 0.8,
+      "scoreMultiplier": 2,
+      "cancelProjectiles": true,
+      "invincible": false,
+      "visualCue": "radiant",
+      "audioCue": "radiant-on"
+    }
+  },
+  "rankRule": {
+    "type": "dynamic-rank",
+    "parameters": {
+      "initial": 0.2,
+      "minimum": 0,
+      "maximum": 1,
+      "damageGain": 0.001,
+      "killGain": 0.02,
+      "grazeGain": 0.005,
+      "bombLoss": 0.15,
+      "deathLoss": 0.3,
+      "decayPerSecond": 0.001,
+      "bulletSpeedPerRank": 0.25,
+      "fireRatePerRank": 0.2,
+      "additionalProjectileEvery": 0.5,
+      "revengeEvery": 0.75,
+      "revengeCount": 1,
+      "revengeProjectileId": "enemy-shot"
+    }
+  }
+}
+```
+
+`DifficultyDefinition.patternTags`はdifficulty IDとは別名のpattern群（例:`forgiving`、`standard`、`dense`）を有効化する。globalな`projectileSpeedMultiplier`、`fireIntervalMultiplier`、`enemyHpMultiplier`、`additionalProjectileCount`は同じpatternの数値へ適用され、その上へ動的Rankを合成する。`RuleSetDefinition`は順序付き`stageIds`、`clearCondition`（`route-complete`／`time-attack`）、`timeLimitSeconds`、continue、初期life／bomb／power／gauge、score、gauge、rankを所有する。time attackはroute末尾から先頭へ循環し、上限frameで`TimeAttackEndedEvent`を出して終了する。
+
+`RunState`、`RunDebugSnapshot`、`RunMetadataSnapshot`はrank、gauge、special state／levelを同じ値で公開する。v1 contentは従来どおりDefinition migrationでgauge／rankなし、倍率1、`nextStageId`から構築したrouteとして動作する。独自規則を追加する場合は`ISpecialGaugeRuleFactory`または`IRankRuleFactory`をregistryへ登録し、validationとruntime生成を同じfactoryに実装する。
+
 ## 7. Rendering、Audio、UI
 
 ### 7.1 Asset境界

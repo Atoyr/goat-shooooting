@@ -47,18 +47,23 @@ public sealed class AdvancedWeaponSystem
     private readonly RuntimeCapabilityRegistry _capabilities;
     private readonly IRandomSource _randomSource;
     private readonly string? _difficultyId;
+    private readonly RunModifierState? _modifiers;
 
     public AdvancedWeaponSystem(
         BulletFactory bulletFactory,
         RuntimeCapabilityRegistry capabilities,
         IRandomSource? randomSource = null,
-        string? difficultyId = null)
+        string? difficultyId = null,
+        RunModifierState? modifiers = null)
     {
         _bulletFactory = bulletFactory ?? throw new ArgumentNullException(nameof(bulletFactory));
         _capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
         _randomSource = randomSource ?? new SeededRandomSource(0);
         _difficultyId = difficultyId;
+        _modifiers = modifiers;
     }
+
+    public GameEventBuffer? Events { get; set; }
 
     public void Update(
         World world,
@@ -328,7 +333,7 @@ public sealed class AdvancedWeaponSystem
                 }
                 else
                 {
-                    state.CooldownRemaining = emitter.FireInterval;
+                    state.CooldownRemaining = GetFireInterval(emitter, ownerLayer);
                 }
 
                 continue;
@@ -343,7 +348,7 @@ public sealed class AdvancedWeaponSystem
             }
             else
             {
-                state.CooldownRemaining = emitter.FireInterval;
+                state.CooldownRemaining = GetFireInterval(emitter, ownerLayer);
             }
         }
     }
@@ -379,7 +384,8 @@ public sealed class AdvancedWeaponSystem
                     direction,
                     settings.Length,
                     settings.Width,
-                    settings.Damage,
+                    Math.Max(1, (int)MathF.Round(settings.Damage *
+                        (ownerLayer == CollisionLayer.Player ? _modifiers?.PlayerDamageMultiplier ?? 1 : 1))),
                     settings.DamageInterval,
                     settings.VisualId,
                     settings.ProjectileInteraction));
@@ -409,7 +415,11 @@ public sealed class AdvancedWeaponSystem
         RemoveInvalidTargets(world, state);
         if (wantsToFire)
         {
-            AcquireTargets(world, owner, ownerLayer, settings, state);
+            var newlyLocked = AcquireTargets(world, owner, ownerLayer, settings, state);
+            if (newlyLocked > 0 && ownerLayer == CollisionLayer.Player)
+            {
+                Events?.Publish((frame, sequence) => new TargetsLockedEvent(frame, sequence, owner.Id, newlyLocked));
+            }
         }
         else if (state.WasHeld && state.CooldownRemaining <= 0)
         {
@@ -437,7 +447,7 @@ public sealed class AdvancedWeaponSystem
             }
 
             state.LockedTargetEntityIds.Clear();
-            state.CooldownRemaining = weapon.Emitters.Max(static emitter => emitter.FireInterval);
+            state.CooldownRemaining = weapon.Emitters.Max(emitter => GetFireInterval(emitter, ownerLayer));
         }
 
         state.WasHeld = wantsToFire;
@@ -459,7 +469,8 @@ public sealed class AdvancedWeaponSystem
         var position = owner.Get<TransformComponent>().Position + new Vector2(emitter.OffsetX, emitter.OffsetY);
         var baseDirection = forcedDirection ?? ResolveAngleSource(world, owner, ownerLayer, emitter, state);
         var powerModifier = ResolvePowerModifier(definitions, world, owner, power);
-        var count = emitter.ProjectileCount + powerModifier.AdditionalProjectileCount;
+        var count = emitter.ProjectileCount + powerModifier.AdditionalProjectileCount +
+            (ownerLayer == CollisionLayer.Enemy ? _modifiers?.AdditionalEnemyProjectiles ?? 0 : 0);
         foreach (var direction in GetDirections(weapon, emitter, state, baseDirection, count))
         {
             foreach (var speedMultiplier in GetSpeedMultipliers(emitter))
@@ -471,8 +482,12 @@ public sealed class AdvancedWeaponSystem
                     direction,
                     ownerLayer,
                     owner.Id,
-                    speedMultiplier,
-                    powerModifier.DamageMultiplier,
+                    speedMultiplier * (ownerLayer == CollisionLayer.Enemy
+                        ? _modifiers?.EnemyProjectileSpeedMultiplier ?? 1
+                        : 1),
+                    powerModifier.DamageMultiplier * (ownerLayer == CollisionLayer.Player
+                        ? _modifiers?.PlayerDamageMultiplier ?? 1
+                        : 1),
                     emitter.SpeedMode is "accelerating" or "decelerating"
                         ? emitter.AccelerationPerSecond
                         : 0);
@@ -504,7 +519,12 @@ public sealed class AdvancedWeaponSystem
                 ShotsSinceDirectionChange = state.ShotsSinceDirectionChange
             };
             var factory = _capabilities.FirePatterns.Resolve(weapon.Pattern!.Type, $"weapon '{weapon.Id}' pattern");
-            foreach (var direction in factory.GetDirections(weapon.Pattern, holder, baseDirection)) yield return direction;
+            var baseDirections = factory.GetDirections(weapon.Pattern, holder, baseDirection).ToArray();
+            foreach (var direction in baseDirections) yield return direction;
+            for (var index = baseDirections.Length; index < projectileCount; index++)
+            {
+                yield return RotateDegrees(baseDirection, index * (360f / projectileCount));
+            }
             factory.Advance(weapon.Pattern, holder);
             state.PatternAngleDegrees = holder.PatternAngleDegrees;
             state.PatternDirection = holder.PatternDirection;
@@ -592,7 +612,13 @@ public sealed class AdvancedWeaponSystem
     }
 
     private bool IsEnabled(IReadOnlyList<string> difficultyTags) =>
-        difficultyTags.Count == 0 || _difficultyId is not null && difficultyTags.Contains(_difficultyId, StringComparer.Ordinal);
+        _modifiers?.IsPatternEnabled(difficultyTags) ??
+        (difficultyTags.Count == 0 || _difficultyId is not null && difficultyTags.Contains(_difficultyId, StringComparer.Ordinal));
+
+    private float GetFireInterval(EmitterDefinition emitter, CollisionLayer ownerLayer) =>
+        emitter.FireInterval * (ownerLayer == CollisionLayer.Enemy
+            ? _modifiers?.EnemyFireIntervalMultiplier ?? 1
+            : _modifiers?.PlayerFireIntervalMultiplier ?? 1);
 
     private static Vector2? FindAimDirection(World world, Entity owner, CollisionLayer ownerLayer)
     {
@@ -642,7 +668,7 @@ public sealed class AdvancedWeaponSystem
         return result;
     }
 
-    private static void AcquireTargets(
+    private static int AcquireTargets(
         World world,
         Entity owner,
         CollisionLayer ownerLayer,
@@ -667,11 +693,14 @@ public sealed class AdvancedWeaponSystem
             var distance = left.Distance.CompareTo(right.Distance);
             return distance != 0 ? distance : left.Entity.Id.CompareTo(right.Entity.Id);
         });
+        var previous = state.LockedTargetEntityIds.ToHashSet();
         state.LockedTargetEntityIds.Clear();
         for (var index = 0; index < candidates.Count && index < settings.MaximumTargets; index++)
         {
             state.LockedTargetEntityIds.Add(candidates[index].Entity.Id);
         }
+
+        return state.LockedTargetEntityIds.Count(id => !previous.Contains(id));
     }
 
     private static void RemoveInvalidTargets(World world, WeaponActionState state)

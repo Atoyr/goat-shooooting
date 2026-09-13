@@ -83,7 +83,8 @@ public sealed class ScoreRulePipeline
             foreach (var rule in _rules) rule.Apply(context);
             foreach (var candidate in context.Candidates)
             {
-                var multiplier = ClampMultiplier(context.EventMultiplier * candidate.Multiplier);
+                var multiplier = ClampMultiplier(
+                    context.EventMultiplier * candidate.Multiplier * state.SpecialScoreMultiplier);
                 var requested = ScaleSaturating(candidate.BaseAmount, multiplier);
                 var awarded = state.AwardScore(candidate.Category, requested);
                 if (awarded <= 0) continue;

@@ -46,11 +46,12 @@ public sealed class WeaponSystem
         BulletFactory bulletFactory,
         RuntimeCapabilityRegistry? capabilities = null,
         IRandomSource? randomSource = null,
-        string? difficultyId = null)
+        string? difficultyId = null,
+        RunModifierState? modifiers = null)
     {
         _bulletFactory = bulletFactory ?? throw new ArgumentNullException(nameof(bulletFactory));
         _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
-        _advancedWeaponSystem = new AdvancedWeaponSystem(_bulletFactory, _capabilities, randomSource, difficultyId);
+        _advancedWeaponSystem = new AdvancedWeaponSystem(_bulletFactory, _capabilities, randomSource, difficultyId, modifiers);
     }
 
     internal AdvancedWeaponSystem Advanced => _advancedWeaponSystem;

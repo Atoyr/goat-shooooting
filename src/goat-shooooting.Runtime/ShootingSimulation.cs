@@ -7,7 +7,8 @@ public enum SimulationStatus
 {
     Running,
     StageClear,
-    GameOver
+    GameOver,
+    TimeExpired
 }
 
 public enum StagePhase
@@ -25,6 +26,7 @@ public sealed class ShootingSimulation
     private readonly TickInputState _tickInput = new();
     private readonly IRandomSource _randomSource;
     private readonly RuntimeCapabilityRegistry _capabilities;
+    private readonly RunModifierState _modifierState = new();
     private readonly PlayerInputSystem _playerInputSystem = new();
     private readonly WeaponSystem _weaponSystem;
     private readonly EnemyFactory _enemyFactory;
@@ -59,6 +61,9 @@ public sealed class ShootingSimulation
     private int _restartGeneration;
     private System.Numerics.Vector2 _playerStartPosition;
     private ScoreRulePipeline _scorePipeline = null!;
+    private SpecialGaugeSystem _specialGaugeSystem = null!;
+    private RankSystem _rankSystem = null!;
+    private RunRuleSystem _runRuleSystem = null!;
 
     public ShootingSimulation(IDefinitionRepository definitionRepository, IInputState input)
         : this(definitionRepository, input, new RunConfiguration("legacy", seed: 0))
@@ -79,14 +84,15 @@ public sealed class ShootingSimulation
         Configuration = configuration;
         _randomSource = randomSource ?? new SeededRandomSource(configuration.Seed);
         _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
-        _enemyFactory = new EnemyFactory(_capabilities);
+        _enemyFactory = new EnemyFactory(_capabilities, _modifierState);
         _weaponSystem = new WeaponSystem(
             new BulletFactory(_capabilities),
             _capabilities,
             _randomSource,
-            configuration.DifficultyId);
+            configuration.DifficultyId,
+            _modifierState);
         _attackTimelineSystem = new AttackTimelineSystem(_weaponSystem.Advanced);
-        _bossPhaseSystem = new BossPhaseSystem(_itemDropSystem);
+        _bossPhaseSystem = new BossPhaseSystem(_itemDropSystem, _modifierState);
         Definitions = _definitionRepository.Load();
         new CapabilityValidator().Validate(Definitions, _capabilities);
         World = null!;
@@ -94,6 +100,7 @@ public sealed class ShootingSimulation
         Telemetry = null!;
         RunState = new RunState();
         Events = new GameEventBuffer();
+        _weaponSystem.Advanced.Events = Events;
         Restart();
     }
 
@@ -121,6 +128,21 @@ public sealed class ShootingSimulation
     public int DefinitionReloadCount { get; private set; }
     public string? DefinitionReloadError { get; private set; }
     public RunResult? Result { get; private set; }
+    public RunDebugSnapshot DebugSnapshot => new(
+        RunState.Frame,
+        RunState.Rank,
+        RunState.Gauge,
+        RunState.SpecialPhase,
+        RunState.SpecialLevel,
+        RunState.SpecialTimeRemaining,
+        RunState.SpecialCooldownRemaining);
+    public RunMetadataSnapshot ReplayMetadata => new(
+        Configuration,
+        RunState.Frame,
+        RunState.Rank,
+        RunState.Gauge,
+        RunState.SpecialPhase,
+        RunState.SpecialLevel);
     internal ulong RandomState => _randomSource.State;
     internal IReadOnlyCollection<string> CompletedBossIds => _stageSystem.CompletedBossIds;
 
@@ -224,6 +246,17 @@ public sealed class ShootingSimulation
             return;
         }
 
+        if (_runRuleSystem.IsTimeExpired(RunState.Frame))
+        {
+            Events.Publish((frame, sequence) => new TimeAttackEndedEvent(
+                frame,
+                sequence,
+                _runRuleSystem.TimeLimitFrames!.Value));
+            Status = SimulationStatus.TimeExpired;
+            CompleteStep(advanceFrame);
+            return;
+        }
+
         if (Phase == StagePhase.Opening)
         {
             AdvancePhaseTime(deltaTime, fixedTick);
@@ -263,6 +296,15 @@ public sealed class ShootingSimulation
             return;
         }
 
+        _specialGaugeSystem.BeginTick(
+            inputFrame,
+            deltaTime,
+            RunState,
+            Player,
+            Projectiles,
+            Telemetry,
+            Events);
+
         if (fixedTick)
         {
             _stageSystem.Tick(World, Definitions, Telemetry);
@@ -279,14 +321,21 @@ public sealed class ShootingSimulation
             Telemetry,
             Events);
         _playerInputSystem.Update(World, _tickInput);
-        _motionTimelineSystem.Update(World, Definitions, Configuration.DifficultyId, deltaTime, Telemetry);
+        _motionTimelineSystem.Update(
+            World,
+            Definitions,
+            CurrentDifficulty?.Id,
+            deltaTime,
+            Telemetry,
+            CurrentDifficulty?.PatternTags);
         _attackTimelineSystem.Update(
             World,
             Definitions,
-            Configuration.DifficultyId,
+            CurrentDifficulty?.Id,
             deltaTime,
             Telemetry,
-            Projectiles);
+            Projectiles,
+            CurrentDifficulty?.PatternTags);
         _weaponSystem.Update(World, Definitions, _tickInput, deltaTime, Telemetry, Projectiles);
         Projectiles.CommitSpawns(Events);
         _projectileMovementSystem.Update(
@@ -350,6 +399,23 @@ public sealed class ShootingSimulation
             RunState,
             Telemetry,
             Events);
+        _specialGaugeSystem.Observe(
+            Events.Events,
+            RunState,
+            Player.Id,
+            Projectiles,
+            Telemetry,
+            Events);
+        _rankSystem.Observe(
+            Events.Events,
+            deltaTime,
+            RunState,
+            World,
+            Definitions,
+            Projectiles,
+            Telemetry,
+            Events);
+        Projectiles.CommitSpawns(Events);
         ApplyScores(0);
         _extendSystem.Update(Player, CurrentRuleSet, RunState, Telemetry, Events);
         _projectileLifetimeSystem.Update(Projectiles);
@@ -465,6 +531,10 @@ public sealed class ShootingSimulation
         CurrentRuleSet = ResolveRuleSet();
         _scorePipeline = ScoreRulePipeline.Create(CurrentRuleSet, _capabilities);
         CurrentDifficulty = ResolveDifficulty();
+        _specialGaugeSystem = SpecialGaugeSystem.Create(CurrentRuleSet, _capabilities);
+        _rankSystem = RankSystem.Create(CurrentRuleSet, _capabilities);
+        _runRuleSystem = new RunRuleSystem(CurrentRuleSet);
+        _modifierState.Configure(CurrentDifficulty, _rankSystem.Rule, _specialGaugeSystem.Rule, RunState);
         var playerFactory = new PlayerFactory();
         if (Definitions.Players.TryGetValue(shipId, out var legacyPlayer))
         {
@@ -479,7 +549,25 @@ public sealed class ShootingSimulation
             Player = playerFactory.Create(World, CurrentShip, _playerStartPosition);
         }
         Telemetry = new SimulationTelemetry();
-        RunState.Reset(CurrentShip.InitialPower, CurrentRuleSet.InitialCredits);
+        var initialPower = Math.Min(
+            CurrentShip.MaximumPower,
+            CurrentRuleSet.InitialPower ?? CurrentShip.InitialPower);
+        RunState.Reset(initialPower, CurrentRuleSet.InitialCredits);
+        if (CurrentRuleSet.InitialLives is { } initialLives)
+        {
+            Player.Remove<LivesComponent>();
+            Player.Add(new LivesComponent(Math.Min(CurrentShip.MaximumLives, initialLives)));
+        }
+        if (CurrentRuleSet.InitialBombs is { } initialBombs)
+        {
+            var bombDamage = Player.Get<BombComponent>().Damage;
+            Player.Remove<BombComponent>();
+            Player.Add(new BombComponent(Math.Min(CurrentShip.MaximumBombs, initialBombs), bombDamage));
+        }
+        var ship = Player.Get<ShipComponent>();
+        ship.Power = initialPower;
+        _specialGaugeSystem.Reset(RunState, CurrentRuleSet.InitialGauge, inputFrame.IsPressed(InputButtons.Special));
+        _rankSystem.Reset(RunState);
         _randomSource.Reset(Configuration.Seed);
         Events.BeginTick(0);
         Status = SimulationStatus.Running;
@@ -495,9 +583,7 @@ public sealed class ShootingSimulation
         var stageId = Configuration.StartStageId;
         if (string.IsNullOrWhiteSpace(stageId))
         {
-            stageId = !string.IsNullOrWhiteSpace(Definitions.Game.StageId)
-                ? Definitions.Game.StageId
-                : Definitions.GetRuleSet(Configuration.RuleSetId ?? Definitions.Game.DefaultRuleSetId).StageIds[0];
+            stageId = CurrentRuleSet.StageIds[0];
         }
 
         StartStage(stageId);
@@ -519,7 +605,9 @@ public sealed class ShootingSimulation
         bombs.Remaining = Math.Min(CurrentShip.MaximumBombs, CurrentShip.BombsAfterRespawn);
         var ship = Player.Get<ShipComponent>();
         var previousPower = ship.Power;
-        ship.Power = CurrentShip.InitialPower;
+        ship.Power = Math.Min(
+            CurrentShip.MaximumPower,
+            CurrentRuleSet.InitialPower ?? CurrentShip.InitialPower);
         RunState.Power = ship.Power;
         if (previousPower != ship.Power)
         {
@@ -549,7 +637,7 @@ public sealed class ShootingSimulation
             {
                 Id = "legacy",
                 StageRouteId = "legacy",
-                StageIds = new[] { Definitions.Game.StageId },
+                StageIds = GetLegacyStageRoute(),
                 AllowContinue = false
             }
             : Definitions.GetRuleSet(ruleSetId);
@@ -577,7 +665,20 @@ public sealed class ShootingSimulation
 
     private void AdvanceStageOrFinish()
     {
-        if (string.IsNullOrWhiteSpace(CurrentStage.NextStageId))
+        var routeIndex = CurrentRuleSet.StageIds.ToList().IndexOf(CurrentStage.Id);
+        if (routeIndex + 1 < CurrentRuleSet.StageIds.Count)
+        {
+            StartStage(CurrentRuleSet.StageIds[routeIndex + 1]);
+            return;
+        }
+
+        if (CurrentRuleSet.ClearCondition == "time-attack")
+        {
+            StartStage(CurrentRuleSet.StageIds[0]);
+            return;
+        }
+
+        if (routeIndex >= 0)
         {
             Events.Publish((frame, sequence) => new AllClearedEvent(
                 frame,
@@ -589,7 +690,19 @@ public sealed class ShootingSimulation
             return;
         }
 
-        StartStage(CurrentStage.NextStageId);
+        throw new InvalidOperationException($"Stage '{CurrentStage.Id}' is not in rule set route '{CurrentRuleSet.Id}'.");
+    }
+
+    private IReadOnlyList<string> GetLegacyStageRoute()
+    {
+        var route = new List<string>();
+        var stage = Definitions.GetStage(Definitions.Game.StageId);
+        while (true)
+        {
+            route.Add(stage.Id);
+            if (string.IsNullOrWhiteSpace(stage.NextStageId)) return route;
+            stage = Definitions.GetStage(stage.NextStageId);
+        }
     }
 
     private void StartStage(string stageId)

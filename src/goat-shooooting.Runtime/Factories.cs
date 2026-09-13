@@ -85,9 +85,16 @@ public sealed class PlayerFactory
     }
 }
 
-public sealed class EnemyFactory(RuntimeCapabilityRegistry? capabilities = null)
+public sealed class EnemyFactory
 {
-    private readonly RuntimeCapabilityRegistry _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
+    private readonly RuntimeCapabilityRegistry _capabilities;
+    private readonly RunModifierState? _modifiers;
+
+    public EnemyFactory(RuntimeCapabilityRegistry? capabilities = null, RunModifierState? modifiers = null)
+    {
+        _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
+        _modifiers = modifiers;
+    }
 
     public Entity Create(
         World world,
@@ -105,7 +112,8 @@ public sealed class EnemyFactory(RuntimeCapabilityRegistry? capabilities = null)
             .Add(new VelocityComponent(boss is null && string.IsNullOrWhiteSpace(definition.MotionPatternId)
                 ? new Vector2(0, definition.Speed)
                 : Vector2.Zero))
-            .Add(new HealthComponent(definition.Hp))
+            .Add(new HealthComponent(Math.Max(1, (int)MathF.Round(
+                definition.Hp * (_modifiers?.EnemyHealthMultiplier ?? 1)))))
             .Add(new ColliderComponent(definition.Radius, CollisionLayer.Enemy))
             .Add(new EnemyComponent(definition.Id))
             .Add(new ScoreValueComponent(definition.Score));

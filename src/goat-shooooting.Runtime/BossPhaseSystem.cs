@@ -3,9 +3,12 @@ using GoatShooooting.Definitions;
 
 namespace GoatShooooting.Runtime;
 
-public sealed class BossPhaseSystem(ItemDropSystem? itemDropSystem = null)
+public sealed class BossPhaseSystem(
+    ItemDropSystem? itemDropSystem = null,
+    RunModifierState? modifiers = null)
 {
     private readonly ItemDropSystem _itemDropSystem = itemDropSystem ?? new ItemDropSystem();
+    private readonly RunModifierState? _modifiers = modifiers;
 
     public void BeginAndAdvance(
         World world,
@@ -107,7 +110,7 @@ public sealed class BossPhaseSystem(ItemDropSystem? itemDropSystem = null)
         events.Publish((frame, sequence) => new BossCompletedEvent(frame, sequence, entity.Id, boss.Id));
     }
 
-    private static void BeginPhase(
+    private void BeginPhase(
         Entity entity,
         BossDefinition boss,
         int phaseIndex,
@@ -128,7 +131,8 @@ public sealed class BossPhaseSystem(ItemDropSystem? itemDropSystem = null)
         state.BombsUsedAtPhaseStart = telemetry.BombsUsed;
         state.IsInitialized = true;
         entity.Remove<HealthComponent>();
-        entity.Add(new HealthComponent(phase.Hp));
+        entity.Add(new HealthComponent(Math.Max(1, (int)MathF.Round(
+            phase.Hp * (_modifiers?.EnemyHealthMultiplier ?? 1)))));
         entity.Remove<HitFlashComponent>();
         entity.Get<VelocityComponent>().Value = System.Numerics.Vector2.Zero;
         ResetPatterns(entity);

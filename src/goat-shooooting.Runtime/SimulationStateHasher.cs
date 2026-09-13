@@ -20,6 +20,13 @@ internal static class SimulationStateHasher
         hash.Add(simulation.RunState.Score);
         hash.Add(simulation.RunState.Power);
         hash.Add(simulation.RunState.Gauge);
+        hash.Add(simulation.RunState.SpecialGaugeValue);
+        hash.Add(simulation.RunState.Rank);
+        hash.Add((int)simulation.RunState.SpecialPhase);
+        hash.Add(simulation.RunState.SpecialLevel);
+        hash.Add(simulation.RunState.SpecialTimeRemaining);
+        hash.Add(simulation.RunState.SpecialCooldownRemaining);
+        hash.Add(simulation.RunState.SpecialScoreMultiplier);
         hash.Add(simulation.RunState.CreditsRemaining);
         hash.Add(simulation.RunState.ContinuesUsed);
         hash.Add(simulation.RunState.Continued);

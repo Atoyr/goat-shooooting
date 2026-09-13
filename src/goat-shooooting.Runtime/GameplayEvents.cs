@@ -113,6 +113,37 @@ public sealed record BombUsedEvent(
     int PlayerEntityId,
     BombUsageKind Kind = BombUsageKind.Manual) : IGameplayEvent;
 
+public sealed record TargetsLockedEvent(
+    long Frame,
+    int Sequence,
+    int PlayerEntityId,
+    int Count) : IGameplayEvent;
+
+public sealed record SpecialActivatedEvent(
+    long Frame,
+    int Sequence,
+    int PlayerEntityId,
+    int Level,
+    string VisualCue,
+    string AudioCue) : IGameplayEvent;
+
+public sealed record SpecialEndedEvent(
+    long Frame,
+    int Sequence,
+    int Level,
+    string Reason) : IGameplayEvent;
+
+public sealed record RankChangedEvent(
+    long Frame,
+    int Sequence,
+    double Previous,
+    double Current) : IGameplayEvent;
+
+public sealed record TimeAttackEndedEvent(
+    long Frame,
+    int Sequence,
+    long LimitFrames) : IGameplayEvent;
+
 public sealed record BossPhaseEndedEvent(
     long Frame,
     int Sequence,

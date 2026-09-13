@@ -17,7 +17,7 @@
 - [x] P6 Motion／Attack timeline
 - [x] P7 Boss phase
 - [x] P8 Score engine
-- [ ] P9 Special gauge、Rank、Difficulty、RuleSet
+- [x] P9 Special gauge、Rank、Difficulty、RuleSet
 - [ ] P10 Mode選択、Profile v2、Local leaderboard
 - [ ] P11 ReplayとTraining
 - [ ] P12 Asset catalog、Sprite、Background

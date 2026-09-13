@@ -209,9 +209,16 @@ public sealed record RuleSetDefinition
     public float FocusMagnetRadius { get; init; } = 120;
     public float ItemCollectionRadius { get; init; } = 18;
     public int MaximumGauge { get; init; } = 100;
+    public int? InitialLives { get; init; }
+    public int? InitialBombs { get; init; }
+    public int? InitialPower { get; init; }
+    public int InitialGauge { get; init; }
+    public float? TimeLimitSeconds { get; init; }
+    public string ClearCondition { get; init; } = "route-complete";
     public int MaximumPowerItemScoreValue { get; init; } = 1000;
     public IReadOnlyList<CapabilityDefinition> ScoreRules { get; init; } = Array.Empty<CapabilityDefinition>();
     public CapabilityDefinition? SpecialGaugeRule { get; init; }
+    public CapabilityDefinition? RankRule { get; init; }
 }
 
 public sealed record DifficultyDefinition
@@ -223,6 +230,7 @@ public sealed record DifficultyDefinition
     public float EnemyHpMultiplier { get; init; } = 1;
     public int AdditionalProjectileCount { get; init; }
     public bool AutoBomb { get; init; }
+    public IReadOnlyList<string> PatternTags { get; init; } = Array.Empty<string>();
 }
 
 public sealed record VisualDefinition

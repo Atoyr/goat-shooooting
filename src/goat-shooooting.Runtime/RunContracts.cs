@@ -64,6 +64,13 @@ public sealed class RunState
     public long Score { get; internal set; }
     public int Power { get; internal set; }
     public int Gauge { get; internal set; }
+    public double Rank { get; internal set; }
+    public SpecialGaugePhase SpecialPhase { get; internal set; }
+    public int SpecialLevel { get; internal set; }
+    public double SpecialTimeRemaining { get; internal set; }
+    public double SpecialCooldownRemaining { get; internal set; }
+    public double SpecialScoreMultiplier { get; internal set; } = 1;
+    internal double SpecialGaugeValue { get; set; }
     public int CreditsRemaining { get; internal set; }
     public int ContinuesUsed { get; internal set; }
     public bool Continued { get; internal set; }
@@ -84,6 +91,13 @@ public sealed class RunState
         Score = 0;
         Power = initialPower;
         Gauge = 0;
+        Rank = 0;
+        SpecialPhase = SpecialGaugePhase.Inactive;
+        SpecialLevel = 0;
+        SpecialTimeRemaining = 0;
+        SpecialCooldownRemaining = 0;
+        SpecialScoreMultiplier = 1;
+        SpecialGaugeValue = 0;
         CreditsRemaining = initialCredits;
         ContinuesUsed = 0;
         Continued = false;
@@ -120,6 +134,15 @@ public sealed record RunResult(
     bool Continued,
     int ContinuesUsed,
     int CreditsRemaining);
+
+/// <summary>Deterministic values a replay header/checkpoint can persist without inspecting systems.</summary>
+public sealed record RunMetadataSnapshot(
+    RunConfiguration Configuration,
+    long Frame,
+    double Rank,
+    int Gauge,
+    SpecialGaugePhase SpecialPhase,
+    int SpecialLevel);
 
 [Flags]
 public enum InputButtons : ushort

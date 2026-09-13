@@ -41,6 +41,13 @@ public interface IScoreRuleFactory : IRuntimeCapability
 public interface ISpecialGaugeRuleFactory : IRuntimeCapability
 {
     void Validate(CapabilityDefinition capability, string path);
+    SpecialGaugeRule Create(CapabilityDefinition capability);
+}
+
+public interface IRankRuleFactory : IRuntimeCapability
+{
+    void Validate(CapabilityDefinition capability, string path);
+    RankRule Create(CapabilityDefinition capability);
 }
 
 public interface IStageEventHandler : IRuntimeCapability
@@ -103,6 +110,7 @@ public sealed class RuntimeCapabilityRegistry
         IEnumerable<IFirePatternFactory>? firePatterns = null,
         IEnumerable<IScoreRuleFactory>? scoreRules = null,
         IEnumerable<ISpecialGaugeRuleFactory>? specialGaugeRules = null,
+        IEnumerable<IRankRuleFactory>? rankRules = null,
         IEnumerable<IStageEventHandler>? stageEventHandlers = null)
     {
         ProjectileBehaviors = new(projectileBehaviors);
@@ -110,6 +118,7 @@ public sealed class RuntimeCapabilityRegistry
         FirePatterns = new(firePatterns);
         ScoreRules = new(scoreRules);
         SpecialGaugeRules = new(specialGaugeRules);
+        RankRules = new(rankRules);
         StageEventHandlers = new(stageEventHandlers);
     }
 
@@ -118,6 +127,7 @@ public sealed class RuntimeCapabilityRegistry
     public CapabilityRegistry<IFirePatternFactory> FirePatterns { get; }
     public CapabilityRegistry<IScoreRuleFactory> ScoreRules { get; }
     public CapabilityRegistry<ISpecialGaugeRuleFactory> SpecialGaugeRules { get; }
+    public CapabilityRegistry<IRankRuleFactory> RankRules { get; }
     public CapabilityRegistry<IStageEventHandler> StageEventHandlers { get; }
 
     public static RuntimeCapabilityRegistry CreateBuiltIn() => new(
@@ -139,6 +149,8 @@ public sealed class RuntimeCapabilityRegistry
             new BuiltInFirePatternFactory("double-washing-machine", FirePatternKind.DoubleWashingMachine)
         },
         scoreRules: BuiltInScoreRuleFactory.CreateAll(),
+        specialGaugeRules: new[] { new StandardSpecialGaugeRuleFactory() },
+        rankRules: new[] { new StandardRankRuleFactory() },
         stageEventHandlers: new IStageEventHandler[] { new SpawnEnemyStageEventHandler() });
 }
 
@@ -198,6 +210,13 @@ public sealed class CapabilityValidator
                 var path = $"rulesets/{ruleSet.Id}.json $.specialGaugeRule";
                 capabilities.SpecialGaugeRules.Resolve(ruleSet.SpecialGaugeRule.Type, path)
                     .Validate(ruleSet.SpecialGaugeRule, path);
+            }
+
+            if (ruleSet.RankRule is not null)
+            {
+                var path = $"rulesets/{ruleSet.Id}.json $.rankRule";
+                capabilities.RankRules.Resolve(ruleSet.RankRule.Type, path)
+                    .Validate(ruleSet.RankRule, path);
             }
         }
 

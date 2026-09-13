@@ -564,6 +564,16 @@ public sealed class DefinitionCatalog
             EnsureNonNegative(ruleSet.FocusMagnetRadius, $"Rule set '{ruleSet.Id}' focus magnet radius");
             EnsurePositive(ruleSet.ItemCollectionRadius, $"Rule set '{ruleSet.Id}' item collection radius");
             EnsurePositive(ruleSet.MaximumGauge, $"Rule set '{ruleSet.Id}' maximum gauge");
+            if (ruleSet.InitialLives is { } initialLives) EnsureRange(initialLives, 1, 99, $"Rule set '{ruleSet.Id}' initial lives");
+            if (ruleSet.InitialBombs is { } initialBombs) EnsureRange(initialBombs, 0, 99, $"Rule set '{ruleSet.Id}' initial bombs");
+            if (ruleSet.InitialPower is { } initialPower) EnsureNonNegative(initialPower, $"Rule set '{ruleSet.Id}' initial power");
+            EnsureRange(ruleSet.InitialGauge, 0, ruleSet.MaximumGauge, $"Rule set '{ruleSet.Id}' initial gauge");
+            if (ruleSet.TimeLimitSeconds is { } timeLimit) EnsurePositive(timeLimit, $"Rule set '{ruleSet.Id}' time limit");
+            EnsureKnownValue(ruleSet.ClearCondition, new[] { "route-complete", "time-attack" }, $"Rule set '{ruleSet.Id}' clear condition");
+            if (ruleSet.ClearCondition == "time-attack" && ruleSet.TimeLimitSeconds is null)
+            {
+                throw new DefinitionValidationException($"Rule set '{ruleSet.Id}' time-attack clear condition requires timeLimitSeconds.");
+            }
             EnsurePositive(ruleSet.MaximumPowerItemScoreValue, $"Rule set '{ruleSet.Id}' maximum-power item score");
             long previousThreshold = 0;
             foreach (var threshold in ruleSet.ExtendScoreThresholds)
@@ -579,6 +589,15 @@ public sealed class DefinitionCatalog
             foreach (var id in ruleSet.StageIds) _ = GetStage(id);
             foreach (var rule in ruleSet.ScoreRules) ValidateCapabilityShape(rule, $"Rule set '{ruleSet.Id}' score rule");
             if (ruleSet.SpecialGaugeRule is not null) ValidateCapabilityShape(ruleSet.SpecialGaugeRule, $"Rule set '{ruleSet.Id}' special gauge rule");
+            if (ruleSet.RankRule is not null)
+            {
+                ValidateCapabilityShape(ruleSet.RankRule, $"Rule set '{ruleSet.Id}' rank rule");
+                if (ruleSet.RankRule.Parameters.TryGetValue("revengeProjectileId", out var revenge) &&
+                    revenge.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(revenge.GetString()))
+                {
+                    _ = GetProjectile(revenge.GetString()!);
+                }
+            }
         }
 
         foreach (var difficulty in Difficulties.Values)
@@ -587,7 +606,13 @@ public sealed class DefinitionCatalog
             EnsurePositive(difficulty.ProjectileSpeedMultiplier, $"Difficulty '{difficulty.Id}' projectile speed multiplier");
             EnsurePositive(difficulty.FireIntervalMultiplier, $"Difficulty '{difficulty.Id}' fire interval multiplier");
             EnsurePositive(difficulty.EnemyHpMultiplier, $"Difficulty '{difficulty.Id}' enemy hp multiplier");
-            EnsureNonNegative(difficulty.AdditionalProjectileCount, $"Difficulty '{difficulty.Id}' additional projectile count");
+            EnsureRange(difficulty.AdditionalProjectileCount, 0, 1_000, $"Difficulty '{difficulty.Id}' additional projectile count");
+            var patternTags = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var tag in difficulty.PatternTags)
+            {
+                EnsureNotEmpty(tag, $"Difficulty '{difficulty.Id}' pattern tag");
+                if (!patternTags.Add(tag)) throw new DefinitionValidationException($"Difficulty '{difficulty.Id}' has duplicate pattern tag '{tag}'.");
+            }
         }
 
         foreach (var visual in Visuals.Values)
@@ -779,7 +804,8 @@ public sealed class DefinitionCatalog
         {
             EnsureNotEmpty(tag, $"{owner} difficulty tag");
             if (!unique.Add(tag)) throw new DefinitionValidationException($"{owner} has duplicate difficulty tag '{tag}'.");
-            if (!Difficulties.ContainsKey(tag))
+            if (!Difficulties.ContainsKey(tag) &&
+                !Difficulties.Values.Any(difficulty => difficulty.PatternTags.Contains(tag, StringComparer.Ordinal)))
             {
                 throw new DefinitionValidationException($"{owner} references unknown difficulty definition id '{tag}'.");
             }

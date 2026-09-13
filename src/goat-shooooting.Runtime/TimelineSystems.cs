@@ -68,7 +68,8 @@ public sealed class MotionTimelineSystem
         DefinitionCatalog definitions,
         string? difficultyId,
         float deltaTime,
-        SimulationTelemetry? telemetry = null)
+        SimulationTelemetry? telemetry = null,
+        IReadOnlyList<string>? patternTags = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(definitions);
@@ -77,7 +78,7 @@ public sealed class MotionTimelineSystem
             if (entity.Has<PendingDestroyComponent>()) continue;
             var state = entity.Get<MotionTimelineComponent>();
             var commands = TimelineCompiler.Compile(definitions, state.PatternId);
-            while (state.CommandIndex < commands.Count && !IsEnabled(commands[state.CommandIndex], difficultyId))
+            while (state.CommandIndex < commands.Count && !IsEnabled(commands[state.CommandIndex], difficultyId, patternTags))
             {
                 state.CommandIndex++;
             }
@@ -205,8 +206,13 @@ public sealed class MotionTimelineSystem
         _ => throw new InvalidOperationException($"Unsupported easing '{easing}'.")
     };
 
-    internal static bool IsEnabled(TimelineCommandDefinition command, string? difficultyId) =>
-        command.DifficultyTags.Count == 0 || difficultyId is not null && command.DifficultyTags.Contains(difficultyId, StringComparer.Ordinal);
+    internal static bool IsEnabled(
+        TimelineCommandDefinition command,
+        string? difficultyId,
+        IReadOnlyList<string>? patternTags = null) =>
+        command.DifficultyTags.Count == 0 ||
+        difficultyId is not null && command.DifficultyTags.Contains(difficultyId, StringComparer.Ordinal) ||
+        patternTags is not null && command.DifficultyTags.Any(tag => patternTags.Contains(tag, StringComparer.Ordinal));
 
     internal static float GetFloat(TimelineCommandDefinition command, string name, float defaultValue = 0) =>
         command.Parameters.TryGetValue(name, out var value) && value.TryGetSingle(out var result) ? result : defaultValue;
@@ -230,7 +236,8 @@ public sealed class AttackTimelineSystem
         string? difficultyId,
         float deltaTime,
         SimulationTelemetry telemetry,
-        ProjectileStore projectiles)
+        ProjectileStore projectiles,
+        IReadOnlyList<string>? patternTags = null)
     {
         foreach (var entity in world.Query<AttackTimelineComponent, TransformComponent>().ToArray())
         {
@@ -258,7 +265,7 @@ public sealed class AttackTimelineSystem
                 while (track.CommandIndex < track.Commands.Count)
                 {
                     var command = track.Commands[track.CommandIndex++];
-                    if (!MotionTimelineSystem.IsEnabled(command, difficultyId)) continue;
+                    if (!MotionTimelineSystem.IsEnabled(command, difficultyId, patternTags)) continue;
                     switch (command.Type)
                     {
                         case "fire":
