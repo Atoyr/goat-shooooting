@@ -45,6 +45,14 @@ dotnet run --project src/goat-shooooting.Tooling -- validate games/gauntlet
 
 成功時はコンテンツ数を表示してexit code 0、不正な参照・値・未知のプロパティ・JSON構文エラーはファイル、JSON Path、行・バイト位置を可能な範囲で表示してexit code 1を返します。
 
+現行Runtimeのheadless性能基準をJSONで取得する場合:
+
+```bash
+dotnet run --project src/goat-shooooting.Tooling -- benchmark games/sample
+```
+
+固定入力によるsample 600 updatesと、10,000 Bullet entityを保持するstress 1 updateについて、active entity／bullet数、update時間、allocation、結果checksumを出力します。時間とallocationは環境依存の比較値であり、テストの合否条件には使用しません。
+
 ## SampleGame
 
 通常起動:

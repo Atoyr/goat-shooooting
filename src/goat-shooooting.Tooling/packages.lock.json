@@ -2,8 +2,18 @@
   "version": 1,
   "dependencies": {
     "net8.0": {
+      "goat-shooooting.core": {
+        "type": "Project"
+      },
       "goat-shooooting.definitions": {
         "type": "Project"
+      },
+      "goat-shooooting.runtime": {
+        "type": "Project",
+        "dependencies": {
+          "goat-shooooting.Core": "[0.1.0, )",
+          "goat-shooooting.Definitions": "[0.1.0, )"
+        }
       }
     },
     "net8.0/win-x64": {}

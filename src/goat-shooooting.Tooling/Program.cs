@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using GoatShooooting.Definitions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -10,9 +11,10 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        if (args.Length < 2 || args[0] is not ("validate" or "editor"))
+        if (args.Length < 2 || args[0] is not ("validate" or "benchmark" or "editor"))
         {
-            Console.Error.WriteLine("Usage: goat-shooooting.Tooling validate|editor <game-directory> [--port 5078] [--no-open]");
+            Console.Error.WriteLine(
+                "Usage: goat-shooooting.Tooling validate|benchmark|editor <game-directory> [--port 5078] [--no-open]");
             return 2;
         }
 
@@ -22,7 +24,37 @@ public static class Program
             return Validate(rootDirectory);
         }
 
+        if (args[0] == "benchmark")
+        {
+            return Benchmark(rootDirectory);
+        }
+
         return await RunEditorAsync(rootDirectory, args).ConfigureAwait(false);
+    }
+
+    private static int Benchmark(string rootDirectory)
+    {
+        try
+        {
+            var catalog = new JsonDefinitionRepository(rootDirectory).Load();
+            var report = HeadlessBenchmarkRunner.Run(catalog);
+            Console.WriteLine(JsonSerializer.Serialize(report, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true
+            }));
+            return 0;
+        }
+        catch (Exception exception) when (exception is
+                   DefinitionValidationException or
+                   IOException or
+                   UnauthorizedAccessException or
+                   ArgumentException or
+                   InvalidOperationException)
+        {
+            Console.Error.WriteLine($"BENCHMARK FAILED: {exception.Message}");
+            return 1;
+        }
     }
 
     private static int Validate(string rootDirectory)

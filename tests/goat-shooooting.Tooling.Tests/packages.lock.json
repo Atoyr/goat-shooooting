@@ -1010,13 +1010,25 @@
           "xunit.extensibility.core": "[2.4.2]"
         }
       },
+      "goat-shooooting.core": {
+        "type": "Project"
+      },
       "goat-shooooting.definitions": {
         "type": "Project"
+      },
+      "goat-shooooting.runtime": {
+        "type": "Project",
+        "dependencies": {
+          "goat-shooooting.Core": "[0.1.0, )",
+          "goat-shooooting.Definitions": "[0.1.0, )"
+        }
       },
       "goat-shooooting.tooling": {
         "type": "Project",
         "dependencies": {
-          "goat-shooooting.Definitions": "[0.1.0, )"
+          "goat-shooooting.Core": "[0.1.0, )",
+          "goat-shooooting.Definitions": "[0.1.0, )",
+          "goat-shooooting.Runtime": "[0.1.0, )"
         }
       }
     },
