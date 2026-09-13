@@ -74,6 +74,9 @@ public sealed class ShipComponent(
     int initialPower,
     IReadOnlyList<string> normalWeaponIds,
     IReadOnlyList<string> focusWeaponIds,
+    int maximumPower = 100,
+    int maximumLives = 9,
+    int maximumBombs = 9,
     string? bombWeaponId = null,
     string? specialWeaponId = null,
     string? visualId = null)
@@ -86,12 +89,90 @@ public sealed class ShipComponent(
     public float HitRadius { get; } = hitRadius > 0 ? hitRadius : throw new ArgumentOutOfRangeException(nameof(hitRadius));
     public float GrazeRadius { get; } = grazeRadius >= hitRadius ? grazeRadius : throw new ArgumentOutOfRangeException(nameof(grazeRadius));
     public int Power { get; set; } = initialPower >= 0 ? initialPower : throw new ArgumentOutOfRangeException(nameof(initialPower));
+    public int MaximumPower { get; } = maximumPower >= initialPower
+        ? maximumPower
+        : throw new ArgumentOutOfRangeException(nameof(maximumPower));
+    public int MaximumLives { get; } = maximumLives > 0
+        ? maximumLives
+        : throw new ArgumentOutOfRangeException(nameof(maximumLives));
+    public int MaximumBombs { get; } = maximumBombs >= 0
+        ? maximumBombs
+        : throw new ArgumentOutOfRangeException(nameof(maximumBombs));
     public IReadOnlyList<string> NormalWeaponIds { get; } = normalWeaponIds.ToArray();
     public IReadOnlyList<string> FocusWeaponIds { get; } = focusWeaponIds.ToArray();
     public string? BombWeaponId { get; } = bombWeaponId;
     public string? SpecialWeaponId { get; } = specialWeaponId;
     public string? VisualId { get; } = visualId;
     public bool IsFocused { get; set; }
+}
+
+public enum PlayerLifeCycleState
+{
+    Active,
+    HitPending,
+    BombRescue,
+    Dying,
+    Respawning,
+    Invincible,
+    GameOverPending
+}
+
+public sealed class PlayerLifeCycleComponent(
+    Vector2 respawnPosition,
+    float deathAnimationSeconds,
+    float respawnDelaySeconds,
+    float respawnInvincibilitySeconds,
+    int powerLossOnDeath,
+    int bombsAfterRespawn)
+{
+    public PlayerLifeCycleState State { get; set; } = PlayerLifeCycleState.Active;
+    public float Timer { get; set; }
+    public Vector2 RespawnPosition { get; } = respawnPosition;
+    public float DeathAnimationSeconds { get; } = deathAnimationSeconds >= 0
+        ? deathAnimationSeconds
+        : throw new ArgumentOutOfRangeException(nameof(deathAnimationSeconds));
+    public float RespawnDelaySeconds { get; } = respawnDelaySeconds >= 0
+        ? respawnDelaySeconds
+        : throw new ArgumentOutOfRangeException(nameof(respawnDelaySeconds));
+    public float RespawnInvincibilitySeconds { get; } = respawnInvincibilitySeconds >= 0
+        ? respawnInvincibilitySeconds
+        : throw new ArgumentOutOfRangeException(nameof(respawnInvincibilitySeconds));
+    public int PowerLossOnDeath { get; } = powerLossOnDeath >= 0
+        ? powerLossOnDeath
+        : throw new ArgumentOutOfRangeException(nameof(powerLossOnDeath));
+    public int BombsAfterRespawn { get; } = bombsAfterRespawn >= 0
+        ? bombsAfterRespawn
+        : throw new ArgumentOutOfRangeException(nameof(bombsAfterRespawn));
+    public int? HitSourceEntityId { get; set; }
+    public bool CanAct => State is PlayerLifeCycleState.Active or PlayerLifeCycleState.Invincible;
+    public bool CanBeHit => State is PlayerLifeCycleState.Active or PlayerLifeCycleState.Invincible;
+}
+
+public enum ItemMotionState
+{
+    Scatter,
+    Falling,
+    Magnetized
+}
+
+public sealed class ItemComponent(string definitionId, string kind, int value, string visualId)
+{
+    public string DefinitionId { get; } = string.IsNullOrWhiteSpace(definitionId)
+        ? throw new ArgumentException("Item definition id must not be empty.", nameof(definitionId))
+        : definitionId;
+    public string Kind { get; } = string.IsNullOrWhiteSpace(kind)
+        ? throw new ArgumentException("Item kind must not be empty.", nameof(kind))
+        : kind;
+    public int Value { get; } = value > 0 ? value : throw new ArgumentOutOfRangeException(nameof(value));
+    public string VisualId { get; } = string.IsNullOrWhiteSpace(visualId)
+        ? throw new ArgumentException("Item visual id must not be empty.", nameof(visualId))
+        : visualId;
+}
+
+public sealed class ItemMotionComponent(Vector2 scatterVelocity)
+{
+    public ItemMotionState State { get; set; } = ItemMotionState.Scatter;
+    public Vector2 Velocity { get; set; } = scatterVelocity;
 }
 
 public sealed class OptionUnitComponent(

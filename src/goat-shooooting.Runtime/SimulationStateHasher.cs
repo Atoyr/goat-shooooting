@@ -18,11 +18,20 @@ internal static class SimulationStateHasher
         hash.Add(simulation.RandomState);
         hash.Add(simulation.RunState.Frame);
         hash.Add(simulation.RunState.Score);
+        hash.Add(simulation.RunState.Power);
+        hash.Add(simulation.RunState.Gauge);
+        hash.Add(simulation.RunState.CreditsRemaining);
+        hash.Add(simulation.RunState.ContinuesUsed);
+        hash.Add(simulation.RunState.Continued);
+        hash.Add(simulation.RunState.ClaimedExtendThresholds.Count);
+        foreach (var threshold in simulation.RunState.ClaimedExtendThresholds.Order()) hash.Add(threshold);
         hash.Add((int)simulation.Status);
         hash.Add((int)simulation.Phase);
         hash.Add(simulation.StageNumber);
         hash.Add(simulation.CurrentStage.Id);
         hash.Add(simulation.CurrentShip.Id);
+        hash.Add(simulation.CurrentRuleSet.Id);
+        hash.Add(simulation.CurrentDifficulty?.Id);
         hash.Add(simulation.Elapsed);
         hash.Add(simulation.PhaseElapsed);
         AddTelemetry(hash, simulation.Telemetry);
@@ -78,12 +87,41 @@ internal static class SimulationStateHasher
                 hash.Add(ship.HitRadius);
                 hash.Add(ship.GrazeRadius);
                 hash.Add(ship.Power);
+                hash.Add(ship.MaximumPower);
+                hash.Add(ship.MaximumLives);
+                hash.Add(ship.MaximumBombs);
                 AddStrings(hash, ship.NormalWeaponIds);
                 AddStrings(hash, ship.FocusWeaponIds);
                 hash.Add(ship.BombWeaponId);
                 hash.Add(ship.SpecialWeaponId);
                 hash.Add(ship.VisualId);
                 hash.Add(ship.IsFocused);
+            });
+            AddComponent(hash, entity.TryGet<PlayerLifeCycleComponent>(out var lifeCycle), () =>
+            {
+                hash.Add((int)lifeCycle.State);
+                hash.Add(lifeCycle.Timer);
+                hash.Add(lifeCycle.RespawnPosition.X);
+                hash.Add(lifeCycle.RespawnPosition.Y);
+                hash.Add(lifeCycle.DeathAnimationSeconds);
+                hash.Add(lifeCycle.RespawnDelaySeconds);
+                hash.Add(lifeCycle.RespawnInvincibilitySeconds);
+                hash.Add(lifeCycle.PowerLossOnDeath);
+                hash.Add(lifeCycle.BombsAfterRespawn);
+                hash.Add(lifeCycle.HitSourceEntityId ?? 0);
+            });
+            AddComponent(hash, entity.TryGet<ItemComponent>(out var item), () =>
+            {
+                hash.Add(item.DefinitionId);
+                hash.Add(item.Kind);
+                hash.Add(item.Value);
+                hash.Add(item.VisualId);
+            });
+            AddComponent(hash, entity.TryGet<ItemMotionComponent>(out var itemMotion), () =>
+            {
+                hash.Add((int)itemMotion.State);
+                hash.Add(itemMotion.Velocity.X);
+                hash.Add(itemMotion.Velocity.Y);
             });
             AddComponent(hash, entity.TryGet<OptionUnitComponent>(out var option), () =>
             {
@@ -226,10 +264,17 @@ internal static class SimulationStateHasher
         hash.Add(telemetry.DamageEventsApplied);
         hash.Add(telemetry.PlayerDamageEventsApplied);
         hash.Add(telemetry.BombsUsed);
+        hash.Add(telemetry.AutoBombsUsed);
         hash.Add(telemetry.EnemyBulletsCleared);
         hash.Add(telemetry.EnemiesKilled);
         hash.Add(telemetry.BossesKilled);
         hash.Add(telemetry.Score);
+        hash.Add(telemetry.ItemsSpawned);
+        hash.Add(telemetry.ItemsCollected);
+        hash.Add(telemetry.PlayerDeaths);
+        hash.Add(telemetry.PlayerRespawns);
+        hash.Add(telemetry.ExtendsAwarded);
+        hash.Add(telemetry.ContinuesUsed);
     }
 
     private static void AddComponent(StableHash hash, bool isPresent, Action addValues)

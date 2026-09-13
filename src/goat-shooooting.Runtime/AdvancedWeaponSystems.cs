@@ -69,6 +69,7 @@ public sealed class AdvancedWeaponSystem
         foreach (var player in world.Query<PlayerComponent, ShipComponent, TransformComponent>().ToArray())
         {
             if (player.Has<PendingDestroyComponent>()) continue;
+            if (player.TryGet<PlayerLifeCycleComponent>(out var lifeCycle) && !lifeCycle.CanAct) continue;
             var ship = player.Get<ShipComponent>();
             var weaponIds = ship.IsFocused ? ship.FocusWeaponIds : ship.NormalWeaponIds;
             ProcessWeapons(
@@ -120,6 +121,7 @@ public sealed class AdvancedWeaponSystem
             var option = optionEntity.Get<OptionUnitComponent>();
             var owner = OptionFollowSystem.FindEntity(world, option.OwnerEntityId);
             if (owner is null || !owner.TryGet<ShipComponent>(out var ship)) continue;
+            if (owner.TryGet<PlayerLifeCycleComponent>(out var lifeCycle) && !lifeCycle.CanAct) continue;
             ProcessWeapons(
                 world,
                 definitions,

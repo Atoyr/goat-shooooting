@@ -49,6 +49,8 @@ dotnet run --project src/goat-shooooting.Tooling -- validate games/gauntlet
 
 既存の`player.json`、`bullets/`、weapon／enemy／stageはschema v1として引き続き読め、読込時だけschema v2のShip／Projectile／Capability modelへ変換されます。v2専用directory（`ships/`、`projectiles/`、`items/`、`patterns/`、`bosses/`、`rulesets/`、`difficulties/`、`visuals/`、`audio/`）では各JSONに`"schemaVersion": 2`が必須です。未知のcapability typeやparameterはvalidation errorとなり、Runtimeのhot reloadは直前の正常なcatalogを維持します。
 
+v2 Shipでは通常／低速loadout、option、最大power、死亡／復帰時間、復帰位置、無敵時間、power loss、bomb補充数を設定できます。Enemyの`dropTable`から`power`／`score`／`bomb`／`life`／`gauge` Itemを出し、RuleSetで落下・吸引・collection line、score extend、auto-bomb、credit／continueを調整できます。Runtimeはmanual bombとauto-bomb、死亡、復帰、Item取得、Extend、Continueを型付きeventとして公開します。
+
 現行Runtimeのheadless性能基準をJSONで取得する場合:
 
 ```bash

@@ -8,6 +8,7 @@ public interface IInputState
     bool Fire { get; }
     bool Focus => false;
     bool Special => false;
+    bool Continue => false;
     bool Bomb { get; }
     bool Retry { get; }
     bool Pause { get; }
@@ -20,6 +21,7 @@ public sealed class MutableInputState : IInputState
     public bool Fire { get; set; }
     public bool Focus { get; set; }
     public bool Special { get; set; }
+    public bool Continue { get; set; }
     public bool Bomb { get; set; }
     public bool Retry { get; set; }
     public bool Pause { get; set; }

@@ -10,6 +10,24 @@
     "stageRouteId": { "type": "string", "minLength": 1 },
     "stageIds": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
     "allowContinue": { "type": "boolean", "default": true },
+    "initialCredits": { "type": "integer", "minimum": 0, "default": 0 },
+    "continueCreditCost": { "type": "integer", "minimum": 1, "default": 1 },
+    "manualBombCost": { "type": "integer", "minimum": 1, "default": 1 },
+    "autoBombCost": { "type": "integer", "minimum": 1, "default": 1 },
+    "bombInvincibilitySeconds": { "type": "number", "minimum": 0, "default": 1 },
+    "deathClearsProjectiles": { "type": "boolean", "default": true },
+    "extendScoreThresholds": {
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 },
+      "default": []
+    },
+    "collectionLineY": { "type": "number", "minimum": 0, "default": 120 },
+    "itemFallSpeed": { "type": "number", "minimum": 0, "default": 90 },
+    "itemMagnetSpeed": { "type": "number", "exclusiveMinimum": 0, "default": 480 },
+    "focusMagnetRadius": { "type": "number", "minimum": 0, "default": 120 },
+    "itemCollectionRadius": { "type": "number", "exclusiveMinimum": 0, "default": 18 },
+    "maximumGauge": { "type": "integer", "minimum": 1, "default": 100 },
+    "maximumPowerItemScoreValue": { "type": "integer", "minimum": 1, "default": 1000 },
     "scoreRules": { "type": "array", "items": { "$ref": "capability.schema.json" } },
     "specialGaugeRule": { "oneOf": [{ "$ref": "capability.schema.json" }, { "type": "null" }] }
   }

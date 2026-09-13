@@ -57,15 +57,39 @@ public sealed record RunConfiguration
 /// <summary>Mutable, authoritative values accumulated while a run is in progress.</summary>
 public sealed class RunState
 {
+    private readonly HashSet<long> _claimedExtendThresholds = new();
+
     public long Frame { get; internal set; }
     public long Score { get; internal set; }
+    public int Power { get; internal set; }
+    public int Gauge { get; internal set; }
+    public int CreditsRemaining { get; internal set; }
+    public int ContinuesUsed { get; internal set; }
+    public bool Continued { get; internal set; }
+    public IReadOnlyCollection<long> ClaimedExtendThresholds => _claimedExtendThresholds;
 
-    internal void Reset()
+    internal void Reset(int initialPower = 0, int initialCredits = 0)
     {
         Frame = 0;
         Score = 0;
+        Power = initialPower;
+        Gauge = 0;
+        CreditsRemaining = initialCredits;
+        ContinuesUsed = 0;
+        Continued = false;
+        _claimedExtendThresholds.Clear();
     }
+
+    internal bool ClaimExtend(long threshold) => _claimedExtendThresholds.Add(threshold);
 }
+
+public sealed record RunResult(
+    SimulationStatus Status,
+    long Score,
+    long Frames,
+    bool Continued,
+    int ContinuesUsed,
+    int CreditsRemaining);
 
 [Flags]
 public enum InputButtons : ushort
@@ -76,7 +100,8 @@ public enum InputButtons : ushort
     Retry = 1 << 2,
     Pause = 1 << 3,
     Focus = 1 << 4,
-    Special = 1 << 5
+    Special = 1 << 5,
+    Continue = 1 << 6
 }
 
 /// <summary>Replay-safe input sample with signed, eight-bit movement axes.</summary>
@@ -116,6 +141,7 @@ public readonly record struct InputFrame
         if (input.Fire) buttons |= InputButtons.Fire;
         if (input.Focus) buttons |= InputButtons.Focus;
         if (input.Special) buttons |= InputButtons.Special;
+        if (input.Continue) buttons |= InputButtons.Continue;
         if (input.Bomb) buttons |= InputButtons.Bomb;
         if (input.Retry) buttons |= InputButtons.Retry;
         if (input.Pause) buttons |= InputButtons.Pause;

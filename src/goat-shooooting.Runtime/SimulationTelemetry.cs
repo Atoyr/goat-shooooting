@@ -53,8 +53,15 @@ public sealed class SimulationTelemetry
     public int DamageEventsApplied { get; internal set; }
     public int PlayerDamageEventsApplied { get; internal set; }
     public int BombsUsed { get; internal set; }
+    public int AutoBombsUsed { get; internal set; }
     public int EnemyBulletsCleared { get; internal set; }
     public int EnemiesKilled { get; internal set; }
     public int BossesKilled { get; internal set; }
     public int Score { get; internal set; }
+    public int ItemsSpawned { get; internal set; }
+    public int ItemsCollected { get; internal set; }
+    public int PlayerDeaths { get; internal set; }
+    public int PlayerRespawns { get; internal set; }
+    public int ExtendsAwarded { get; internal set; }
+    public int ContinuesUsed { get; internal set; }
 }

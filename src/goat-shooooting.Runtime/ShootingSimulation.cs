@@ -34,6 +34,10 @@ public sealed class ShootingSimulation
     private readonly ProjectileCollisionSystem _projectileCollisionSystem = new();
     private readonly OptionFollowSystem _optionFollowSystem = new();
     private readonly LaserSystem _laserSystem = new();
+    private readonly PlayerLifeCycleSystem _playerLifeCycleSystem = new();
+    private readonly ItemDropSystem _itemDropSystem = new();
+    private readonly ItemSystem _itemSystem = new();
+    private readonly ExtendSystem _extendSystem = new();
     private readonly MovementSystem _movementSystem = new();
     private readonly MovementPatternSystem _movementPatternSystem = new();
     private readonly PlayerBoundsSystem _playerBoundsSystem = new();
@@ -87,6 +91,8 @@ public sealed class ShootingSimulation
     public DefinitionCatalog Definitions { get; private set; }
     public Entity Player { get; private set; }
     public ShipDefinition CurrentShip { get; private set; } = null!;
+    public RuleSetDefinition CurrentRuleSet { get; private set; } = null!;
+    public DifficultyDefinition? CurrentDifficulty { get; private set; }
     public ProjectileStore Projectiles { get; private set; } = null!;
     public SimulationTelemetry Telemetry { get; private set; }
     public RunConfiguration Configuration { get; }
@@ -104,6 +110,7 @@ public sealed class ShootingSimulation
     public SimulationFeedback Feedback { get; private set; }
     public int DefinitionReloadCount { get; private set; }
     public string? DefinitionReloadError { get; private set; }
+    public RunResult? Result { get; private set; }
     internal ulong RandomState => _randomSource.State;
 
     /// <summary>Advances exactly one 60Hz simulation tick using an immutable input sample.</summary>
@@ -177,7 +184,11 @@ public sealed class ShootingSimulation
 
         if (Status != SimulationStatus.Running)
         {
-            if (inputFrame.IsPressed(InputButtons.Retry))
+            if (inputFrame.IsPressed(InputButtons.Continue) && TryContinue())
+            {
+                CompleteStep(advanceFrame);
+            }
+            else if (inputFrame.IsPressed(InputButtons.Retry))
             {
                 Restart(inputFrame);
             }
@@ -230,6 +241,14 @@ public sealed class ShootingSimulation
             return;
         }
 
+        _playerLifeCycleSystem.Advance(World, deltaTime, Telemetry, Events);
+        if (Player.Get<PlayerLifeCycleComponent>().State == PlayerLifeCycleState.GameOverPending)
+        {
+            Status = SimulationStatus.GameOver;
+            CompleteStep(advanceFrame);
+            return;
+        }
+
         if (fixedTick)
         {
             _stageSystem.Tick(World, Definitions, Telemetry);
@@ -261,26 +280,54 @@ public sealed class ShootingSimulation
             _tickInput,
             Math.Min(Definitions.Game.Width, Definitions.Game.Height) * 0.4f,
             Telemetry,
-            Events);
+            Events,
+            CurrentRuleSet.ManualBombCost,
+            CurrentRuleSet.BombInvincibilitySeconds);
         _damageSystem.Update(bombDamage, Telemetry, Events);
         var laserDamage = _laserSystem.Update(World, Projectiles, deltaTime, Telemetry, Events);
-        _damageSystem.Update(laserDamage, Telemetry, Events);
         var damageEvents = _projectileCollisionSystem.Detect(
             Projectiles,
             _actorSpatialGrid,
             Telemetry,
             Events);
-        _damageSystem.Update(damageEvents, Telemetry, Events);
+        var allDamage = laserDamage.Concat(damageEvents).ToArray();
+        var autoBombDamage = _playerLifeCycleSystem.ResolveHits(
+            World,
+            allDamage,
+            Projectiles,
+            CurrentRuleSet,
+            CurrentDifficulty?.AutoBomb == true,
+            Math.Min(Definitions.Game.Width, Definitions.Game.Height) * 0.4f,
+            _bombSystem,
+            RunState,
+            Telemetry,
+            Events);
+        _damageSystem.Update(allDamage, Telemetry, Events);
+        _damageSystem.Update(autoBombDamage, Telemetry, Events);
+        _itemDropSystem.SpawnDrops(World, Definitions, Events.Events, _randomSource, Telemetry, Events);
+        RunState.Score = Telemetry.Score;
+        _itemSystem.Update(
+            World,
+            CurrentRuleSet,
+            deltaTime,
+            Definitions.Game.Height,
+            RunState,
+            Telemetry,
+            Events);
+        _extendSystem.Update(Player, CurrentRuleSet, RunState, Telemetry, Events);
         _projectileLifetimeSystem.Update(Projectiles);
         _feedbackSystem.Update(World, deltaTime);
         _cleanupSystem.Update(World);
         Projectiles.CommitRemovals();
 
-        if (!World.Query<PlayerComponent>().Any())
+        if (Player.Get<PlayerLifeCycleComponent>().State == PlayerLifeCycleState.GameOverPending)
         {
             Status = SimulationStatus.GameOver;
         }
-        else if (_stageSystem.IsCleared(World, Telemetry))
+        else if (_stageSystem.IsCleared(World, Telemetry) &&
+            !World.Query<ItemComponent>().Any() &&
+            Player.Get<PlayerLifeCycleComponent>().State is
+                PlayerLifeCycleState.Active or PlayerLifeCycleState.Invincible)
         {
             BeginResults();
         }
@@ -295,6 +342,17 @@ public sealed class ShootingSimulation
         if (advanceFrame)
         {
             RunState.Frame++;
+        }
+
+        if (Status != SimulationStatus.Running)
+        {
+            Result = new RunResult(
+                Status,
+                RunState.Score,
+                RunState.Frame,
+                RunState.Continued,
+                RunState.ContinuesUsed,
+                RunState.CreditsRemaining);
         }
     }
 
@@ -356,6 +414,8 @@ public sealed class ShootingSimulation
                 ? Definitions.Game.PlayerId
                 : Definitions.Game.ShipIds[0]);
         CurrentShip = Definitions.GetShip(shipId);
+        CurrentRuleSet = ResolveRuleSet();
+        CurrentDifficulty = ResolveDifficulty();
         var playerFactory = new PlayerFactory();
         if (Definitions.Players.TryGetValue(shipId, out var legacyPlayer))
         {
@@ -370,7 +430,7 @@ public sealed class ShootingSimulation
             Player = playerFactory.Create(World, CurrentShip, _playerStartPosition);
         }
         Telemetry = new SimulationTelemetry();
-        RunState.Reset();
+        RunState.Reset(CurrentShip.InitialPower, CurrentRuleSet.InitialCredits);
         _randomSource.Reset(Configuration.Seed);
         Events.BeginTick(0);
         Status = SimulationStatus.Running;
@@ -378,6 +438,7 @@ public sealed class ShootingSimulation
         _pauseWasPressed = inputFrame.IsPressed(InputButtons.Pause);
         _bombSystem.Reset(inputFrame.IsPressed(InputButtons.Bomb));
         Feedback = default;
+        Result = null;
         StageNumber = 0;
         LastStageScore = 0;
         _legacyAccumulator = 0;
@@ -391,6 +452,69 @@ public sealed class ShootingSimulation
         }
 
         StartStage(stageId);
+    }
+
+    public bool TryContinue()
+    {
+        if (Status != SimulationStatus.GameOver ||
+            !CurrentRuleSet.AllowContinue ||
+            RunState.CreditsRemaining < CurrentRuleSet.ContinueCreditCost) return false;
+
+        RunState.CreditsRemaining -= CurrentRuleSet.ContinueCreditCost;
+        RunState.Continued = true;
+        RunState.ContinuesUsed++;
+        Telemetry.ContinuesUsed++;
+        var lives = Player.Get<LivesComponent>();
+        lives.Remaining = lives.Initial;
+        var bombs = Player.Get<BombComponent>();
+        bombs.Remaining = Math.Min(CurrentShip.MaximumBombs, CurrentShip.BombsAfterRespawn);
+        var ship = Player.Get<ShipComponent>();
+        var previousPower = ship.Power;
+        ship.Power = CurrentShip.InitialPower;
+        RunState.Power = ship.Power;
+        if (previousPower != ship.Power)
+        {
+            Events.Publish((frame, sequence) => new PowerChangedEvent(
+                frame, sequence, Player.Id, previousPower, ship.Power, "continue"));
+        }
+
+        var lifeCycle = Player.Get<PlayerLifeCycleComponent>();
+        lifeCycle.State = PlayerLifeCycleState.Respawning;
+        lifeCycle.Timer = 0;
+        Projectiles.QueueRemoveAll();
+        Projectiles.CommitRemovals();
+        foreach (var item in World.Query<ItemComponent>().ToArray()) World.DestroyEntity(item);
+        Events.Publish((frame, sequence) => new ContinueUsedEvent(
+            frame, sequence, Player.Id, RunState.CreditsRemaining));
+        Status = SimulationStatus.Running;
+        Result = null;
+        return true;
+    }
+
+    private RuleSetDefinition ResolveRuleSet()
+    {
+        var ruleSetId = Configuration.RuleSetId;
+        if (string.IsNullOrWhiteSpace(ruleSetId)) ruleSetId = Definitions.Game.DefaultRuleSetId;
+        return string.IsNullOrWhiteSpace(ruleSetId)
+            ? new RuleSetDefinition
+            {
+                Id = "legacy",
+                StageRouteId = "legacy",
+                StageIds = new[] { Definitions.Game.StageId },
+                AllowContinue = false
+            }
+            : Definitions.GetRuleSet(ruleSetId);
+    }
+
+    private DifficultyDefinition? ResolveDifficulty()
+    {
+        var difficultyId = Configuration.DifficultyId;
+        if (string.IsNullOrWhiteSpace(difficultyId))
+        {
+            difficultyId = Definitions.Game.DifficultyIds.FirstOrDefault();
+        }
+
+        return string.IsNullOrWhiteSpace(difficultyId) ? null : Definitions.GetDifficulty(difficultyId);
     }
 
     private void BeginResults()

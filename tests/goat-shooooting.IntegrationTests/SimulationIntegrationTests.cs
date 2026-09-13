@@ -95,7 +95,10 @@ public sealed class SimulationIntegrationTests
         Assert.Equal(SimulationStatus.GameOver, simulation.Status);
         Assert.True(simulation.Telemetry.EnemyBulletsSpawned > 0);
         Assert.True(simulation.Telemetry.PlayerDamageEventsApplied > 0);
-        Assert.Empty(simulation.World.Query<PlayerComponent>());
+        Assert.Equal(
+            PlayerLifeCycleState.GameOverPending,
+            Assert.Single(simulation.World.Query<PlayerLifeCycleComponent>()).Get<PlayerLifeCycleComponent>().State);
+        Assert.Single(simulation.World.Query<PlayerComponent>());
 
         var completedWorld = simulation.World;
         var completedElapsed = simulation.Elapsed;
@@ -142,6 +145,35 @@ public sealed class SimulationIntegrationTests
         simulation.Update(0);
         Assert.Equal(50, enemy.Get<HealthComponent>().Current);
         Assert.Equal(1, simulation.Telemetry.BombsUsed);
+    }
+
+    [Fact]
+    public void ManualBombWinsSameTickCollisionRaceInProductionSimulation()
+    {
+        var input = new MutableInputState();
+        var simulation = new ShootingSimulation(
+            new MemoryDefinitionRepository(CreateDefinitions(spawnTime: 100, enemyHp: 10, enemySpeed: 0)),
+            input);
+        var position = simulation.Player.Get<TransformComponent>().Position;
+        simulation.Projectiles.QueueSpawn(new ProjectileSpawnCommand(
+            999,
+            ProjectileTeam.Enemy,
+            "enemy-shot",
+            position,
+            System.Numerics.Vector2.Zero,
+            3,
+            1,
+            5,
+            "enemy-shot"));
+        simulation.Projectiles.CommitSpawns();
+        var lives = simulation.Player.Get<LivesComponent>().Remaining;
+        input.Bomb = true;
+
+        simulation.Tick(InputFrame.Capture(input));
+
+        Assert.Equal(lives, simulation.Player.Get<LivesComponent>().Remaining);
+        Assert.Equal(BombUsageKind.Manual, Assert.Single(simulation.Events.Events.OfType<BombUsedEvent>()).Kind);
+        Assert.Empty(simulation.Events.Events.OfType<PlayerHitEvent>());
     }
 
     [Fact]

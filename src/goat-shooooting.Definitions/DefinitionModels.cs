@@ -49,6 +49,7 @@ public sealed record EnemyDefinition
     public float MovementAmplitude { get; init; }
     public float MovementFrequency { get; init; }
     public CapabilityDefinition? Motion { get; init; }
+    public IReadOnlyList<DropEntryDefinition> DropTable { get; init; } = Array.Empty<DropEntryDefinition>();
     [JsonIgnore]
     internal bool MigratedFromV1 { get; init; }
 }

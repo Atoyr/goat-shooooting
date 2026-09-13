@@ -169,6 +169,13 @@ public sealed class DefinitionCatalog
             EnsurePositive(enemy.Score, $"Enemy '{enemy.Id}' score");
             ValidateCapabilityShape(enemy.Motion!, $"Enemy '{enemy.Id}' motion");
             if (!string.IsNullOrWhiteSpace(enemy.WeaponId)) _ = GetWeapon(enemy.WeaponId);
+            foreach (var drop in enemy.DropTable)
+            {
+                _ = GetItem(drop.ItemId);
+                EnsureRange(drop.Count, 1, 100, $"Enemy '{enemy.Id}' drop count");
+                EnsureRange(drop.Chance, 0, 1, $"Enemy '{enemy.Id}' drop chance");
+                EnsureNonNegative(drop.ScatterSpeed, $"Enemy '{enemy.Id}' drop scatter speed");
+            }
         }
 
         foreach (var bullet in Bullets.Values)
@@ -291,6 +298,26 @@ public sealed class DefinitionCatalog
             EnsurePositive(ship.InitialLives, $"Ship '{ship.Id}' initial lives");
             EnsureNonNegative(ship.InitialBombs, $"Ship '{ship.Id}' initial bombs");
             EnsureNonNegative(ship.InitialPower, $"Ship '{ship.Id}' initial power");
+            EnsurePositive(ship.MaximumPower, $"Ship '{ship.Id}' maximum power");
+            EnsureRange(ship.InitialPower, 0, ship.MaximumPower, $"Ship '{ship.Id}' initial power");
+            EnsurePositive(ship.MaximumLives, $"Ship '{ship.Id}' maximum lives");
+            if (ship.MaximumLives < ship.InitialLives)
+            {
+                throw new DefinitionValidationException($"Ship '{ship.Id}' maximum lives must include its initial lives.");
+            }
+
+            EnsureNonNegative(ship.MaximumBombs, $"Ship '{ship.Id}' maximum bombs");
+            if (ship.MaximumBombs < ship.InitialBombs)
+            {
+                throw new DefinitionValidationException($"Ship '{ship.Id}' maximum bombs must include its initial bombs.");
+            }
+            EnsureNonNegative(ship.DeathAnimationSeconds, $"Ship '{ship.Id}' death animation seconds");
+            EnsureNonNegative(ship.RespawnDelaySeconds, $"Ship '{ship.Id}' respawn delay seconds");
+            EnsureNonNegative(ship.RespawnInvincibilitySeconds, $"Ship '{ship.Id}' respawn invincibility seconds");
+            EnsureNonNegative(ship.PowerLossOnDeath, $"Ship '{ship.Id}' power loss");
+            EnsureRange(ship.BombsAfterRespawn, 0, ship.MaximumBombs, $"Ship '{ship.Id}' respawn bombs");
+            if (ship.RespawnX is { } respawnX) EnsureFinite(respawnX, $"Ship '{ship.Id}' respawn x");
+            if (ship.RespawnY is { } respawnY) EnsureFinite(respawnY, $"Ship '{ship.Id}' respawn y");
             EnsureNonEmptyList(ship.NormalWeaponIds, $"Ship '{ship.Id}' normal weapon ids");
             EnsureNonEmptyList(ship.FocusWeaponIds, $"Ship '{ship.Id}' focus weapon ids");
             foreach (var id in ship.NormalWeaponIds) _ = GetWeapon(id);
@@ -412,6 +439,29 @@ public sealed class DefinitionCatalog
             EnsureSchemaV2(ruleSet.SchemaVersion, "rule set", ruleSet.Id);
             EnsureNotEmpty(ruleSet.StageRouteId, $"Rule set '{ruleSet.Id}' stage route id");
             EnsureNonEmptyList(ruleSet.StageIds, $"Rule set '{ruleSet.Id}' stage ids");
+            EnsureNonNegative(ruleSet.InitialCredits, $"Rule set '{ruleSet.Id}' initial credits");
+            EnsurePositive(ruleSet.ContinueCreditCost, $"Rule set '{ruleSet.Id}' continue credit cost");
+            EnsurePositive(ruleSet.ManualBombCost, $"Rule set '{ruleSet.Id}' manual bomb cost");
+            EnsurePositive(ruleSet.AutoBombCost, $"Rule set '{ruleSet.Id}' auto-bomb cost");
+            EnsureNonNegative(ruleSet.BombInvincibilitySeconds, $"Rule set '{ruleSet.Id}' bomb invincibility seconds");
+            EnsureRange(ruleSet.CollectionLineY, 0, Game.Height, $"Rule set '{ruleSet.Id}' collection line");
+            EnsureNonNegative(ruleSet.ItemFallSpeed, $"Rule set '{ruleSet.Id}' item fall speed");
+            EnsurePositive(ruleSet.ItemMagnetSpeed, $"Rule set '{ruleSet.Id}' item magnet speed");
+            EnsureNonNegative(ruleSet.FocusMagnetRadius, $"Rule set '{ruleSet.Id}' focus magnet radius");
+            EnsurePositive(ruleSet.ItemCollectionRadius, $"Rule set '{ruleSet.Id}' item collection radius");
+            EnsurePositive(ruleSet.MaximumGauge, $"Rule set '{ruleSet.Id}' maximum gauge");
+            EnsurePositive(ruleSet.MaximumPowerItemScoreValue, $"Rule set '{ruleSet.Id}' maximum-power item score");
+            long previousThreshold = 0;
+            foreach (var threshold in ruleSet.ExtendScoreThresholds)
+            {
+                if (threshold <= previousThreshold)
+                {
+                    throw new DefinitionValidationException(
+                        $"Rule set '{ruleSet.Id}' extend thresholds must be positive, unique, and ascending.");
+                }
+
+                previousThreshold = threshold;
+            }
             foreach (var id in ruleSet.StageIds) _ = GetStage(id);
             foreach (var rule in ruleSet.ScoreRules) ValidateCapabilityShape(rule, $"Rule set '{ruleSet.Id}' score rule");
             if (ruleSet.SpecialGaugeRule is not null) ValidateCapabilityShape(ruleSet.SpecialGaugeRule, $"Rule set '{ruleSet.Id}' special gauge rule");

@@ -447,6 +447,7 @@ public sealed class ShootingGame : Game
                 RenderKind.Laser => new Color(100, 245, 255, 190),
                 RenderKind.LockMarker => new Color(255, 80, 210, 180),
                 RenderKind.PlayerHitbox => new Color(255, 255, 255, 210),
+                RenderKind.Item => new Color(110, 255, 130),
                 _ => Color.White
             };
             var bounds = PrimitiveRenderLayout.ToRectangle(item);

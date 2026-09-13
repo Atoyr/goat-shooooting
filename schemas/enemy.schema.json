@@ -15,6 +15,21 @@
     "movementPattern": { "type": "string", "enum": ["straight", "sine", "zigzag"], "default": "straight" },
     "movementAmplitude": { "type": "number", "minimum": 0, "default": 0 },
     "movementFrequency": { "type": "number", "minimum": 0, "default": 0 },
-    "motion": { "$ref": "capability.schema.json" }
+    "motion": { "$ref": "capability.schema.json" },
+    "dropTable": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["itemId"],
+        "properties": {
+          "itemId": { "type": "string", "minLength": 1 },
+          "count": { "type": "integer", "minimum": 1, "maximum": 100, "default": 1 },
+          "chance": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
+          "scatterSpeed": { "type": "number", "minimum": 0, "default": 80 }
+        }
+      },
+      "default": []
+    }
   }
 }

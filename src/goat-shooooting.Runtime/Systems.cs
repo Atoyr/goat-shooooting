@@ -10,6 +10,12 @@ public sealed class PlayerInputSystem
     {
         foreach (var entity in world.Query<PlayerComponent, VelocityComponent>())
         {
+            if (entity.TryGet<PlayerLifeCycleComponent>(out var lifeCycle) && !lifeCycle.CanAct)
+            {
+                entity.Get<VelocityComponent>().Value = Vector2.Zero;
+                continue;
+            }
+
             var movement = new Vector2(
                 Math.Clamp(input.MoveX, -1f, 1f),
                 Math.Clamp(input.MoveY, -1f, 1f));
@@ -465,31 +471,45 @@ public sealed class BombSystem
         IInputState input,
         float effectRadius,
         SimulationTelemetry telemetry,
-        GameEventBuffer events)
+        GameEventBuffer events,
+        int bombCost = 1,
+        float invincibilitySeconds = 0)
     {
         ArgumentNullException.ThrowIfNull(projectiles);
         ArgumentNullException.ThrowIfNull(events);
-        var player = TryUseBomb(world, input, telemetry, events);
+        var player = TryUseBomb(
+            world,
+            input,
+            telemetry,
+            events,
+            bombCost,
+            invincibilitySeconds,
+            BombUsageKind.Manual);
         if (player is null)
         {
             return Array.Empty<DamageEvent>();
         }
 
-        for (var index = 0; index < projectiles.ActiveCount; index++)
-        {
-            if (projectiles.TeamAt(index) != ProjectileTeam.Enemy ||
-                projectiles.IsPendingRemovalAt(index) ||
-                !projectiles.CanBeCancelledAt(index))
-            {
-                continue;
-            }
+        ClearEnemyProjectiles(projectiles, telemetry, events);
 
-            projectiles.QueueRemoveAt(index);
-            telemetry.EnemyBulletsCleared++;
-            var projectileId = projectiles.IdAt(index);
-            events.Publish((frame, sequence) => new ProjectileCancelledEvent(frame, sequence, projectileId));
-        }
+        return CreateEffectAndDamage(world, player, effectRadius);
+    }
 
+    public IReadOnlyList<DamageEvent> UseAutoBomb(
+        World world,
+        ProjectileStore projectiles,
+        Entity player,
+        float effectRadius,
+        int bombCost,
+        float invincibilitySeconds,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        ArgumentNullException.ThrowIfNull(player);
+        var bombs = player.Get<BombComponent>();
+        if (bombCost <= 0 || bombs.Remaining < bombCost) return Array.Empty<DamageEvent>();
+        ConsumeBomb(player, bombCost, invincibilitySeconds, BombUsageKind.Auto, telemetry, events);
+        ClearEnemyProjectiles(projectiles, telemetry, events);
         return CreateEffectAndDamage(world, player, effectRadius);
     }
 
@@ -499,7 +519,10 @@ public sealed class BombSystem
         World world,
         IInputState input,
         SimulationTelemetry telemetry,
-        GameEventBuffer? events)
+        GameEventBuffer? events,
+        int bombCost = 1,
+        float invincibilitySeconds = 0,
+        BombUsageKind kind = BombUsageKind.Manual)
     {
         if (!input.Bomb)
         {
@@ -520,16 +543,55 @@ public sealed class BombSystem
             return null;
         }
 
-        var bombs = player.Get<BombComponent>();
-        if (bombs.Remaining <= 0)
+        if (player.TryGet<PlayerLifeCycleComponent>(out var lifeCycle) && !lifeCycle.CanAct)
         {
             return null;
         }
 
-        bombs.Remaining--;
-        telemetry.BombsUsed++;
-        events?.Publish((frame, sequence) => new BombUsedEvent(frame, sequence, player.Id));
+        var bombs = player.Get<BombComponent>();
+        if (bombCost <= 0 || bombs.Remaining < bombCost)
+        {
+            return null;
+        }
+
+        ConsumeBomb(player, bombCost, invincibilitySeconds, kind, telemetry, events);
         return player;
+    }
+
+    private static void ConsumeBomb(
+        Entity player,
+        int bombCost,
+        float invincibilitySeconds,
+        BombUsageKind kind,
+        SimulationTelemetry telemetry,
+        GameEventBuffer? events)
+    {
+        player.Get<BombComponent>().Remaining -= bombCost;
+        telemetry.BombsUsed++;
+        if (kind == BombUsageKind.Auto) telemetry.AutoBombsUsed++;
+        if (invincibilitySeconds > 0 && player.TryGet<InvincibilityComponent>(out var invincibility))
+        {
+            invincibility.Remaining = Math.Max(invincibility.Remaining, invincibilitySeconds);
+        }
+
+        events?.Publish((frame, sequence) => new BombUsedEvent(frame, sequence, player.Id, kind));
+    }
+
+    internal static void ClearEnemyProjectiles(
+        ProjectileStore projectiles,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        for (var index = 0; index < projectiles.ActiveCount; index++)
+        {
+            if (projectiles.TeamAt(index) != ProjectileTeam.Enemy ||
+                projectiles.IsPendingRemovalAt(index) ||
+                !projectiles.CanBeCancelledAt(index)) continue;
+            projectiles.QueueRemoveAt(index);
+            telemetry.EnemyBulletsCleared++;
+            var projectileId = projectiles.IdAt(index);
+            events.Publish((frame, sequence) => new ProjectileCancelledEvent(frame, sequence, projectileId));
+        }
     }
 
     private static IReadOnlyList<DamageEvent> CreateEffectAndDamage(
@@ -566,6 +628,12 @@ public sealed class DamageSystem
 
             if (damageEvent.Target.TryGet<InvincibilityComponent>(out var invincibility) &&
                 invincibility.Remaining > 0)
+            {
+                continue;
+            }
+
+            if (damageEvent.Target.Has<PlayerComponent>() &&
+                damageEvent.Target.Has<PlayerLifeCycleComponent>())
             {
                 continue;
             }
@@ -736,7 +804,8 @@ public enum RenderKind
     Option,
     Laser,
     LockMarker,
-    PlayerHitbox
+    PlayerHitbox,
+    Item
 }
 
 public readonly record struct RenderItem(
@@ -769,6 +838,14 @@ public sealed class RenderSystem
         foreach (var entity in world.Query<TransformComponent, ColliderComponent>())
         {
             if (entity.Has<PendingDestroyComponent>())
+            {
+                continue;
+            }
+
+            if (entity.TryGet<PlayerLifeCycleComponent>(out var lifeCycle) &&
+                lifeCycle.State is PlayerLifeCycleState.Dying or
+                    PlayerLifeCycleState.Respawning or
+                    PlayerLifeCycleState.GameOverPending)
             {
                 continue;
             }
@@ -809,6 +886,8 @@ public sealed class RenderSystem
         foreach (var entity in world.Query<TransformComponent, OptionUnitComponent>())
         {
             var option = entity.Get<OptionUnitComponent>();
+            var owner = OptionFollowSystem.FindEntity(world, option.OwnerEntityId);
+            if (owner?.TryGet<PlayerLifeCycleComponent>(out var lifeCycle) == true && !lifeCycle.CanAct) continue;
             items.Add(new RenderItem(
                 entity.Id,
                 RenderKind.Option,
@@ -816,6 +895,19 @@ public sealed class RenderSystem
                 option.Radius,
                 1,
                 VisualId: option.VisualId));
+        }
+
+        foreach (var entity in world.Query<TransformComponent, ItemComponent>())
+        {
+            if (entity.Has<PendingDestroyComponent>()) continue;
+            var item = entity.Get<ItemComponent>();
+            items.Add(new RenderItem(
+                entity.Id,
+                RenderKind.Item,
+                entity.Get<TransformComponent>().Position,
+                6,
+                1,
+                VisualId: item.VisualId));
         }
 
         foreach (var entity in world.Query<TransformComponent, LaserComponent>())

@@ -224,6 +224,15 @@ P0では既存ゲームの進行を変更せず、後続Phaseが共有する次�
 - renderer-neutralな`RenderItem`へvisual ID、矩形size、rotationを加え、ship、option、laser、lock marker、focus中のhitboxをFrameworkへ渡す。canonical hashにはShip、Option、Weapon action state、Laserを安定順序で含める。
 - keyboard既定値はFocus=`LeftControl`、Special=`C`とし、gamepadはLeft／Right Shoulderへ割り当てる。v1の`X`／Shift bomb aliasは維持する。settings schema 1以下はschema 2へ自動migrationして新しい割当を補完する。
 
+### 4.11 P5実装注記（Player life cycle、Item、Continue）
+
+- Production Playerは`Active -> HitPending -> BombRescue | Dying -> Respawning -> Invincible -> Active`を`PlayerLifeCycleComponent`で保持する。最終lifeではdeath animation後にEntityを破棄せず`GameOverPending`へ移し、結果／continue判断に必要なstateを残す。Dying／Respawning／BombRescue中は移動、射撃、当たり判定から除外し、respawn位置、death／respawn時間、無敵、power loss、bomb restockはShip定義を使う。
+- 1 tick内ではmanual bombをcollision前、auto-bombをcontact検出後かつ`PlayerHitEvent`確定前に解決する。`BombUsedEvent.Kind`でmanual／autoを区別する。manual／auto bombはcancel可能な敵Projectileを消し、death clearはcancel耐性にかかわらず敵Projectileを画面から除去する。
+- ItemはActorと同じECS境界に置き、`power`、`score`、`bomb`、`life`、`gauge`を標準処理する。Enemyのdrop tableはseed付き`IRandomSource`でchanceとscatterを決め、scatter→fall→magnet→collectを進める。collection line到達時は全Item、focus中は範囲内Itemを吸引し、power上限時はRuleSetのscore値へ変換する。
+- score extend thresholdは`RunState`にclaim済みthresholdを保持してrun中1回だけ付与し、life itemも`ExtendAwardedEvent`を発行する。`RunState`はpower、gauge、credit、continued flag、continue回数を正式状態として保持する。
+- `TryContinue()`／`InputButtons.Continue`はRuleSetの許可とcredit costを検証し、同じstage stateでPlayerをrespawnへ戻す。`RunResult`へcontinued flag、continue回数、残creditを反映する。Continue選択の最終UIはP10で接続する。
+- v1 Player／Enemyにはmemory migrationで安全なlife-cycle既定値と空drop tableを補完する。legacy contentではcontinueを無効にした合成RuleSetを使い、既存sample／gauntletの定義と保存データを書き換えない。
+
 ## 5. Definition v2
 
 すべてを一度に巨大な`game.json`へ入れず、次の単位を追加する。

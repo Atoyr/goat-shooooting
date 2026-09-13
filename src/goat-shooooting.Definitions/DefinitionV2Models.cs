@@ -20,6 +20,16 @@ public sealed record ShipDefinition
     public int InitialLives { get; init; } = 2;
     public int InitialBombs { get; init; } = 2;
     public int InitialPower { get; init; }
+    public int MaximumPower { get; init; } = 100;
+    public int MaximumLives { get; init; } = 9;
+    public int MaximumBombs { get; init; } = 9;
+    public float DeathAnimationSeconds { get; init; } = 0.35f;
+    public float RespawnDelaySeconds { get; init; } = 0.45f;
+    public float RespawnInvincibilitySeconds { get; init; } = 2;
+    public int PowerLossOnDeath { get; init; } = 10;
+    public int BombsAfterRespawn { get; init; } = 2;
+    public float? RespawnX { get; init; }
+    public float? RespawnY { get; init; }
     public IReadOnlyList<string> NormalWeaponIds { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> FocusWeaponIds { get; init; } = Array.Empty<string>();
     public string? BombWeaponId { get; init; }
@@ -116,6 +126,14 @@ public sealed record ItemDefinition
     public string VisualId { get; init; } = string.Empty;
 }
 
+public sealed record DropEntryDefinition
+{
+    public string ItemId { get; init; } = string.Empty;
+    public int Count { get; init; } = 1;
+    public float Chance { get; init; } = 1;
+    public float ScatterSpeed { get; init; } = 80;
+}
+
 public sealed record PatternDefinition
 {
     public int SchemaVersion { get; init; } = 2;
@@ -160,6 +178,20 @@ public sealed record RuleSetDefinition
     public string StageRouteId { get; init; } = string.Empty;
     public IReadOnlyList<string> StageIds { get; init; } = Array.Empty<string>();
     public bool AllowContinue { get; init; } = true;
+    public int InitialCredits { get; init; }
+    public int ContinueCreditCost { get; init; } = 1;
+    public int ManualBombCost { get; init; } = 1;
+    public int AutoBombCost { get; init; } = 1;
+    public float BombInvincibilitySeconds { get; init; } = 1;
+    public bool DeathClearsProjectiles { get; init; } = true;
+    public IReadOnlyList<long> ExtendScoreThresholds { get; init; } = Array.Empty<long>();
+    public float CollectionLineY { get; init; } = 120;
+    public float ItemFallSpeed { get; init; } = 90;
+    public float ItemMagnetSpeed { get; init; } = 480;
+    public float FocusMagnetRadius { get; init; } = 120;
+    public float ItemCollectionRadius { get; init; } = 18;
+    public int MaximumGauge { get; init; } = 100;
+    public int MaximumPowerItemScoreValue { get; init; } = 1000;
     public IReadOnlyList<CapabilityDefinition> ScoreRules { get; init; } = Array.Empty<CapabilityDefinition>();
     public CapabilityDefinition? SpecialGaugeRule { get; init; }
 }

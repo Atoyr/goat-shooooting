@@ -20,7 +20,7 @@ public sealed class PlayerFactory
         ShipDefinition definition,
         Vector2 position,
         int bombDamage = 50,
-        float invincibilitySeconds = 1)
+        float? invincibilitySeconds = null)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(definition);
@@ -42,9 +42,19 @@ public sealed class PlayerFactory
                 definition.InitialPower,
                 definition.NormalWeaponIds,
                 definition.FocusWeaponIds,
+                definition.MaximumPower,
+                definition.MaximumLives,
+                definition.MaximumBombs,
                 definition.BombWeaponId,
                 definition.SpecialWeaponId,
                 definition.VisualId))
+            .Add(new PlayerLifeCycleComponent(
+                new Vector2(definition.RespawnX ?? position.X, definition.RespawnY ?? position.Y),
+                definition.DeathAnimationSeconds,
+                definition.RespawnDelaySeconds,
+                definition.RespawnInvincibilitySeconds,
+                definition.PowerLossOnDeath,
+                definition.BombsAfterRespawn))
             .Add(new WeaponRuntimeComponent());
 
         if (definition.NormalWeaponIds.Count > 0)
@@ -52,10 +62,8 @@ public sealed class PlayerFactory
             entity.Add(new WeaponHolderComponent(definition.NormalWeaponIds[0]));
         }
 
-        if (invincibilitySeconds > 0)
-        {
-            entity.Add(new InvincibilityComponent(invincibilitySeconds));
-        }
+        var invincibilityDuration = invincibilitySeconds ?? definition.RespawnInvincibilitySeconds;
+        entity.Add(new InvincibilityComponent(Math.Max(0.0001f, invincibilityDuration)));
 
         foreach (var option in definition.Options)
         {

@@ -159,6 +159,7 @@ public sealed class ActorSpatialGrid
             if (entity.Has<PendingDestroyComponent>() ||
                 !entity.TryGet<TransformComponent>(out var transform) ||
                 !entity.TryGet<ColliderComponent>(out var collider) ||
+                (entity.TryGet<PlayerLifeCycleComponent>(out var lifeCycle) && !lifeCycle.CanBeHit) ||
                 collider.Layer is not (CollisionLayer.Player or CollisionLayer.Enemy))
             {
                 continue;

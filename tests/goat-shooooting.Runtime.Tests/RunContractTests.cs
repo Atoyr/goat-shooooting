@@ -50,6 +50,7 @@ public sealed class RunContractTests
             Fire = true,
             Focus = true,
             Special = true,
+            Continue = true,
             Pause = true
         };
 
@@ -63,6 +64,7 @@ public sealed class RunContractTests
         Assert.False(frame.IsPressed(InputButtons.Bomb));
         Assert.True(frame.IsPressed(InputButtons.Focus));
         Assert.True(frame.IsPressed(InputButtons.Special));
+        Assert.True(frame.IsPressed(InputButtons.Continue));
     }
 
     [Theory]

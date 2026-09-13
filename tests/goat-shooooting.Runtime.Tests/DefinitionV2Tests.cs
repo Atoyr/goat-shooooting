@@ -34,6 +34,9 @@ public sealed class DefinitionV2Tests
         Assert.Equal("ship-a", catalog.GetShip("ship-a").Id);
         Assert.Equal("shot", catalog.GetProjectile("shot").Id);
         Assert.Equal("power-small", catalog.GetItem("power-small").Id);
+        Assert.Equal(2, catalog.GetEnemy("enemy").DropTable[0].Count);
+        Assert.Equal(20, catalog.GetShip("ship-a").PowerLossOnDeath);
+        Assert.Equal(new long[] { 100000, 300000 }, catalog.GetRuleSet("rules").ExtendScoreThresholds);
         Assert.Equal("motion-a", catalog.GetPattern("motion-a").Id);
         Assert.Equal("boss-a", catalog.GetBoss("boss-a").Id);
         Assert.Equal("rules", catalog.GetRuleSet("rules").Id);
@@ -188,14 +191,14 @@ public sealed class DefinitionV2Tests
                 {"schemaVersion":2,"id":"commercial","defaultRuleSetId":"rules","ruleSetIds":["rules"],"difficultyIds":["arcade"],"shipIds":["ship-a"],"stageRouteId":"main"}
                 """);
             fixture.Write("ships/ship-a.json", """
-                {"schemaVersion":2,"id":"ship-a","hitRadius":3,"grazeRadius":24,"normalSpeed":240,"focusSpeed":120,"normalWeaponIds":["weapon"],"focusWeaponIds":["weapon"],"visualId":"ship-visual","audioId":"shot-sound"}
+                {"schemaVersion":2,"id":"ship-a","hitRadius":3,"grazeRadius":24,"normalSpeed":240,"focusSpeed":120,"initialPower":40,"maximumPower":100,"deathAnimationSeconds":0.4,"respawnDelaySeconds":0.5,"respawnInvincibilitySeconds":2,"powerLossOnDeath":20,"bombsAfterRespawn":2,"normalWeaponIds":["weapon"],"focusWeaponIds":["weapon"],"visualId":"ship-visual","audioId":"shot-sound"}
                 """);
             fixture.Write("projectiles/shot.json", ProjectileJson("straight", "{}"));
             fixture.Write("weapons/weapon.json", """
                 {"schemaVersion":2,"id":"weapon","projectileId":"shot","cooldown":0.1,"pattern":{"type":"spread","parameters":{"projectileCount":1,"spreadDegrees":0}}}
                 """);
             fixture.Write("enemies/enemy.json", """
-                {"schemaVersion":2,"id":"enemy","hp":100,"speed":10,"radius":12,"motion":{"type":"straight","parameters":{}}}
+                {"schemaVersion":2,"id":"enemy","hp":100,"speed":10,"radius":12,"motion":{"type":"straight","parameters":{}},"dropTable":[{"itemId":"power-small","count":2,"chance":1,"scatterSpeed":80}]}
                 """);
             fixture.Write("items/power-small.json", """
                 {"schemaVersion":2,"id":"power-small","kind":"power","value":1,"visualId":"item-visual"}
@@ -213,7 +216,7 @@ public sealed class DefinitionV2Tests
                 {"schemaVersion":2,"id":"stage","events":[]}
                 """);
             fixture.Write("rulesets/rules.json", """
-                {"schemaVersion":2,"id":"rules","stageRouteId":"main","stageIds":["stage"],"allowContinue":true,"scoreRules":[]}
+                {"schemaVersion":2,"id":"rules","stageRouteId":"main","stageIds":["stage"],"allowContinue":true,"initialCredits":2,"continueCreditCost":1,"manualBombCost":1,"autoBombCost":2,"bombInvincibilitySeconds":1,"deathClearsProjectiles":true,"extendScoreThresholds":[100000,300000],"collectionLineY":120,"itemFallSpeed":90,"itemMagnetSpeed":480,"focusMagnetRadius":120,"itemCollectionRadius":18,"maximumGauge":100,"maximumPowerItemScoreValue":1000,"scoreRules":[]}
                 """);
             fixture.Write("difficulties/arcade.json", """
                 {"schemaVersion":2,"id":"arcade","projectileSpeedMultiplier":1,"fireIntervalMultiplier":1,"enemyHpMultiplier":1}

@@ -51,16 +51,61 @@ public sealed record ItemCollectedEvent(
     string ItemDefinitionId,
     int Value) : IGameplayEvent;
 
+public sealed record ItemSpawnedEvent(
+    long Frame,
+    int Sequence,
+    int ItemEntityId,
+    string ItemDefinitionId) : IGameplayEvent;
+
 public sealed record PlayerHitEvent(
     long Frame,
     int Sequence,
     int PlayerEntityId,
     int? ProjectileEntityId) : IGameplayEvent;
 
-public sealed record BombUsedEvent(
+public sealed record PlayerDiedEvent(
+    long Frame,
+    int Sequence,
+    int PlayerEntityId,
+    int RemainingLives) : IGameplayEvent;
+
+public sealed record PlayerRespawnedEvent(
     long Frame,
     int Sequence,
     int PlayerEntityId) : IGameplayEvent;
+
+public sealed record PowerChangedEvent(
+    long Frame,
+    int Sequence,
+    int PlayerEntityId,
+    int PreviousPower,
+    int CurrentPower,
+    string Reason) : IGameplayEvent;
+
+public sealed record ExtendAwardedEvent(
+    long Frame,
+    int Sequence,
+    int PlayerEntityId,
+    string Source,
+    long? ScoreThreshold = null) : IGameplayEvent;
+
+public sealed record ContinueUsedEvent(
+    long Frame,
+    int Sequence,
+    int PlayerEntityId,
+    int CreditsRemaining) : IGameplayEvent;
+
+public enum BombUsageKind
+{
+    Manual,
+    Auto
+}
+
+public sealed record BombUsedEvent(
+    long Frame,
+    int Sequence,
+    int PlayerEntityId,
+    BombUsageKind Kind = BombUsageKind.Manual) : IGameplayEvent;
 
 public sealed record BossPhaseEndedEvent(
     long Frame,
