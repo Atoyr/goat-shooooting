@@ -48,7 +48,8 @@ public readonly record struct ProjectileSpawnCommand(
     ProjectileCancelResistance CancelResistance = ProjectileCancelResistance.Soft,
     int PierceCount = 0,
     ProjectileDamageType DamageType = ProjectileDamageType.Normal,
-    ProjectileClearBehavior ClearBehavior = ProjectileClearBehavior.Remove);
+    ProjectileClearBehavior ClearBehavior = ProjectileClearBehavior.Remove,
+    float AccelerationPerSecond = 0);
 
 public readonly record struct ProjectileSnapshot(
     int Id,
@@ -70,6 +71,7 @@ public readonly record struct ProjectileSnapshot(
     int PierceCount,
     ProjectileDamageType DamageType,
     ProjectileClearBehavior ClearBehavior,
+    float AccelerationPerSecond,
     int GrazedPlayerEntityId,
     bool PendingRemoval);
 
@@ -98,6 +100,7 @@ public sealed class ProjectileStore
     private int[] _pierceCounts;
     private ProjectileDamageType[] _damageTypes;
     private ProjectileClearBehavior[] _clearBehaviors;
+    private float[] _accelerations;
     private int[] _grazedPlayerEntityIds;
     private bool[] _pendingRemoval;
     private int _nextId = 1;
@@ -130,6 +133,7 @@ public sealed class ProjectileStore
         _pierceCounts = new int[capacity];
         _damageTypes = new ProjectileDamageType[capacity];
         _clearBehaviors = new ProjectileClearBehavior[capacity];
+        _accelerations = new float[capacity];
         _grazedPlayerEntityIds = new int[capacity];
         _pendingRemoval = new bool[capacity];
     }
@@ -173,6 +177,7 @@ public sealed class ProjectileStore
             _pierceCounts[index] = command.PierceCount;
             _damageTypes[index] = command.DamageType;
             _clearBehaviors[index] = command.ClearBehavior;
+            _accelerations[index] = command.AccelerationPerSecond;
             _grazedPlayerEntityIds[index] = 0;
             _pendingRemoval[index] = false;
             events?.Publish((frame, sequence) => new ProjectileSpawnedEvent(
@@ -237,6 +242,7 @@ public sealed class ProjectileStore
             _pierceCounts[index],
             _damageTypes[index],
             _clearBehaviors[index],
+            _accelerations[index],
             _grazedPlayerEntityIds[index],
             _pendingRemoval[index]);
     }
@@ -261,6 +267,7 @@ public sealed class ProjectileStore
     internal ref int PierceCountAt(int index) => ref _pierceCounts[index];
     internal ProjectileDamageType DamageTypeAt(int index) => _damageTypes[index];
     internal ProjectileClearBehavior ClearBehaviorAt(int index) => _clearBehaviors[index];
+    internal float AccelerationAt(int index) => _accelerations[index];
     internal ref int GrazedPlayerEntityIdAt(int index) => ref _grazedPlayerEntityIds[index];
     internal bool IsPendingRemovalAt(int index) => _pendingRemoval[index];
 
@@ -282,6 +289,7 @@ public sealed class ProjectileStore
         if (!float.IsFinite(command.HitRadius) || command.HitRadius <= 0 ||
             !float.IsFinite(command.Lifetime) || command.Lifetime <= 0 ||
             !float.IsFinite(command.HomingTurnRadiansPerSecond) || command.HomingTurnRadiansPerSecond < 0 ||
+            !float.IsFinite(command.AccelerationPerSecond) ||
             command.Damage <= 0 || command.PierceCount < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(command), "Projectile numeric values are invalid.");
@@ -316,6 +324,7 @@ public sealed class ProjectileStore
         Array.Resize(ref _pierceCounts, capacity);
         Array.Resize(ref _damageTypes, capacity);
         Array.Resize(ref _clearBehaviors, capacity);
+        Array.Resize(ref _accelerations, capacity);
         Array.Resize(ref _grazedPlayerEntityIds, capacity);
         Array.Resize(ref _pendingRemoval, capacity);
     }
@@ -345,6 +354,7 @@ public sealed class ProjectileStore
             _pierceCounts[index] = _pierceCounts[last];
             _damageTypes[index] = _damageTypes[last];
             _clearBehaviors[index] = _clearBehaviors[last];
+            _accelerations[index] = _accelerations[last];
             _grazedPlayerEntityIds[index] = _grazedPlayerEntityIds[last];
             _pendingRemoval[index] = _pendingRemoval[last];
         }

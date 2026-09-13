@@ -33,6 +33,13 @@ public sealed class ProjectileMovementSystem
                 UpdateHomingVelocity(projectiles, index, world, position, ref velocity, deltaTime);
             }
 
+            var acceleration = projectiles.AccelerationAt(index);
+            if (acceleration != 0 && velocity != Vector2.Zero)
+            {
+                var speed = Math.Max(0, velocity.Length() + (acceleration * deltaTime));
+                velocity = speed == 0 ? Vector2.Zero : Vector2.Normalize(velocity) * speed;
+            }
+
             position += velocity * deltaTime;
             projectiles.AgeAt(index) += deltaTime;
             if (velocity != Vector2.Zero)

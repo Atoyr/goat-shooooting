@@ -97,7 +97,9 @@ public sealed class EnemyFactory(RuntimeCapabilityRegistry? capabilities = null)
 
         var entity = world.CreateEntity()
             .Add(new TransformComponent(position))
-            .Add(new VelocityComponent(new Vector2(0, definition.Speed)))
+            .Add(new VelocityComponent(string.IsNullOrWhiteSpace(definition.MotionPatternId)
+                ? new Vector2(0, definition.Speed)
+                : Vector2.Zero))
             .Add(new HealthComponent(definition.Hp))
             .Add(new ColliderComponent(definition.Radius, CollisionLayer.Enemy))
             .Add(new EnemyComponent(definition.Id))
@@ -113,10 +115,23 @@ public sealed class EnemyFactory(RuntimeCapabilityRegistry? capabilities = null)
             entity.Add(new WeaponHolderComponent(definition.WeaponId));
         }
 
-        var motion = definition.Motion!;
-        var factory = _capabilities.ActorMotions.Resolve(motion.Type, $"enemy '{definition.Id}' motion");
-        factory.Validate(motion, $"enemy '{definition.Id}' motion");
-        factory.Apply(entity, position, motion);
+        if (!string.IsNullOrWhiteSpace(definition.MotionPatternId))
+        {
+            entity.Add(new MotionTimelineComponent(definition.MotionPatternId));
+        }
+
+        if (definition.AttackPatternIds.Count > 0)
+        {
+            entity.Add(new AttackTimelineComponent(definition.AttackPatternIds));
+        }
+
+        if (string.IsNullOrWhiteSpace(definition.MotionPatternId))
+        {
+            var motion = definition.Motion!;
+            var factory = _capabilities.ActorMotions.Resolve(motion.Type, $"enemy '{definition.Id}' motion");
+            factory.Validate(motion, $"enemy '{definition.Id}' motion");
+            factory.Apply(entity, position, motion);
+        }
 
         return entity;
     }
@@ -159,13 +174,15 @@ public sealed class BulletFactory(RuntimeCapabilityRegistry? capabilities = null
         CollisionLayer ownerLayer,
         int ownerEntityId,
         float speedMultiplier = 1,
-        float damageMultiplier = 1)
+        float damageMultiplier = 1,
+        float accelerationPerSecond = 0)
     {
         ArgumentNullException.ThrowIfNull(projectiles);
         ArgumentNullException.ThrowIfNull(definition);
         if (direction == Vector2.Zero) throw new ArgumentException("Projectile direction cannot be zero.", nameof(direction));
         if (!float.IsFinite(speedMultiplier) || speedMultiplier <= 0) throw new ArgumentOutOfRangeException(nameof(speedMultiplier));
         if (!float.IsFinite(damageMultiplier) || damageMultiplier <= 0) throw new ArgumentOutOfRangeException(nameof(damageMultiplier));
+        if (!float.IsFinite(accelerationPerSecond)) throw new ArgumentOutOfRangeException(nameof(accelerationPerSecond));
 
         var team = ownerLayer switch
         {
@@ -199,7 +216,8 @@ public sealed class BulletFactory(RuntimeCapabilityRegistry? capabilities = null
             ParseCancelResistance(definition.CancelResistance),
             definition.PierceCount,
             ProjectileDamageType.Normal,
-            ProjectileClearBehavior.Remove));
+            ProjectileClearBehavior.Remove,
+            accelerationPerSecond));
     }
 
     public Entity Create(

@@ -199,17 +199,8 @@ public sealed class CapabilityValidator
             }
         }
 
-        foreach (var pattern in definitions.Patterns.Values)
-        {
-            for (var index = 0; index < pattern.Commands.Count; index++)
-            {
-                var command = pattern.Commands[index];
-                if (command.Type is "include" or "repeat") continue;
-                var path = $"patterns/{pattern.Id}.json $.commands[{index}].type";
-                throw new DefinitionValidationException(
-                    $"Capability at '{path}' uses unsupported {pattern.Kind} timeline command '{command.Type}'.");
-            }
-        }
+        // Timeline commands are a closed, validated language owned by DefinitionCatalog and
+        // interpreted by TimelineSystems. They are deliberately not extensible capabilities.
     }
 
     private static void ValidateProjectileBehavior(

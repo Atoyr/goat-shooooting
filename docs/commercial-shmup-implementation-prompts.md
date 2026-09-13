@@ -14,7 +14,7 @@
 - [x] P3 Definition v2とRegistry
 - [x] P4 Ship、focus、複数攻撃、laser、option
 - [x] P5 Item、power、death、extend、continue
-- [ ] P6 Motion／Attack timeline
+- [x] P6 Motion／Attack timeline
 - [ ] P7 Boss phase
 - [ ] P8 Score engine
 - [ ] P9 Special gauge、Rank、Difficulty、RuleSet

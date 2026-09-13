@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace GoatShooooting.Definitions;
 
 public sealed class DefinitionCatalog
@@ -5,6 +7,8 @@ public sealed class DefinitionCatalog
     public const int MaximumTimelineCommands = 4_096;
     public const int MaximumTimelineRepeat = 64;
     public const int MaximumTimelineSpawnCount = 100_000;
+    public const int MaximumSameTickSpawnCount = 4_096;
+    public const float MinimumTimelineInterval = 1f / 60;
 
     public DefinitionCatalog(
         GameDefinition game,
@@ -169,6 +173,23 @@ public sealed class DefinitionCatalog
             EnsurePositive(enemy.Score, $"Enemy '{enemy.Id}' score");
             ValidateCapabilityShape(enemy.Motion!, $"Enemy '{enemy.Id}' motion");
             if (!string.IsNullOrWhiteSpace(enemy.WeaponId)) _ = GetWeapon(enemy.WeaponId);
+            if (!string.IsNullOrWhiteSpace(enemy.MotionPatternId))
+            {
+                var pattern = GetPattern(enemy.MotionPatternId);
+                if (pattern.Kind != "motion")
+                {
+                    throw new DefinitionValidationException($"Enemy '{enemy.Id}' requires a motion pattern.");
+                }
+            }
+
+            foreach (var patternId in enemy.AttackPatternIds)
+            {
+                var pattern = GetPattern(patternId);
+                if (pattern.Kind != "attack")
+                {
+                    throw new DefinitionValidationException($"Enemy '{enemy.Id}' requires attack patterns.");
+                }
+            }
             foreach (var drop in enemy.DropTable)
             {
                 _ = GetItem(drop.ItemId);
@@ -220,11 +241,11 @@ public sealed class DefinitionCatalog
                 EnsureNonNegative(emitter.BurstInterval, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' burst interval");
                 EnsureKnownValue(
                     emitter.AngleSource,
-                    new[] { "forward", "fixed", "aim-at-target", "rotating" },
+                    new[] { "forward", "fixed", "aim-at-target", "aim-at-player", "current-heading", "rotating" },
                     $"Weapon '{weapon.Id}' emitter '{emitter.Id}' angle source");
                 EnsureKnownValue(
                     emitter.Distribution,
-                    new[] { "legacy", "single", "fan", "ring" },
+                    new[] { "legacy", "single", "fan", "ring", "arc", "random-arc", "layers" },
                     $"Weapon '{weapon.Id}' emitter '{emitter.Id}' distribution");
                 EnsurePositive(emitter.ProjectileCount, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' projectile count");
                 EnsureRange(emitter.SpreadDegrees, 0, 360, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' spread degrees");
@@ -234,6 +255,40 @@ public sealed class DefinitionCatalog
                 foreach (var speed in emitter.SpeedMultipliers)
                 {
                     EnsurePositive(speed, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' speed multiplier");
+                }
+
+                EnsureKnownValue(
+                    emitter.SpeedMode,
+                    new[] { "fixed", "range", "layers", "accelerating", "decelerating" },
+                    $"Weapon '{weapon.Id}' emitter '{emitter.Id}' speed mode");
+                EnsurePositive(emitter.MinimumSpeedMultiplier, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' minimum speed multiplier");
+                EnsurePositive(emitter.MaximumSpeedMultiplier, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' maximum speed multiplier");
+                if (emitter.MaximumSpeedMultiplier < emitter.MinimumSpeedMultiplier)
+                {
+                    throw new DefinitionValidationException(
+                        $"Weapon '{weapon.Id}' emitter '{emitter.Id}' maximum speed multiplier must be at least its minimum.");
+                }
+
+                EnsureRange(emitter.SpeedLayerCount, 1, MaximumTimelineRepeat, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' speed layer count");
+                EnsureFinite(emitter.AccelerationPerSecond, $"Weapon '{weapon.Id}' emitter '{emitter.Id}' acceleration");
+                if (emitter.SpeedMode == "accelerating" && emitter.AccelerationPerSecond <= 0 ||
+                    emitter.SpeedMode == "decelerating" && emitter.AccelerationPerSecond >= 0)
+                {
+                    throw new DefinitionValidationException(
+                        $"Weapon '{weapon.Id}' emitter '{emitter.Id}' acceleration sign does not match speed mode '{emitter.SpeedMode}'.");
+                }
+
+                ValidateDifficultyTags(emitter.DifficultyTags, $"Weapon '{weapon.Id}' emitter '{emitter.Id}'");
+                if (!weapon.MigratedFromV1 && emitter.FireInterval is > 0 and < MinimumTimelineInterval)
+                {
+                    throw new DefinitionValidationException(
+                        $"Weapon '{weapon.Id}' emitter '{emitter.Id}' fire interval is below the {MinimumTimelineInterval:R} minimum.");
+                }
+
+                if (!weapon.MigratedFromV1 && emitter.BurstCount > 1 && emitter.BurstInterval < MinimumTimelineInterval)
+                {
+                    throw new DefinitionValidationException(
+                        $"Weapon '{weapon.Id}' emitter '{emitter.Id}' burst interval is below the {MinimumTimelineInterval:R} minimum.");
                 }
             }
 
@@ -405,6 +460,8 @@ public sealed class DefinitionCatalog
                     throw new DefinitionValidationException(
                         $"Pattern '{pattern.Id}' command '{command.Type}' requires patternId.");
                 }
+
+                ValidateTimelineCommand(pattern, command);
             }
         }
 
@@ -508,6 +565,179 @@ public sealed class DefinitionCatalog
         var visiting = new HashSet<string>(StringComparer.Ordinal);
         var totals = new Dictionary<string, long>(StringComparer.Ordinal);
         foreach (var pattern in Patterns.Values) _ = ComputePatternSpawnBudget(pattern, visiting, totals);
+    }
+
+    private void ValidateTimelineCommand(PatternDefinition pattern, TimelineCommandDefinition command)
+    {
+        var allowed = pattern.Kind == "motion"
+            ? new[] { "enter", "move-to", "move-by", "follow-path", "orbit", "wait", "leave", "include", "repeat" }
+            : new[] { "fire", "start-pattern", "stop-pattern", "wait", "repeat", "parallel", "include" };
+        EnsureKnownValue(command.Type, allowed, $"Pattern '{pattern.Id}' command type");
+        ValidateDifficultyTags(command.DifficultyTags, $"Pattern '{pattern.Id}' command '{command.Type}'");
+
+        if (command.MaximumSpawnCount > MaximumSameTickSpawnCount)
+        {
+            throw new DefinitionValidationException(
+                $"Pattern '{pattern.Id}' command '{command.Type}' exceeds the {MaximumSameTickSpawnCount} same-tick spawn budget.");
+        }
+
+        if (command.Type is "include" or "repeat" or "parallel" or "start-pattern" or "stop-pattern")
+        {
+            if (string.IsNullOrWhiteSpace(command.PatternId))
+            {
+                throw new DefinitionValidationException(
+                    $"Pattern '{pattern.Id}' command '{command.Type}' requires patternId.");
+            }
+
+            var referenced = GetPattern(command.PatternId);
+            if (referenced.Kind != pattern.Kind)
+            {
+                throw new DefinitionValidationException(
+                    $"Pattern '{pattern.Id}' command '{command.Type}' references a different pattern kind.");
+            }
+        }
+
+        if (command.Type is "enter" or "move-to" or "move-by" or "follow-path" or "orbit" or "wait" or "leave")
+        {
+            var duration = GetRequiredFiniteNumber(command, "duration", pattern.Id);
+            if (duration < MinimumTimelineInterval)
+            {
+                throw new DefinitionValidationException(
+                    $"Pattern '{pattern.Id}' command '{command.Type}' duration is below the {MinimumTimelineInterval:R} minimum interval.");
+            }
+
+            ValidateOptionalKnownString(command, "easing", new[] { "linear", "ease-in", "ease-out", "ease-in-out" }, pattern.Id);
+        }
+
+        if (command.Type == "fire" && command.MaximumSpawnCount <= 0)
+        {
+            throw new DefinitionValidationException(
+                $"Pattern '{pattern.Id}' fire command must declare a positive maximumSpawnCount.");
+        }
+
+        if (command.Type is "enter" or "move-to" or "move-by" or "follow-path" or "orbit" or "leave")
+        {
+            ValidateOptionalKnownString(command, "space", new[] { "world", "local" }, pattern.Id);
+            ValidateOptionalKnownString(command, "reference", new[] { "none", "player-snapshot" }, pattern.Id);
+        }
+
+        if (command.Type == "follow-path") ValidatePath(command, pattern.Id);
+        if (command.Type == "fire" && command.Parameters.TryGetValue("weaponId", out var weaponElement))
+        {
+            if (weaponElement.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(weaponElement.GetString()))
+            {
+                throw new DefinitionValidationException($"Pattern '{pattern.Id}' fire command weaponId must be a non-empty string.");
+            }
+
+            var weapon = GetWeapon(weaponElement.GetString()!);
+            if (weapon.ActionType != "projectile")
+            {
+                throw new DefinitionValidationException($"Pattern '{pattern.Id}' fire command requires a projectile weapon.");
+            }
+
+            var actualMaximum = weapon.Emitters.Sum(GetEmitterSameTickSpawnCount);
+            if (actualMaximum > command.MaximumSpawnCount)
+            {
+                throw new DefinitionValidationException(
+                    $"Pattern '{pattern.Id}' fire command maximumSpawnCount {command.MaximumSpawnCount} is below weapon '{weapon.Id}' maximum {actualMaximum}.");
+            }
+        }
+
+        ValidateCommandParameters(pattern, command);
+    }
+
+    private static int GetEmitterSameTickSpawnCount(EmitterDefinition emitter)
+    {
+        var speedCount = emitter.SpeedMode == "range" ? emitter.SpeedLayerCount : emitter.SpeedMultipliers.Count;
+        return checked(emitter.ProjectileCount * speedCount);
+    }
+
+    private static void ValidateCommandParameters(PatternDefinition pattern, TimelineCommandDefinition command)
+    {
+        var allowed = command.Type switch
+        {
+            "enter" or "move-to" or "move-by" or "leave" => new[] { "duration", "x", "y", "easing", "space", "reference" },
+            "follow-path" => new[] { "duration", "points", "easing", "space", "reference" },
+            "orbit" => new[] { "duration", "x", "y", "radius", "startAngleDegrees", "revolutions", "easing", "space", "reference" },
+            "wait" => new[] { "duration" },
+            "fire" => new[] { "weaponId" },
+            _ => Array.Empty<string>()
+        };
+        foreach (var name in command.Parameters.Keys)
+        {
+            if (!allowed.Contains(name, StringComparer.Ordinal))
+            {
+                throw new DefinitionValidationException(
+                    $"Pattern '{pattern.Id}' command '{command.Type}' has unsupported parameter '{name}'.");
+            }
+        }
+
+        foreach (var name in allowed.Where(static name => name is "x" or "y" or "radius" or "startAngleDegrees" or "revolutions"))
+        {
+            if (command.Parameters.TryGetValue(name, out var value) && (!value.TryGetSingle(out var number) || !float.IsFinite(number)))
+            {
+                throw new DefinitionValidationException(
+                    $"Pattern '{pattern.Id}' command '{command.Type}' parameter '{name}' must be finite.");
+            }
+        }
+    }
+
+    private static void ValidatePath(TimelineCommandDefinition command, string patternId)
+    {
+        if (!command.Parameters.TryGetValue("points", out var points) ||
+            points.ValueKind != JsonValueKind.Array || points.GetArrayLength() == 0)
+        {
+            throw new DefinitionValidationException($"Pattern '{patternId}' follow-path command requires at least one point.");
+        }
+
+        foreach (var point in points.EnumerateArray())
+        {
+            if (point.ValueKind != JsonValueKind.Object ||
+                !point.TryGetProperty("x", out var x) || !x.TryGetSingle(out var xValue) || !float.IsFinite(xValue) ||
+                !point.TryGetProperty("y", out var y) || !y.TryGetSingle(out var yValue) || !float.IsFinite(yValue))
+            {
+                throw new DefinitionValidationException($"Pattern '{patternId}' follow-path points require finite x and y values.");
+            }
+        }
+    }
+
+    private static void ValidateOptionalKnownString(
+        TimelineCommandDefinition command,
+        string name,
+        IReadOnlyList<string> allowed,
+        string patternId)
+    {
+        if (!command.Parameters.TryGetValue(name, out var value)) return;
+        if (value.ValueKind != JsonValueKind.String || !allowed.Contains(value.GetString() ?? string.Empty, StringComparer.Ordinal))
+        {
+            throw new DefinitionValidationException(
+                $"Pattern '{patternId}' command '{command.Type}' parameter '{name}' has an unsupported value.");
+        }
+    }
+
+    private void ValidateDifficultyTags(IReadOnlyList<string> tags, string owner)
+    {
+        var unique = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tag in tags)
+        {
+            EnsureNotEmpty(tag, $"{owner} difficulty tag");
+            if (!unique.Add(tag)) throw new DefinitionValidationException($"{owner} has duplicate difficulty tag '{tag}'.");
+            if (!Difficulties.ContainsKey(tag))
+            {
+                throw new DefinitionValidationException($"{owner} references unknown difficulty definition id '{tag}'.");
+            }
+        }
+    }
+
+    private static float GetRequiredFiniteNumber(TimelineCommandDefinition command, string name, string patternId)
+    {
+        if (!command.Parameters.TryGetValue(name, out var element) || !element.TryGetSingle(out var value) || !float.IsFinite(value))
+        {
+            throw new DefinitionValidationException(
+                $"Pattern '{patternId}' command '{command.Type}' requires finite numeric parameter '{name}'.");
+        }
+
+        return value;
     }
 
     private long ComputePatternSpawnBudget(PatternDefinition pattern, HashSet<string> visiting, Dictionary<string, long> totals)

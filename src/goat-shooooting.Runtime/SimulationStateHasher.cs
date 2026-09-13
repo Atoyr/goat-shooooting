@@ -183,6 +183,30 @@ internal static class SimulationStateHasher
                 hash.Add(weapon.PatternDirection);
                 hash.Add(weapon.ShotsSinceDirectionChange);
             });
+            AddComponent(hash, entity.TryGet<MotionTimelineComponent>(out var motionTimeline), () =>
+            {
+                hash.Add(motionTimeline.PatternId);
+                hash.Add(motionTimeline.CommandIndex);
+                hash.Add(motionTimeline.Elapsed);
+                hash.Add(motionTimeline.Start.X);
+                hash.Add(motionTimeline.Start.Y);
+                hash.Add(motionTimeline.PlayerSnapshot.X);
+                hash.Add(motionTimeline.PlayerSnapshot.Y);
+                hash.Add(motionTimeline.CommandStarted);
+            });
+            AddComponent(hash, entity.TryGet<AttackTimelineComponent>(out var attackTimeline), () =>
+            {
+                hash.Add(attackTimeline.Initialized);
+                hash.Add(attackTimeline.PatternIds.Count);
+                foreach (var patternId in attackTimeline.PatternIds) hash.Add(patternId);
+                hash.Add(attackTimeline.Tracks.Count);
+                foreach (var track in attackTimeline.Tracks)
+                {
+                    hash.Add(track.PatternId);
+                    hash.Add(track.CommandIndex);
+                    hash.Add(track.WaitRemaining);
+                }
+            });
             AddComponent(hash, entity.TryGet<LifetimeComponent>(out var lifetime), () =>
                 hash.Add(lifetime.Remaining));
             AddComponent(hash, entity.TryGet<HomingMovementComponent>(out var homing), () =>
@@ -244,6 +268,7 @@ internal static class SimulationStateHasher
             hash.Add(projectile.PierceCount);
             hash.Add((int)projectile.DamageType);
             hash.Add((int)projectile.ClearBehavior);
+            hash.Add(projectile.AccelerationPerSecond);
             hash.Add(projectile.GrazedPlayerEntityId);
             hash.Add(projectile.PendingRemoval);
         }

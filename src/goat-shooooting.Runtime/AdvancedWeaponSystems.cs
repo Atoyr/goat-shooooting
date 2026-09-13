@@ -45,11 +45,19 @@ public sealed class AdvancedWeaponSystem
 {
     private readonly BulletFactory _bulletFactory;
     private readonly RuntimeCapabilityRegistry _capabilities;
+    private readonly IRandomSource _randomSource;
+    private readonly string? _difficultyId;
 
-    public AdvancedWeaponSystem(BulletFactory bulletFactory, RuntimeCapabilityRegistry capabilities)
+    public AdvancedWeaponSystem(
+        BulletFactory bulletFactory,
+        RuntimeCapabilityRegistry capabilities,
+        IRandomSource? randomSource = null,
+        string? difficultyId = null)
     {
         _bulletFactory = bulletFactory ?? throw new ArgumentNullException(nameof(bulletFactory));
         _capabilities = capabilities ?? throw new ArgumentNullException(nameof(capabilities));
+        _randomSource = randomSource ?? new SeededRandomSource(0);
+        _difficultyId = difficultyId;
     }
 
     public void Update(
@@ -148,7 +156,7 @@ public sealed class AdvancedWeaponSystem
 
         foreach (var enemy in world.Query<EnemyComponent, WeaponHolderComponent, TransformComponent>().ToArray())
         {
-            if (enemy.Has<PendingDestroyComponent>()) continue;
+            if (enemy.Has<PendingDestroyComponent>() || enemy.Has<AttackTimelineComponent>()) continue;
             ProcessWeapons(
                 world,
                 definitions,
@@ -160,6 +168,36 @@ public sealed class AdvancedWeaponSystem
                 power: 0,
                 telemetry,
                 projectiles);
+        }
+    }
+
+    public void FireOnce(
+        World world,
+        DefinitionCatalog definitions,
+        Entity owner,
+        string weaponId,
+        SimulationTelemetry telemetry,
+        ProjectileStore projectiles)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        ArgumentNullException.ThrowIfNull(definitions);
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentNullException.ThrowIfNull(telemetry);
+        ArgumentNullException.ThrowIfNull(projectiles);
+        var weapon = definitions.GetWeapon(weaponId);
+        if (weapon.ActionType != "projectile")
+        {
+            throw new InvalidOperationException($"Timeline fire requires a projectile weapon, but '{weaponId}' is '{weapon.ActionType}'.");
+        }
+
+        var runtime = owner.TryGet<WeaponRuntimeComponent>(out var existing)
+            ? existing
+            : owner.Add(new WeaponRuntimeComponent()).Get<WeaponRuntimeComponent>();
+        foreach (var emitter in weapon.Emitters)
+        {
+            if (!IsEnabled(emitter.DifficultyTags)) continue;
+            var state = runtime.GetOrCreate($"{weapon.Id}/{emitter.Id}");
+            FireEmitter(world, definitions, owner, CollisionLayer.Enemy, weapon, emitter, state, 0, telemetry, projectiles);
         }
     }
 
@@ -275,6 +313,7 @@ public sealed class AdvancedWeaponSystem
     {
         foreach (var emitter in weapon.Emitters)
         {
+            if (!IsEnabled(emitter.DifficultyTags)) continue;
             var state = runtime.GetOrCreate($"{weapon.Id}/{emitter.Id}");
             state.CooldownRemaining = Math.Max(0, state.CooldownRemaining - deltaTime);
             state.BurstCooldownRemaining = Math.Max(0, state.BurstCooldownRemaining - deltaTime);
@@ -422,7 +461,7 @@ public sealed class AdvancedWeaponSystem
         var count = emitter.ProjectileCount + powerModifier.AdditionalProjectileCount;
         foreach (var direction in GetDirections(weapon, emitter, state, baseDirection, count))
         {
-            foreach (var speedMultiplier in emitter.SpeedMultipliers)
+            foreach (var speedMultiplier in GetSpeedMultipliers(emitter))
             {
                 _bulletFactory.Create(
                     projectiles,
@@ -432,7 +471,10 @@ public sealed class AdvancedWeaponSystem
                     ownerLayer,
                     owner.Id,
                     speedMultiplier,
-                    powerModifier.DamageMultiplier);
+                    powerModifier.DamageMultiplier,
+                    emitter.SpeedMode is "accelerating" or "decelerating"
+                        ? emitter.AccelerationPerSecond
+                        : 0);
                 telemetry.BulletsSpawned++;
                 if (ownerLayer == CollisionLayer.Enemy) telemetry.EnemyBulletsSpawned++;
             }
@@ -475,10 +517,20 @@ public sealed class AdvancedWeaponSystem
                 yield return baseDirection;
                 break;
             case "fan":
+            case "arc":
+            case "layers":
                 for (var index = 0; index < projectileCount; index++)
                 {
                     var offset = projectileCount == 1 ? 0 : ((float)index / (projectileCount - 1)) - 0.5f;
                     yield return RotateDegrees(baseDirection, offset * emitter.SpreadDegrees);
+                }
+
+                break;
+            case "random-arc":
+                for (var index = 0; index < projectileCount; index++)
+                {
+                    var offset = (_randomSource.NextSingle() - 0.5f) * emitter.SpreadDegrees;
+                    yield return RotateDegrees(baseDirection, offset);
                 }
 
                 break;
@@ -508,9 +560,38 @@ public sealed class AdvancedWeaponSystem
             "fixed" => RotateDegrees(forward, emitter.FixedAngleDegrees),
             "rotating" => RotateDegrees(forward, state.PatternAngleDegrees),
             "aim-at-target" => FindAimDirection(world, owner, ownerLayer) ?? forward,
+            "aim-at-player" => FindPlayerDirection(world, owner) ?? forward,
+            "current-heading" => owner.TryGet<VelocityComponent>(out var velocity) && velocity.Value != Vector2.Zero
+                ? Vector2.Normalize(velocity.Value)
+                : forward,
             _ => throw new InvalidOperationException($"Unsupported angle source '{emitter.AngleSource}'.")
         };
     }
+
+    private static Vector2? FindPlayerDirection(World world, Entity owner)
+    {
+        var origin = owner.Get<TransformComponent>().Position;
+        var player = world.Query<PlayerComponent, TransformComponent>()
+            .Where(static candidate => !candidate.Has<PendingDestroyComponent>())
+            .OrderBy(candidate => Vector2.DistanceSquared(origin, candidate.Get<TransformComponent>().Position))
+            .ThenBy(static candidate => candidate.Id)
+            .FirstOrDefault();
+        if (player is null) return null;
+        var direction = player.Get<TransformComponent>().Position - origin;
+        return direction == Vector2.Zero ? null : Vector2.Normalize(direction);
+    }
+
+    private IEnumerable<float> GetSpeedMultipliers(EmitterDefinition emitter)
+    {
+        if (emitter.SpeedMode != "range") return emitter.SpeedMultipliers;
+        if (emitter.SpeedLayerCount == 1) return new[] { emitter.MinimumSpeedMultiplier };
+        return Enumerable.Range(0, emitter.SpeedLayerCount)
+            .Select(index => emitter.MinimumSpeedMultiplier +
+                ((emitter.MaximumSpeedMultiplier - emitter.MinimumSpeedMultiplier) * index / (emitter.SpeedLayerCount - 1f)));
+    }
+
+    private bool IsEnabled(IReadOnlyList<string> difficultyTags) =>
+        difficultyTags.Count == 0 || _difficultyId is not null && difficultyTags.Contains(_difficultyId, StringComparer.Ordinal);
 
     private static Vector2? FindAimDirection(World world, Entity owner, CollisionLayer ownerLayer)
     {

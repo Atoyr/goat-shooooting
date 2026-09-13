@@ -39,6 +39,8 @@ public sealed class ShootingSimulation
     private readonly ItemSystem _itemSystem = new();
     private readonly ExtendSystem _extendSystem = new();
     private readonly MovementSystem _movementSystem = new();
+    private readonly MotionTimelineSystem _motionTimelineSystem = new();
+    private readonly AttackTimelineSystem _attackTimelineSystem;
     private readonly MovementPatternSystem _movementPatternSystem = new();
     private readonly PlayerBoundsSystem _playerBoundsSystem = new();
     private readonly OutOfBoundsSystem _outOfBoundsSystem = new();
@@ -76,7 +78,12 @@ public sealed class ShootingSimulation
         _randomSource = randomSource ?? new SeededRandomSource(configuration.Seed);
         _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
         _enemyFactory = new EnemyFactory(_capabilities);
-        _weaponSystem = new WeaponSystem(new BulletFactory(_capabilities), _capabilities);
+        _weaponSystem = new WeaponSystem(
+            new BulletFactory(_capabilities),
+            _capabilities,
+            _randomSource,
+            configuration.DifficultyId);
+        _attackTimelineSystem = new AttackTimelineSystem(_weaponSystem.Advanced);
         Definitions = _definitionRepository.Load();
         new CapabilityValidator().Validate(Definitions, _capabilities);
         World = null!;
@@ -258,6 +265,14 @@ public sealed class ShootingSimulation
             _stageSystem.Update(World, Definitions, deltaTime, Telemetry);
         }
         _playerInputSystem.Update(World, _tickInput);
+        _motionTimelineSystem.Update(World, Definitions, Configuration.DifficultyId, deltaTime, Telemetry);
+        _attackTimelineSystem.Update(
+            World,
+            Definitions,
+            Configuration.DifficultyId,
+            deltaTime,
+            Telemetry,
+            Projectiles);
         _weaponSystem.Update(World, Definitions, _tickInput, deltaTime, Telemetry, Projectiles);
         Projectiles.CommitSpawns(Events);
         _projectileMovementSystem.Update(

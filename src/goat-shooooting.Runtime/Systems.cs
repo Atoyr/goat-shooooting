@@ -36,15 +36,24 @@ public sealed class PlayerInputSystem
     }
 }
 
-public sealed class WeaponSystem(
-    BulletFactory bulletFactory,
-    RuntimeCapabilityRegistry? capabilities = null)
+public sealed class WeaponSystem
 {
-    private readonly BulletFactory _bulletFactory = bulletFactory ?? throw new ArgumentNullException(nameof(bulletFactory));
-    private readonly RuntimeCapabilityRegistry _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
-    private readonly AdvancedWeaponSystem _advancedWeaponSystem = new(
-        bulletFactory ?? throw new ArgumentNullException(nameof(bulletFactory)),
-        capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn());
+    private readonly BulletFactory _bulletFactory;
+    private readonly RuntimeCapabilityRegistry _capabilities;
+    private readonly AdvancedWeaponSystem _advancedWeaponSystem;
+
+    public WeaponSystem(
+        BulletFactory bulletFactory,
+        RuntimeCapabilityRegistry? capabilities = null,
+        IRandomSource? randomSource = null,
+        string? difficultyId = null)
+    {
+        _bulletFactory = bulletFactory ?? throw new ArgumentNullException(nameof(bulletFactory));
+        _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
+        _advancedWeaponSystem = new AdvancedWeaponSystem(_bulletFactory, _capabilities, randomSource, difficultyId);
+    }
+
+    internal AdvancedWeaponSystem Advanced => _advancedWeaponSystem;
 
     public void Update(
         World world,
@@ -199,6 +208,7 @@ public sealed class MovementSystem
     {
         foreach (var entity in world.Query<TransformComponent, VelocityComponent>())
         {
+            if (entity.Has<MotionTimelineComponent>()) continue;
             var velocity = entity.Get<VelocityComponent>().Value;
             entity.Get<TransformComponent>().Position += velocity * deltaTime;
             if (telemetry is not null && entity.Has<BulletComponent>() && velocity != Vector2.Zero)
@@ -269,6 +279,8 @@ public sealed class OutOfBoundsSystem
             {
                 continue;
             }
+
+            if (entity.Has<MotionTimelineComponent>()) continue;
 
             var position = entity.Get<TransformComponent>().Position;
             var radius = entity.Get<ColliderComponent>().Radius;

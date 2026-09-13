@@ -35,6 +35,8 @@ public sealed class DefinitionV2Tests
         Assert.Equal("shot", catalog.GetProjectile("shot").Id);
         Assert.Equal("power-small", catalog.GetItem("power-small").Id);
         Assert.Equal(2, catalog.GetEnemy("enemy").DropTable[0].Count);
+        Assert.Equal("motion-a", catalog.GetEnemy("enemy").MotionPatternId);
+        Assert.Equal(new[] { "attack-a" }, catalog.GetEnemy("enemy").AttackPatternIds);
         Assert.Equal(20, catalog.GetShip("ship-a").PowerLossOnDeath);
         Assert.Equal(new long[] { 100000, 300000 }, catalog.GetRuleSet("rules").ExtendScoreThresholds);
         Assert.Equal("motion-a", catalog.GetPattern("motion-a").Id);
@@ -198,22 +200,22 @@ public sealed class DefinitionV2Tests
                 {"schemaVersion":2,"id":"weapon","projectileId":"shot","cooldown":0.1,"pattern":{"type":"spread","parameters":{"projectileCount":1,"spreadDegrees":0}}}
                 """);
             fixture.Write("enemies/enemy.json", """
-                {"schemaVersion":2,"id":"enemy","hp":100,"speed":10,"radius":12,"motion":{"type":"straight","parameters":{}},"dropTable":[{"itemId":"power-small","count":2,"chance":1,"scatterSpeed":80}]}
+                {"schemaVersion":2,"id":"enemy","hp":100,"speed":10,"radius":12,"weaponId":"weapon","motion":{"type":"straight","parameters":{}},"motionPatternId":"motion-a","attackPatternIds":["attack-a"],"dropTable":[{"itemId":"power-small","count":2,"chance":1,"scatterSpeed":80}]}
                 """);
             fixture.Write("items/power-small.json", """
                 {"schemaVersion":2,"id":"power-small","kind":"power","value":1,"visualId":"item-visual"}
                 """);
             fixture.Write("patterns/motion-a.json", """
-                {"schemaVersion":2,"id":"motion-a","kind":"motion","commands":[]}
+                {"schemaVersion":2,"id":"motion-a","kind":"motion","commands":[{"type":"enter","parameters":{"duration":0.5,"x":400,"y":120,"easing":"ease-out","space":"world"}},{"type":"wait","parameters":{"duration":0.5}},{"type":"leave","parameters":{"duration":0.5,"x":400,"y":-30,"space":"world"}}]}
                 """);
             fixture.Write("patterns/attack-a.json", """
-                {"schemaVersion":2,"id":"attack-a","kind":"attack","commands":[]}
+                {"schemaVersion":2,"id":"attack-a","kind":"attack","commands":[{"type":"wait","parameters":{"duration":0.5}},{"type":"fire","parameters":{"weaponId":"weapon"},"maximumSpawnCount":1,"difficultyTags":["arcade"]}]}
                 """);
             fixture.Write("bosses/boss-a.json", """
                 {"schemaVersion":2,"id":"boss-a","enemyId":"enemy","phases":[{"id":"phase-1","displayName":"Opening","hp":1000,"timeLimit":30,"motionPatternId":"motion-a","attackPatternIds":["attack-a"]}]}
                 """);
             fixture.Write("stages/stage.json", """
-                {"schemaVersion":2,"id":"stage","events":[]}
+                {"schemaVersion":2,"id":"stage","events":[{"schemaVersion":2,"time":0,"type":"spawn-enemy","enemyId":"enemy","x":400,"y":-30}]}
                 """);
             fixture.Write("rulesets/rules.json", """
                 {"schemaVersion":2,"id":"rules","stageRouteId":"main","stageIds":["stage"],"allowContinue":true,"initialCredits":2,"continueCreditCost":1,"manualBombCost":1,"autoBombCost":2,"bombInvincibilitySeconds":1,"deathClearsProjectiles":true,"extendScoreThresholds":[100000,300000],"collectionLineY":120,"itemFallSpeed":90,"itemMagnetSpeed":480,"focusMagnetRadius":120,"itemCollectionRadius":18,"maximumGauge":100,"maximumPowerItemScoreValue":1000,"scoreRules":[]}

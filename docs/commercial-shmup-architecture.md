@@ -233,6 +233,15 @@ P0では既存ゲームの進行を変更せず、後続Phaseが共有する次�
 - `TryContinue()`／`InputButtons.Continue`はRuleSetの許可とcredit costを検証し、同じstage stateでPlayerをrespawnへ戻す。`RunResult`へcontinued flag、continue回数、残creditを反映する。Continue選択の最終UIはP10で接続する。
 - v1 Player／Enemyにはmemory migrationで安全なlife-cycle既定値と空drop tableを補完する。legacy contentではcontinueを無効にした合成RuleSetを使い、既存sample／gauntletの定義と保存データを書き換えない。
 
+### 4.12 P6実装注記（Motion／Attack timeline）
+
+- Enemyは任意scriptではなく`motionPatternId`と有限な`attackPatternIds`を参照する。Motion runnerは`enter`、`move-to`、`move-by`、`follow-path`、`orbit`、`wait`、`leave`を固定tickで解釈し、linear／ease-in／ease-out／ease-in-out、world／local座標、command開始時に固定する`player-snapshot`参照を扱う。timeline Enemyは従来のVelocity／sine／zigzag更新と二重に移動しない。
+- Attack runnerは`fire`、`start-pattern`、`stop-pattern`、`wait`、`repeat`、`parallel`を有限trackとして処理する。include／repeatは検証済みpattern graphを展開し、start／parallelは同じRuntime interpreterへtrackを追加する。完了trackは除去し、全track完了時にrunner componentを破棄する。
+- Emitterはfixed／aim-at-player／current-heading／rotatingとsingle／fan／ring／arc／random-arc／layersを共有実装で発射する。fixed／range／layersの速度帯に加え、accelerating／deceleratingはProjectileStoreの加速度へ渡す。random-arcとItem dropはrun所有の同じseed付き`IRandomSource`を使い、difficulty tagは選択difficultyに一致するcommand／emitterだけを有効にする。
+- Definition validationはkind別command集合、未知parameter／参照、pattern cycle、command数4,096、repeat／nest 64、最小interval 1/60秒、1 commandあたり同一tick 4,096発、timeline全体100,000発を起動前に拒否する。fireの申告上限が参照Weaponの最大発射数を下回る定義も拒否する。
+- pause中はrunnerを更新せず、sequence完了時はcomponentを除去する。enemy death／stage transitionはEntity cleanupと同時にrunnerを破棄し、hot reload／retryはWorld再生成により旧runner stateを持ち越さない。runner stateとProjectile加速度はcanonical state hashへ含める。
+- v1 Enemyにはpattern参照を補完しないため、既存sample／gauntletのmotionと自動発射、既存保存データのschema 2 migrationは変わらない。JSON loader fixtureで入場→停止→攻撃→退場を構成し、Editor UIはP15まで追加しない。
+
 ## 5. Definition v2
 
 すべてを一度に巨大な`game.json`へ入れず、次の単位を追加する。

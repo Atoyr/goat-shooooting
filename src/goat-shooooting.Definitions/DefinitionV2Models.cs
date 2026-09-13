@@ -78,6 +78,12 @@ public sealed record EmitterDefinition
     public float SpreadDegrees { get; init; }
     public float RotationDegreesPerShot { get; init; }
     public IReadOnlyList<float> SpeedMultipliers { get; init; } = new[] { 1f };
+    public string SpeedMode { get; init; } = "fixed";
+    public float MinimumSpeedMultiplier { get; init; } = 1;
+    public float MaximumSpeedMultiplier { get; init; } = 1;
+    public int SpeedLayerCount { get; init; } = 1;
+    public float AccelerationPerSecond { get; init; }
+    public IReadOnlyList<string> DifficultyTags { get; init; } = Array.Empty<string>();
     public bool UsesLegacyPattern { get; init; }
 }
 
@@ -151,6 +157,7 @@ public sealed record TimelineCommandDefinition
     public string? PatternId { get; init; }
     public int RepeatCount { get; init; } = 1;
     public int MaximumSpawnCount { get; init; }
+    public IReadOnlyList<string> DifficultyTags { get; init; } = Array.Empty<string>();
 }
 
 public sealed record BossDefinition
