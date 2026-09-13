@@ -9,6 +9,46 @@ namespace GoatShooooting.Runtime.Tests;
 public sealed class BossPhaseSystemTests
 {
     [Fact]
+    public void PracticeConfigurationStartsAtCheckpointWithResourceOverridesAndImmediateRetry()
+    {
+        var definitions = CreateDefinitions();
+        var configuration = new RunConfiguration(
+            "test",
+            7,
+            startStageId: "stage",
+            checkpointId: "pressure",
+            isPractice: true,
+            initialPower: 40,
+            initialLives: 5,
+            initialBombs: 4,
+            initialRank: 0.8,
+            initialGauge: 60,
+            initialInvincibilitySeconds: 9,
+            slowPractice: true,
+            showHitboxes: true);
+        var simulation = new ShootingSimulation(
+            new MemoryDefinitionRepository(definitions),
+            new MutableInputState(),
+            configuration);
+
+        var boss = Assert.Single(simulation.World.Query<BossComponent>());
+        Assert.Equal("phase-2", boss.Get<BossComponent>().PhaseId);
+        Assert.Equal(20, boss.Get<HealthComponent>().Maximum);
+        Assert.Equal(5, simulation.Player.Get<LivesComponent>().Remaining);
+        Assert.Equal(4, simulation.Player.Get<BombComponent>().Remaining);
+        Assert.Equal(40, simulation.RunState.Power);
+        Assert.Equal(0.8, simulation.RunState.Rank);
+        Assert.Equal(60, simulation.RunState.Gauge);
+        Assert.Equal(9, simulation.Player.Get<InvincibilityComponent>().Remaining);
+
+        simulation.Tick(default);
+        Assert.Equal(1, simulation.RunState.Frame);
+        simulation.Tick(new InputFrame(0, 0, InputButtons.Retry));
+        Assert.Equal(0, simulation.RunState.Frame);
+        Assert.Equal("phase-2", Assert.Single(simulation.World.Query<BossComponent>()).Get<BossComponent>().PhaseId);
+    }
+
+    [Fact]
     public void ThreePhaseBossKeepsEntityAndResolvesHpBombTimeoutAndRewardsInOrder()
     {
         var definitions = CreateDefinitions();

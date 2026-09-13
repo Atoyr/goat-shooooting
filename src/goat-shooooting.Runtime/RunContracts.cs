@@ -18,7 +18,16 @@ public sealed record RunConfiguration
         string? difficultyId = null,
         string? shipId = null,
         string? startStageId = null,
-        string? checkpointId = null)
+        string? checkpointId = null,
+        bool isPractice = false,
+        int? initialPower = null,
+        int? initialLives = null,
+        int? initialBombs = null,
+        double? initialRank = null,
+        int? initialGauge = null,
+        float? initialInvincibilitySeconds = null,
+        bool slowPractice = false,
+        bool showHitboxes = false)
     {
         GameId = RequireId(gameId, nameof(gameId));
         Seed = seed;
@@ -27,6 +36,24 @@ public sealed record RunConfiguration
         ShipId = OptionalId(shipId, nameof(shipId));
         StartStageId = OptionalId(startStageId, nameof(startStageId));
         CheckpointId = OptionalId(checkpointId, nameof(checkpointId));
+        if (initialPower < 0) throw new ArgumentOutOfRangeException(nameof(initialPower));
+        if (initialLives <= 0) throw new ArgumentOutOfRangeException(nameof(initialLives));
+        if (initialBombs < 0) throw new ArgumentOutOfRangeException(nameof(initialBombs));
+        if (initialRank is { } rank && (!double.IsFinite(rank) || rank < 0))
+            throw new ArgumentOutOfRangeException(nameof(initialRank));
+        if (initialGauge < 0) throw new ArgumentOutOfRangeException(nameof(initialGauge));
+        if (initialInvincibilitySeconds is { } invincibility &&
+            (!float.IsFinite(invincibility) || invincibility < 0))
+            throw new ArgumentOutOfRangeException(nameof(initialInvincibilitySeconds));
+        IsPractice = isPractice;
+        InitialPower = initialPower;
+        InitialLives = initialLives;
+        InitialBombs = initialBombs;
+        InitialRank = initialRank;
+        InitialGauge = initialGauge;
+        InitialInvincibilitySeconds = initialInvincibilitySeconds;
+        SlowPractice = slowPractice;
+        ShowHitboxes = showHitboxes;
     }
 
     public string GameId { get; }
@@ -36,6 +63,15 @@ public sealed record RunConfiguration
     public string? ShipId { get; }
     public string? StartStageId { get; }
     public string? CheckpointId { get; }
+    public bool IsPractice { get; }
+    public int? InitialPower { get; }
+    public int? InitialLives { get; }
+    public int? InitialBombs { get; }
+    public double? InitialRank { get; }
+    public int? InitialGauge { get; }
+    public float? InitialInvincibilitySeconds { get; }
+    public bool SlowPractice { get; }
+    public bool ShowHitboxes { get; }
 
     private static string RequireId(string value, string parameterName)
     {

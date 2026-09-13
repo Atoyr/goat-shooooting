@@ -16,6 +16,7 @@ public sealed class ShootingGame : Game
     private readonly GameShell _shell;
     private readonly IUserDataStore? _userDataStore;
     private readonly ILeaderboardService? _leaderboardService;
+    private readonly IReplayStore? _replayStore;
     private readonly IReadOnlyDictionary<string, IDefinitionRepository> _definitionRepositories;
     private readonly PlayerProfileService _profileService = new();
     private readonly RunCompletionTracker _runCompletionTracker = new();
@@ -38,6 +39,11 @@ public sealed class ShootingGame : Game
     private bool _showControllerDisconnectedMessage;
     private string _currentRunId = Guid.NewGuid().ToString("N");
     private CompletedRunRecord? _lastRun;
+    private ReplayRecorder? _replayRecorder;
+    private ReplayPlaybackSession? _replayPlayback;
+    private ReplayPlaybackController? _replayController;
+    private bool _isReplayPlayback;
+    private string? _replayError;
 
     public ShootingGame(IDefinitionRepository definitionRepository)
         : this(definitionRepository, userDataStore: null, settings: new GameSettings())
@@ -57,7 +63,8 @@ public sealed class ShootingGame : Game
             userDataStore,
             settings,
             new PlayerProfile(),
-            leaderboardService: null)
+            leaderboardService: null,
+            replayStore: null)
     {
     }
 
@@ -67,7 +74,8 @@ public sealed class ShootingGame : Game
         IUserDataStore? userDataStore,
         GameSettings settings,
         PlayerProfile profile,
-        ILeaderboardService? leaderboardService = null)
+        ILeaderboardService? leaderboardService = null,
+        IReplayStore? replayStore = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(definitionRepositories);
@@ -89,6 +97,7 @@ public sealed class ShootingGame : Game
         _appliedSettings = settings;
         _userDataStore = userDataStore;
         _leaderboardService = leaderboardService;
+        _replayStore = replayStore;
         _simulation = CreateSimulation(definitionRepository);
         _layout = PrimitiveRenderLayout.CreateGameScreenLayout(_simulation.Definitions.Game);
         var displayMode = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode;
@@ -167,6 +176,24 @@ public sealed class ShootingGame : Game
             return;
         }
 
+        if (_isReplayPlayback && _replayController is { } viewer)
+        {
+            if (_input.LeftPressed) viewer.Slower();
+            if (_input.RightPressed) viewer.Faster();
+            if (_input.ConfirmPressed) viewer.ToggleHitboxes();
+            if (_input.PausePressed)
+            {
+                viewer.TogglePause();
+                _simulationClock.Reset();
+            }
+            if (viewer.IsPaused)
+            {
+                UpdateWindowTitle();
+                base.Update(gameTime);
+                return;
+            }
+        }
+
         if (_input.GamePadDisconnectedThisFrame)
         {
             _showControllerDisconnectedMessage = true;
@@ -180,7 +207,7 @@ public sealed class ShootingGame : Game
             _showControllerDisconnectedMessage = false;
         }
 
-        if (_input.PausePressed)
+        if (!_isReplayPlayback && _input.PausePressed)
         {
             _simulation.SetPaused(true);
             _simulationClock.Reset();
@@ -192,14 +219,38 @@ public sealed class ShootingGame : Game
 
         var deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
         var frameFeedback = default(SimulationFeedback);
-        _simulationClock.Advance(
-            gameTime.ElapsedGameTime.TotalSeconds,
-            () => InputFrame.Capture(_input),
-            inputFrame =>
-            {
-                _simulation.Tick(inputFrame);
-                frameFeedback += _simulation.Feedback;
-            });
+        var elapsedSeconds = gameTime.ElapsedGameTime.TotalSeconds;
+        if (_isReplayPlayback && _replayController is not null) elapsedSeconds *= _replayController.Speed;
+        else if (_simulation.Configuration.IsPractice && _simulation.Configuration.SlowPractice) elapsedSeconds *= 0.5;
+        try
+        {
+            _simulationClock.Advance(
+                elapsedSeconds,
+                () => InputFrame.Capture(_input),
+                inputFrame =>
+                {
+                    if (_simulation.Status != SimulationStatus.Running) return;
+                    if (_replayPlayback is not null) _replayPlayback.Step(_simulation);
+                    else
+                    {
+                        var reloadCount = _simulation.DefinitionReloadCount;
+                        _simulation.Tick(inputFrame);
+                        if (_simulation.DefinitionReloadCount != reloadCount) BeginReplayRecording();
+                        else _replayRecorder?.Record(inputFrame, _simulation);
+                    }
+                    frameFeedback += _simulation.Feedback;
+                });
+        }
+        catch (ReplayException exception)
+        {
+            _replayError = exception.Message;
+            _simulationClock.Reset();
+            _shell.SetResultReplay(null);
+            _shell.ShowResult();
+            UpdateWindowTitle();
+            base.Update(gameTime);
+            return;
+        }
         ApplyLayoutChanges();
         _audio?.Play(frameFeedback);
         UpdateVibration(deltaTime, frameFeedback);
@@ -236,9 +287,12 @@ public sealed class ShootingGame : Game
     {
         Window.Title = _showControllerDisconnectedMessage
             ? "goat-shooooting — CONTROLLER DISCONNECTED — reconnect or use keyboard"
+            : _replayError is not null
+            ? $"goat-shooooting — REPLAY ERROR — {_replayError}"
             : _shell.State == GameShellState.Title
             ? $"goat-shooooting — TITLE — {_gameId}"
-            : _shell.State is GameShellState.ModeSelect or GameShellState.DifficultySelect or GameShellState.ShipSelect
+            : _shell.State is GameShellState.ModeSelect or GameShellState.DifficultySelect or
+                GameShellState.ShipSelect or GameShellState.TrainingSetup
             ? $"goat-shooooting — {_shell.State.ToString().ToUpperInvariant()}"
             : _shell.State == GameShellState.Leaderboard
             ? "goat-shooooting — LEADERBOARD"
@@ -248,6 +302,8 @@ public sealed class ShootingGame : Game
                 : "goat-shooooting — OPTIONS"
             : _simulation.DefinitionReloadError is not null
             ? $"goat-shooooting — DEFINITION ERROR — {_simulation.DefinitionReloadError}"
+            : _isReplayPlayback && _replayController is { } viewer
+            ? $"goat-shooooting — REPLAY {viewer.Speed:F2}X{(viewer.IsPaused ? " — PAUSED" : string.Empty)}"
             : _simulation.IsPaused
             ? $"goat-shooooting — PAUSED — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — P/START to resume"
             : _simulation.Status switch
@@ -275,6 +331,7 @@ public sealed class ShootingGame : Game
                     _userDataStore?.SaveProfile(_profile);
                     ApplyLayoutChanges();
                 }
+                BeginReplayRecording();
                 _simulationClock.Reset();
                 _runCompletionTracker.StartRun();
                 _showControllerDisconnectedMessage = false;
@@ -285,6 +342,24 @@ public sealed class ShootingGame : Game
                 _simulationClock.Reset();
                 _runCompletionTracker.StartRun();
                 _showControllerDisconnectedMessage = false;
+                if (!_simulation.Configuration.IsPractice) BeginReplayRecording();
+                break;
+            case GameShellCommand.StartTraining:
+                if (_definitionRepositories.TryGetValue(_shell.SelectedGameId, out var trainingRepository))
+                {
+                    _simulation = CreateSimulation(
+                        trainingRepository,
+                        RunSelectionConfiguration.CreateTraining(_shell, seed: 0));
+                    _gameId = _shell.SelectedGameId;
+                    ApplyLayoutChanges();
+                }
+                ResetReplayState();
+                _simulationClock.Reset();
+                _runCompletionTracker.StartRun();
+                _showControllerDisconnectedMessage = false;
+                break;
+            case GameShellCommand.PlayReplay:
+                StartReplayPlayback();
                 break;
             case GameShellCommand.ResumeRun:
                 _simulation.SetPaused(false);
@@ -298,7 +373,9 @@ public sealed class ShootingGame : Game
                 SelectGame(_shell.SelectedGameId);
                 break;
             case GameShellCommand.RunSelectionChanged:
+                break;
             case GameShellCommand.OpenLeaderboard:
+                _shell.SetLeaderboardEntries(_leaderboardService?.GetEntries(_shell.SelectedCategory) ?? []);
                 break;
             case GameShellCommand.SaveSettings:
                 _userDataStore?.SaveSettings(_appliedSettings);
@@ -331,12 +408,30 @@ public sealed class ShootingGame : Game
 
     private void RecordRunCompletion()
     {
+        if (_simulation.Configuration.IsPractice || _isReplayPlayback)
+        {
+            _shell.SetResultReplay(null);
+            return;
+        }
         var completion = _runCompletionTracker.Observe(_simulation.Status, _simulation.Telemetry.Score);
         if (completion is null)
         {
             return;
         }
 
+        string? replayPath = null;
+        if (_replayRecorder is not null && _replayStore is not null)
+        {
+            try
+            {
+                replayPath = _replayStore.Save(_currentRunId, _replayRecorder.Complete(_simulation));
+            }
+            catch (ReplayException exception)
+            {
+                _replayError = $"Replay could not be saved: {exception.Message}";
+            }
+            _replayRecorder = null;
+        }
         var run = new CompletedRunRecord
         {
             RunId = _currentRunId,
@@ -354,8 +449,10 @@ public sealed class ShootingGame : Game
             Timestamp = DateTimeOffset.UtcNow,
             ScoreBreakdown = new Dictionary<string, long>(
                 _simulation.RunState.ScoreBreakdown,
-                StringComparer.Ordinal)
+                StringComparer.Ordinal),
+            ReplayPath = replayPath
         };
+        _shell.SetResultReplay(replayPath);
         _lastRun = run;
         _profile = _profileService.RecordCompletedRun(_profile, run);
         _ = _leaderboardService?.Submit(run);
@@ -366,6 +463,64 @@ public sealed class ShootingGame : Game
         repository,
         _input,
         RunSelectionConfiguration.Create(_shell, seed: 0));
+
+    private ShootingSimulation CreateSimulation(
+        IDefinitionRepository repository,
+        RunConfiguration configuration) => new(repository, _input, configuration);
+
+    private void BeginReplayRecording()
+    {
+        ResetReplayState();
+        if (_replayStore is null) return;
+        _replayRecorder = new ReplayRecorder(
+            _simulation.Configuration,
+            DefinitionContentHasher.Compute(_simulation.Definitions),
+            DateTimeOffset.UtcNow);
+    }
+
+    private void ResetReplayState()
+    {
+        _replayRecorder = null;
+        _replayPlayback = null;
+        _replayController = null;
+        _isReplayPlayback = false;
+        _replayError = null;
+    }
+
+    private void StartReplayPlayback()
+    {
+        ResetReplayState();
+        if (_replayStore is null || string.IsNullOrWhiteSpace(_shell.SelectedReplayPath) ||
+            !_definitionRepositories.TryGetValue(_shell.SelectedGameId, out var repository))
+        {
+            _replayError = "The selected replay is not available.";
+            _shell.ShowResult();
+            return;
+        }
+        var load = _replayStore.Load(
+            _shell.SelectedReplayPath,
+            DefinitionContentHasher.Compute(repository.Load()));
+        if (!load.Success)
+        {
+            _replayError = load.Error ?? "The replay could not be loaded.";
+            _shell.ShowResult();
+            return;
+        }
+        var replay = load.Replay!;
+        if (!string.Equals(replay.Header.Configuration.GameId, _shell.SelectedGameId, StringComparison.Ordinal))
+        {
+            _replayError = "Replay game does not match the selected content pack.";
+            _shell.ShowResult();
+            return;
+        }
+        _simulation = CreateSimulation(repository, replay.Header.Configuration);
+        _replayPlayback = new ReplayPlaybackSession(replay);
+        _replayController = new ReplayPlaybackController();
+        _isReplayPlayback = true;
+        _simulationClock.Reset();
+        _runCompletionTracker.StartRun();
+        ApplyLayoutChanges();
+    }
 
     private static GameRunOptions CreateRunOptions(string gameId, IDefinitionRepository repository)
     {
@@ -383,6 +538,10 @@ public sealed class ShootingGame : Game
         var ships = definitions.Ships.Values.OrderBy(static definition => definition.Id, StringComparer.Ordinal)
             .Select(definition => new RunSelectionOption(
             definition.Id, definition.Id, definition.IsAvailable, definition.UnlockId)).ToArray();
+        var trainingLocations = definitions.Stages.Values
+            .OrderBy(static stage => stage.Id, StringComparer.Ordinal)
+            .SelectMany(stage => CreateTrainingLocations(definitions, stage))
+            .ToArray();
         return new GameRunOptions(
             gameId,
             modes,
@@ -394,7 +553,28 @@ public sealed class ShootingGame : Game
             definitions.Game.DifficultyIds.FirstOrDefault() ?? ScoreCategoryKey.LegacySelection,
             !string.IsNullOrWhiteSpace(definitions.Game.PlayerId)
                 ? definitions.Game.PlayerId
-                : definitions.Game.ShipIds.FirstOrDefault());
+                : definitions.Game.ShipIds.FirstOrDefault(),
+            trainingLocations);
+    }
+
+    private static IEnumerable<TrainingLocationOption> CreateTrainingLocations(
+        DefinitionCatalog definitions,
+        StageDefinition stage)
+    {
+        yield return new TrainingLocationOption(stage.Id);
+        var bossIds = stage.Events.Where(static item => item.IsBoss && !string.IsNullOrWhiteSpace(item.BossId))
+            .Select(static item => item.BossId!)
+            .Concat(stage.Objectives.Where(static item => !string.IsNullOrWhiteSpace(item.BossId))
+                .Select(static item => item.BossId!))
+            .Distinct(StringComparer.Ordinal);
+        foreach (var bossId in bossIds)
+        {
+            foreach (var checkpoint in definitions.GetBoss(bossId).Phases
+                         .Select(static phase => phase.CheckpointId)
+                         .Where(static checkpoint => !string.IsNullOrWhiteSpace(checkpoint))
+                         .Distinct(StringComparer.Ordinal))
+                yield return new TrainingLocationOption(stage.Id, checkpoint);
+        }
     }
 
     private bool ApplySettings(GameSettings requested)
@@ -478,7 +658,8 @@ public sealed class ShootingGame : Game
         var logicalCanvas = _logicalCanvas ?? throw new InvalidOperationException("Content has not been loaded.");
         GraphicsDevice.SetRenderTarget(logicalCanvas);
         if (_shell.State is GameShellState.Title or GameShellState.ModeSelect or
-            GameShellState.DifficultySelect or GameShellState.ShipSelect or GameShellState.Leaderboard)
+            GameShellState.DifficultySelect or GameShellState.ShipSelect or GameShellState.Leaderboard or
+            GameShellState.TrainingSetup)
         {
             DrawShellMenu(clearBackground: true);
             PresentLogicalCanvas(logicalCanvas);
@@ -513,6 +694,10 @@ public sealed class ShootingGame : Game
         var items = _renderSystem.Capture(_simulation.World, _simulation.Projectiles);
         foreach (var item in items)
         {
+            if (item.Kind == RenderKind.PlayerHitbox &&
+                ((_isReplayPlayback && !(_replayController?.ShowHitboxes ?? false)) ||
+                 (_simulation.Configuration.IsPractice && !_simulation.Configuration.ShowHitboxes)))
+                continue;
             var color = item.IsFlashing ? Color.White : item.Kind switch
             {
                 RenderKind.Player => new Color(68, 210, 255),
@@ -628,9 +813,10 @@ public sealed class ShootingGame : Game
         var centerX = window.Center.X;
         var centerY = window.Center.Y;
         var isOptions = _shell.State == GameShellState.Options;
+        var isTraining = _shell.State == GameShellState.TrainingSetup;
         var isDetailed = _shell.State is GameShellState.Result or GameShellState.Leaderboard;
-        var panelWidth = isOptions || isDetailed ? Math.Min(window.Width - 48, 680) : 420;
-        var panelHeight = isOptions || isDetailed ? Math.Min(window.Height - 48, 560) : 300;
+        var panelWidth = isOptions || isDetailed || isTraining ? Math.Min(window.Width - 48, 680) : 420;
+        var panelHeight = isOptions || isDetailed || isTraining ? Math.Min(window.Height - 48, 560) : 300;
         var panelTop = centerY - (panelHeight / 2);
         var title = _shell.State switch
         {
@@ -642,6 +828,7 @@ public sealed class ShootingGame : Game
             GameShellState.Result when _simulation.Status == SimulationStatus.StageClear => "ALL STAGES CLEAR",
             GameShellState.Result => "GAME OVER",
             GameShellState.Leaderboard => "LOCAL LEADERBOARD",
+            GameShellState.TrainingSetup => "TRAINING SETUP",
             _ => "OPTIONS"
         };
 
@@ -703,17 +890,21 @@ public sealed class ShootingGame : Game
                 DrawCenteredPixelText(
                     spriteBatch,
                     pixel,
-                    $"{index + 1:D2}  {entry.Score:D8}  ST {entry.BestStage:D2}  {(entry.Cleared ? "CLEAR" : "---")}",
+                    $"{index + 1:D2}  {entry.Score:D8}  ST {entry.BestStage:D2}  " +
+                    $"{(entry.Cleared ? "CLEAR" : "---")}  " +
+                    $"{(string.IsNullOrWhiteSpace(entry.ReplayPath) ? string.Empty : "REPLAY")}",
                     centerX,
                     panelTop + 72 + (index * 22),
                     1,
-                    index == 0 ? new Color(255, 235, 84) : Color.White);
+                    index == _shell.SelectionIndex ? new Color(255, 235, 84) : Color.White);
             }
         }
 
-        var items = _shell.MenuItems;
-        var itemSpacing = isOptions ? 23 : 46;
-        var itemsTop = isOptions
+        var items = _shell.State == GameShellState.Leaderboard
+            ? new[] { "BACK" }
+            : _shell.MenuItems;
+        var itemSpacing = isOptions || isTraining ? 23 : 46;
+        var itemsTop = isOptions || isTraining
             ? panelTop + 78
             : _shell.State == GameShellState.Result
             ? panelTop + 210
@@ -728,6 +919,8 @@ public sealed class ShootingGame : Game
                 ? index == _shell.SelectionIndex
                     ? _shell.SelectedValue
                     : OptionsMenu.GetValue(_shell.Settings, index)
+                : isTraining && index == _shell.SelectionIndex
+                ? _shell.SelectedValue
                 : string.Empty;
             var text = string.IsNullOrEmpty(value) ? items[index] : $"{items[index]}  {value}";
             DrawMenuOption(
@@ -736,8 +929,10 @@ public sealed class ShootingGame : Game
                 text,
                 centerX,
                 itemsTop + (index * itemSpacing),
-                index == _shell.SelectionIndex,
-                isOptions ? 1 : 2,
+                _shell.State == GameShellState.Leaderboard
+                    ? _shell.SelectionIndex == _shell.MenuItems.Count - 1
+                    : index == _shell.SelectionIndex,
+                isOptions || isTraining ? 1 : 2,
                 panelWidth - 48);
         }
 

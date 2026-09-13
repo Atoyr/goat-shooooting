@@ -14,6 +14,15 @@ internal static class SimulationStateHasher
         hash.Add(simulation.Configuration.ShipId);
         hash.Add(simulation.Configuration.StartStageId);
         hash.Add(simulation.Configuration.CheckpointId);
+        hash.Add(simulation.Configuration.IsPractice);
+        hash.Add(simulation.Configuration.InitialPower ?? -1);
+        hash.Add(simulation.Configuration.InitialLives ?? -1);
+        hash.Add(simulation.Configuration.InitialBombs ?? -1);
+        hash.Add(simulation.Configuration.InitialRank ?? -1);
+        hash.Add(simulation.Configuration.InitialGauge ?? -1);
+        hash.Add(simulation.Configuration.InitialInvincibilitySeconds ?? -1);
+        hash.Add(simulation.Configuration.SlowPractice);
+        hash.Add(simulation.Configuration.ShowHitboxes);
         hash.Add(simulation.Configuration.Seed);
         hash.Add(simulation.RandomState);
         hash.Add(simulation.RunState.Frame);

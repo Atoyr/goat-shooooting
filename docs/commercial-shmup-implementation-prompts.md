@@ -19,7 +19,7 @@
 - [x] P8 Score engine
 - [x] P9 Special gauge、Rank、Difficulty、RuleSet
 - [x] P10 Mode選択、Profile v2、Local leaderboard
-- [ ] P11 ReplayとTraining
+- [x] P11 ReplayとTraining
 - [ ] P12 Asset catalog、Sprite、Background
 - [ ] P13 Effect、HUD、視認性
 - [ ] P14 Audio、Localization、Accessibility

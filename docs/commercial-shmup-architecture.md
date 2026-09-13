@@ -588,7 +588,15 @@ training専用機能:
 - practice中であることを明示し、official scoreへ登録しない
 - optional slow playback／hitbox表示／無敵はReplay metadataへ残す
 
-### 8.3 ProfileとLeaderboard
+### 8.3 P11実装契約
+
+- `ReplayDocument` v1はengine version、Definition content hash、完全な`RunConfiguration`、seed、UTC作成日時、run-length encoded `InputFrame`、定期canonical state hash、最終status／score breakdown／clear／frame／hashを保持する。`ReplayRecorder`、`ReplayInputProvider`、`ReplayPlaybackSession`はRuntime内の純粋なsimulation契約であり、MonoGameとfile APIへ依存しない。
+- `DefinitionContentHasher`はDefinition層でcatalogを種類・ID順に正規化してSHA-256を求める。再生時はreplay version、engine version、content hashを完全一致させるため、異なるbuild／contentのReplayを推測で再生しない。P11以前にReplay fileは存在しないため、既存sample／gauntletおよびprofile／leaderboard schema v2の互換性は維持される。
+- Frameworkの`JsonReplayStore`はuser data配下の`replays/`だけを対象にし、16 MiB、local file name、checksum、frame／input change／checkpoint上限、enumと構造を検証する。保存はtemporary fileからatomic replaceし、version／engine／content不一致、checksum破損、途中終了、最初のdesync frameを区別したメッセージとしてUIへ返す。
+- 通常runは終了時にReplayを自動保存してresult／local leaderboard entryへ参照を付ける。resultまたはleaderboardから同じproduction `ShootingSimulation`へ再生入力を供給できる。viewer pause、0.25x～4x speed、hitbox表示はFramework側だけの制御でcanonical stateを変更しない。
+- `TrainingSetup`はstageまたはboss checkpointとpower、lives、bombs、rank、gauge、invincibility、slow、hitboxを`RunConfiguration` overrideへ変換する。`IsPractice`の同じSimulationを起動し、選択stage終了で完了、Retry edgeで即時再初期化する。practice runはprofile best／official leaderboard／official Replayへ登録せず、結果へ影響するslow／invincibilityはconfigurationとstate hashに残す。
+
+### 8.4 ProfileとLeaderboard
 
 score keyを構造化する。
 

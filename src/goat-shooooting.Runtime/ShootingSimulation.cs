@@ -54,6 +54,7 @@ public sealed class ShootingSimulation
     private readonly CleanupSystem _cleanupSystem = new();
     private StageSystem _stageSystem = null!;
     private bool _pauseWasPressed;
+    private bool _retryWasPressed;
     private double _phaseElapsed;
     private long _phaseTicks;
     private double _legacyAccumulator;
@@ -214,6 +215,14 @@ public sealed class ShootingSimulation
         {
             return;
         }
+
+        var retryPressed = inputFrame.IsPressed(InputButtons.Retry);
+        if (Configuration.IsPractice && retryPressed && !_retryWasPressed)
+        {
+            Restart(inputFrame);
+            return;
+        }
+        _retryWasPressed = retryPressed;
 
         if (Status != SimulationStatus.Running)
         {
@@ -551,14 +560,14 @@ public sealed class ShootingSimulation
         Telemetry = new SimulationTelemetry();
         var initialPower = Math.Min(
             CurrentShip.MaximumPower,
-            CurrentRuleSet.InitialPower ?? CurrentShip.InitialPower);
+            Configuration.InitialPower ?? CurrentRuleSet.InitialPower ?? CurrentShip.InitialPower);
         RunState.Reset(initialPower, CurrentRuleSet.InitialCredits);
-        if (CurrentRuleSet.InitialLives is { } initialLives)
+        if ((Configuration.InitialLives ?? CurrentRuleSet.InitialLives) is { } initialLives)
         {
             Player.Remove<LivesComponent>();
             Player.Add(new LivesComponent(Math.Min(CurrentShip.MaximumLives, initialLives)));
         }
-        if (CurrentRuleSet.InitialBombs is { } initialBombs)
+        if ((Configuration.InitialBombs ?? CurrentRuleSet.InitialBombs) is { } initialBombs)
         {
             var bombDamage = Player.Get<BombComponent>().Damage;
             Player.Remove<BombComponent>();
@@ -566,13 +575,18 @@ public sealed class ShootingSimulation
         }
         var ship = Player.Get<ShipComponent>();
         ship.Power = initialPower;
-        _specialGaugeSystem.Reset(RunState, CurrentRuleSet.InitialGauge, inputFrame.IsPressed(InputButtons.Special));
+        _specialGaugeSystem.Reset(
+            RunState,
+            Configuration.InitialGauge ?? CurrentRuleSet.InitialGauge,
+            inputFrame.IsPressed(InputButtons.Special));
         _rankSystem.Reset(RunState);
+        if (Configuration.InitialRank is { } initialRank) _rankSystem.SetInitial(RunState, initialRank);
         _randomSource.Reset(Configuration.Seed);
         Events.BeginTick(0);
         Status = SimulationStatus.Running;
         IsPaused = false;
         _pauseWasPressed = inputFrame.IsPressed(InputButtons.Pause);
+        _retryWasPressed = inputFrame.IsPressed(InputButtons.Retry);
         _bombSystem.Reset(inputFrame.IsPressed(InputButtons.Bomb));
         Feedback = default;
         Result = null;
@@ -587,6 +601,10 @@ public sealed class ShootingSimulation
         }
 
         StartStage(stageId);
+        if (Configuration.InitialInvincibilitySeconds is { } initialInvincibility)
+        {
+            Player.Get<InvincibilityComponent>().Remaining = initialInvincibility;
+        }
     }
 
     public bool TryContinue()
@@ -666,6 +684,17 @@ public sealed class ShootingSimulation
     private void AdvanceStageOrFinish()
     {
         var routeIndex = CurrentRuleSet.StageIds.ToList().IndexOf(CurrentStage.Id);
+        if (Configuration.IsPractice)
+        {
+            Events.Publish((frame, sequence) => new AllClearedEvent(
+                frame,
+                sequence,
+                CurrentStage.Id,
+                Player.Get<LivesComponent>().Remaining,
+                Player.Get<BombComponent>().Remaining));
+            Status = SimulationStatus.StageClear;
+            return;
+        }
         if (routeIndex + 1 < CurrentRuleSet.StageIds.Count)
         {
             StartStage(CurrentRuleSet.StageIds[routeIndex + 1]);
@@ -711,7 +740,12 @@ public sealed class ShootingSimulation
         CurrentStage = Definitions.GetStage(stageId);
         StageNumber++;
         _stageStartScore = RunState.Score;
-        _stageSystem = new StageSystem(CurrentStage, _enemyFactory, Telemetry.BossesKilled, _capabilities);
+        var stageSystemDefinition = CurrentStage;
+        if (StageNumber == 1 && !string.IsNullOrWhiteSpace(Configuration.CheckpointId))
+        {
+            stageSystemDefinition = CurrentStage with { Events = Array.Empty<StageEventDefinition>() };
+        }
+        _stageSystem = new StageSystem(stageSystemDefinition, _enemyFactory, Telemetry.BossesKilled, _capabilities);
         Phase = CurrentStage.OpeningDuration > 0 ? StagePhase.Opening : StagePhase.Playing;
         _phaseElapsed = 0;
         _phaseTicks = 0;
@@ -724,6 +758,45 @@ public sealed class ShootingSimulation
         {
             invincibility.Remaining = 0;
         }
+
+        if (StageNumber == 1 && !string.IsNullOrWhiteSpace(Configuration.CheckpointId))
+        {
+            StartBossCheckpoint(Configuration.CheckpointId);
+        }
+    }
+
+    private void StartBossCheckpoint(string checkpointId)
+    {
+        var stageBossIds = CurrentStage.Events
+            .Where(static stageEvent => !string.IsNullOrWhiteSpace(stageEvent.BossId))
+            .Select(static stageEvent => stageEvent.BossId!)
+            .Concat(CurrentStage.Objectives
+                .Where(static objective => !string.IsNullOrWhiteSpace(objective.BossId))
+                .Select(static objective => objective.BossId!))
+            .ToHashSet(StringComparer.Ordinal);
+        var bossDefinition = Definitions.Bosses.Values.FirstOrDefault(candidate =>
+            stageBossIds.Contains(candidate.Id) &&
+            candidate.Phases.Any(phase => phase.CheckpointId == checkpointId));
+        if (bossDefinition is null)
+            throw new DefinitionValidationException(
+                $"Stage '{CurrentStage.Id}' has no boss checkpoint '{checkpointId}'.");
+        var stageEvent = CurrentStage.Events.FirstOrDefault(candidate => candidate.BossId == bossDefinition.Id);
+        var bossEntity = _enemyFactory.Create(
+            World,
+            Definitions.GetEnemy(stageEvent?.EnemyId ?? bossDefinition.EnemyId),
+            stageEvent is null
+                ? new System.Numerics.Vector2(Definitions.Game.Width / 2f, 80)
+                : new System.Numerics.Vector2(stageEvent.X, stageEvent.Y),
+            isBoss: true,
+            bossDefinition);
+        Telemetry.EnemiesSpawned++;
+        _bossPhaseSystem.BeginAtCheckpoint(
+            bossEntity,
+            bossDefinition,
+            checkpointId,
+            Projectiles,
+            Telemetry,
+            Events);
     }
 
     private void ApplyScores(int eventStartIndex)

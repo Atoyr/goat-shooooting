@@ -4,6 +4,8 @@ goat-shooooting は、JSON で定義した Player、Enemy、Weapon、Bullet、St
 
 Production Runtimeは60Hz固定の`ShootingSimulation.Tick(InputFrame)`で進行します。同一build、同一content、同一seed、同一の量子化入力列ではcanonical state hashが一致します。旧来の`Update(float)`もfixed tickへ変換する互換adapterとして利用できます。
 
+通常runの完了時にはversion／engine／content hash付きReplayがuser dataの`replays/`へ自動保存され、リザルトの`PLAY REPLAY`またはlocal leaderboardの`REPLAY`付きentryから再生できます。再生中は左右で0.25x～4xの速度変更、P／Startでviewer pause、Enter／Aでhitbox表示を切り替えられ、これらはSimulation結果へ影響しません。不一致や破損、途中終了、desyncはウィンドウタイトルに理由を表示します。
+
 遊び方から独自の弾・敵・ボス・Wave・画面レイアウトの作り方、エンジン拡張までをまとめた[制作マニュアル](https://atoyr.github.io/goat-shooooting/)を公開しています。
 
 Steam向けのゲームパッド、設定、セーブ、正式配布ビルドについては、[Steam 配信に向けたロードマップと設計](docs/steam-release-roadmap.md)にまとめています。
@@ -87,6 +89,8 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 - Esc: 終了
 
 タイトルまたはポーズメニューの `OPTIONS` ではキーボード割り当てを変更できます。変更したい項目で Enter／A を押してから新しいキーを押してください。Esc／B で入力待ちをキャンセルでき、左右キーで候補を順送りすることもできます。変更内容は `OPTIONS` を閉じたときに保存されます。
+
+タイトルの`TRAINING`ではstage／boss checkpoint、初期power／lives／bombs／rank／gauge、無敵、slow、hitbox表示を選べます。Trainingは通常runと同じSimulationを使いますがprofile bestとofficial leaderboardには登録されず、プレイ中のR／Enterで即時retryできます。
 
 約60秒のステージ中にScout、Fighter、Midbossが複数Waveで出現します。Scoutは直進弾、Fighterは追尾弾、Midbossは二層式洗濯機弾幕を使用します。被弾するたびに残機が1減り、0になるとGame Over、Player BulletでEnemyをすべて倒すとStage Clearです。ボムは全Enemyへ一斉にダメージを与え、画面内のEnemy Bulletを消去します。被弾後には短い無敵時間があり、命中フラッシュ、撃破エフェクト、手続き生成した効果音、画面揺れで結果を伝えます。プレイヤーはColliderを含めて画面内に制限され、画面外へ完全に出た敵と弾は自動的に削除されます。残機・ボム数はプレイ領域左上、スコアは設定した位置へ常時表示され、現在の残機・ボム数・スコア・Pause／終了状態はウィンドウタイトルにも表示されます。
 

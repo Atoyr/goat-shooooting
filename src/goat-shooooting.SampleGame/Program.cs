@@ -23,6 +23,7 @@ public static class Program
             var userDataDirectory = UserDataPathResolver.GetDefaultDirectory();
             var userDataStore = new JsonUserDataStore(userDataDirectory);
             var leaderboard = new LocalLeaderboardService(userDataDirectory);
+            var replayStore = new JsonReplayStore(userDataDirectory);
             var settings = userDataStore.LoadSettings().Value;
             var profile = userDataStore.LoadProfile().Value;
             var definitions = GetAvailableGames();
@@ -38,7 +39,8 @@ public static class Program
                 userDataStore.SaveProfile(profile);
             }
 
-            using var game = new ShootingGame(definitions, gameId, userDataStore, settings, profile, leaderboard);
+            using var game = new ShootingGame(
+                definitions, gameId, userDataStore, settings, profile, leaderboard, replayStore);
             game.Run();
             return 0;
         }

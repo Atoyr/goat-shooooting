@@ -8,6 +8,64 @@ namespace GoatShooooting.IntegrationTests;
 public sealed class DeterministicSimulationIntegrationTests
 {
     [Fact]
+    public void RecordedRunPlaysBackToMatchingHashScoreBreakdownAndClear()
+    {
+        var definitions = CreateDefinitionsWithEmptyStage(resultsDuration: 0);
+        var configuration = new RunConfiguration("test", 123);
+        var original = new ShootingSimulation(
+            new MemoryDefinitionRepository(definitions),
+            new MutableInputState(),
+            configuration);
+        var contentHash = DefinitionContentHasher.Compute(definitions);
+        var recorder = new ReplayRecorder(configuration, contentHash, DateTimeOffset.UnixEpoch, hashInterval: 1);
+        var input = new InputFrame(12, -3, InputButtons.Fire);
+
+        original.Tick(input);
+        recorder.Record(input, original);
+        var replay = recorder.Complete(original);
+        ReplayValidator.Validate(replay, contentHash);
+
+        var playback = new ShootingSimulation(
+            new MemoryDefinitionRepository(definitions),
+            new MutableInputState(),
+            replay.Header.Configuration);
+        var session = new ReplayPlaybackSession(replay);
+        session.Step(playback);
+
+        Assert.True(session.IsComplete);
+        Assert.Equal(replay.Result.FinalStateHash, playback.ComputeCanonicalStateHash());
+        Assert.Equal(replay.Result.Score, playback.RunState.Score);
+        Assert.Equal(replay.Result.ScoreBreakdown, playback.RunState.ScoreBreakdown);
+        Assert.True(replay.Result.Cleared);
+    }
+
+    [Fact]
+    public void PlaybackReportsTheFirstDesyncFrame()
+    {
+        var definitions = CreateDefinitionsWithEmptyStage(resultsDuration: 0);
+        var configuration = new RunConfiguration("test", 5);
+        var simulation = new ShootingSimulation(
+            new MemoryDefinitionRepository(definitions), new MutableInputState(), configuration);
+        var recorder = new ReplayRecorder(
+            configuration, DefinitionContentHasher.Compute(definitions), DateTimeOffset.UnixEpoch, 1);
+        simulation.Tick(default);
+        recorder.Record(default, simulation);
+        var replay = recorder.Complete(simulation);
+        replay = replay with
+        {
+            Checkpoints = replay.Checkpoints.Select(checkpoint => checkpoint with { StateHash = 1 }).ToArray(),
+            Result = replay.Result with { FinalStateHash = 1 }
+        };
+        var playback = new ShootingSimulation(
+            new MemoryDefinitionRepository(definitions), new MutableInputState(), configuration);
+
+        var exception = Assert.Throws<ReplayException>(() => new ReplayPlaybackSession(replay).Step(playback));
+
+        Assert.Equal(ReplayErrorCode.Desync, exception.Code);
+        Assert.Contains("frame 1", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SameConfigurationAndInputsProduceSameCanonicalHash()
     {
         var first = CreateSimulation(seed: 31415);

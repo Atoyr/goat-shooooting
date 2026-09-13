@@ -47,6 +47,7 @@ public sealed class GameShellTests
         var shell = new GameShell(new GameSettings());
         shell.Update(new MenuInput(down: true));
         shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(down: true));
         shell.Update(new MenuInput(confirm: true));
         Assert.Equal(GameShellState.Options, shell.State);
 
@@ -145,6 +146,57 @@ public sealed class GameShellTests
     }
 
     [Fact]
+    public void TrainingSetupProducesPracticeConfigurationWithSelectedOverrides()
+    {
+        var options = new GameRunOptions(
+            "sample",
+            [new("arcade", "arcade")],
+            [new("normal", "normal")],
+            [new("ship", "ship")],
+            TrainingLocations:
+            [new TrainingLocationOption("stage-1"), new TrainingLocationOption("stage-1", "boss-phase-2")]);
+        var shell = new GameShell(new GameSettings(), [options], "sample", new PlayerProfile());
+
+        shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(confirm: true));
+        Assert.Equal(GameShellState.TrainingSetup, shell.State);
+        shell.Update(new MenuInput(right: true));
+        shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(right: true));
+        for (var index = 0; index < 8; index++) shell.Update(new MenuInput(down: true));
+
+        Assert.Equal(GameShellCommand.StartTraining, shell.Update(new MenuInput(confirm: true)));
+        var configuration = RunSelectionConfiguration.CreateTraining(shell, 99);
+        Assert.True(configuration.IsPractice);
+        Assert.Equal("stage-1", configuration.StartStageId);
+        Assert.Equal("boss-phase-2", configuration.CheckpointId);
+        Assert.Equal(10, configuration.InitialPower);
+        Assert.Equal(99, configuration.Seed);
+    }
+
+    [Fact]
+    public void LeaderboardAndResultReplayEntriesProducePlaybackCommand()
+    {
+        var shell = new GameShell(new GameSettings());
+        shell.SetLeaderboardEntries(
+        [
+            new CompletedRunRecord { RunId = "run", Score = 123, ReplayPath = "run.replay.json" }
+        ]);
+        shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(down: true));
+        Assert.Equal(GameShellCommand.OpenLeaderboard, shell.Update(new MenuInput(confirm: true)));
+        Assert.Equal(GameShellCommand.PlayReplay, shell.Update(new MenuInput(confirm: true)));
+        Assert.Equal("run.replay.json", shell.SelectedReplayPath);
+
+        var resultShell = StartRun(new GameShell(new GameSettings()));
+        resultShell.ShowResult();
+        resultShell.SetResultReplay("result.replay.json");
+        resultShell.Update(new MenuInput(down: true));
+        Assert.Equal(GameShellCommand.PlayReplay, resultShell.Update(new MenuInput(confirm: true)));
+        Assert.Equal("result.replay.json", resultShell.SelectedReplayPath);
+    }
+
+    [Fact]
     public void ConfirmOnInputOptionCapturesTheNextKeyboardKey()
     {
         var shell = OpenOptionsAtInputIndex(12);
@@ -191,12 +243,22 @@ public sealed class GameShellTests
         var shell = new GameShell(new GameSettings());
         shell.Update(new MenuInput(down: true));
         shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(down: true));
         shell.Update(new MenuInput(confirm: true));
         for (var index = 0; index < inputIndex; index++)
         {
             shell.Update(new MenuInput(down: true));
         }
 
+        return shell;
+    }
+
+    private static GameShell StartRun(GameShell shell)
+    {
+        shell.Update(new MenuInput(confirm: true));
+        shell.Update(new MenuInput(confirm: true));
+        shell.Update(new MenuInput(confirm: true));
+        shell.Update(new MenuInput(confirm: true));
         return shell;
     }
 

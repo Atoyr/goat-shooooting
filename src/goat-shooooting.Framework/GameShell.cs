@@ -13,7 +13,8 @@ public enum GameShellState
     Pause,
     Options,
     Result,
-    Leaderboard
+    Leaderboard,
+    TrainingSetup
 }
 
 public enum GameShellCommand
@@ -26,6 +27,8 @@ public enum GameShellCommand
     GameSelectionChanged,
     RunSelectionChanged,
     OpenLeaderboard,
+    StartTraining,
+    PlayReplay,
     SettingsChanged,
     SaveSettings,
     Quit
@@ -48,7 +51,27 @@ public sealed record GameRunOptions(
     IReadOnlyList<RunSelectionOption> Ships,
     string? DefaultModeId = null,
     string? DefaultDifficultyId = null,
-    string? DefaultShipId = null);
+    string? DefaultShipId = null,
+    IReadOnlyList<TrainingLocationOption>? TrainingLocations = null);
+
+public sealed record TrainingLocationOption(string StageId, string? CheckpointId = null)
+{
+    public string Label => string.IsNullOrWhiteSpace(CheckpointId)
+        ? StageId.ToUpperInvariant()
+        : $"{StageId.ToUpperInvariant()} / {CheckpointId.ToUpperInvariant()}";
+}
+
+public sealed record TrainingSetupSelection(
+    string StageId,
+    string? CheckpointId,
+    int Power,
+    int Lives,
+    int Bombs,
+    double Rank,
+    int Gauge,
+    bool Invincible,
+    bool SlowPractice,
+    bool ShowHitboxes);
 
 public static class RunSelectionConfiguration
 {
@@ -62,14 +85,40 @@ public static class RunSelectionConfiguration
             shell.SelectedDifficultyConfigurationId,
             shell.SelectedShipConfigurationId);
     }
+
+    public static RunConfiguration CreateTraining(GameShell shell, long seed)
+    {
+        ArgumentNullException.ThrowIfNull(shell);
+        var training = shell.TrainingSelection;
+        return new RunConfiguration(
+            shell.SelectedGameId,
+            seed,
+            shell.SelectedRuleSetConfigurationId,
+            shell.SelectedDifficultyConfigurationId,
+            shell.SelectedShipConfigurationId,
+            training.StageId,
+            training.CheckpointId,
+            isPractice: true,
+            training.Power,
+            training.Lives,
+            training.Bombs,
+            training.Rank,
+            training.Gauge,
+            training.Invincible ? float.MaxValue : null,
+            training.SlowPractice,
+            training.ShowHitboxes);
+    }
 }
 
 /// <summary>Window-independent production menu state machine.</summary>
 public sealed class GameShell
 {
-    private static readonly string[] TitleItems = ["START", "LEADERBOARD", "OPTIONS", "QUIT"];
+    private static readonly string[] TitleItems = ["START", "TRAINING", "LEADERBOARD", "OPTIONS", "QUIT"];
     private static readonly string[] PauseItems = ["RESUME", "OPTIONS", "RETRY", "TITLE"];
     private static readonly string[] ResultItems = ["RETRY", "LEADERBOARD", "TITLE"];
+    private static readonly string[] ResultReplayItems = ["RETRY", "PLAY REPLAY", "LEADERBOARD", "TITLE"];
+    private static readonly string[] TrainingItems =
+        ["LOCATION", "POWER", "LIVES", "BOMBS", "RANK", "GAUGE", "INVINCIBLE", "SLOW", "HITBOX", "START", "BACK"];
     private readonly IReadOnlyDictionary<string, GameRunOptions> _runOptions;
     private readonly string[] _gameIds;
     private readonly HashSet<string> _unlocks;
@@ -83,6 +132,17 @@ public sealed class GameShell
     private RunSelectionOption _selectedMode = null!;
     private RunSelectionOption _selectedDifficulty = null!;
     private RunSelectionOption _selectedShip = null!;
+    private IReadOnlyList<CompletedRunRecord> _leaderboardEntries = Array.Empty<CompletedRunRecord>();
+    private string? _resultReplayPath;
+    private int _trainingLocationIndex;
+    private int _trainingPower;
+    private int _trainingLives = 3;
+    private int _trainingBombs = 3;
+    private int _trainingRank;
+    private int _trainingGauge;
+    private bool _trainingInvincible;
+    private bool _trainingSlow;
+    private bool _trainingHitboxes = true;
 
     public GameShell(GameSettings settings)
         : this(settings, [LegacyOptions("sample")], "sample", new PlayerProfile())
@@ -140,6 +200,26 @@ public sealed class GameShell
         SelectedShipId);
     public int SelectionIndex => _selectionIndex;
     public bool IsAwaitingKeyBinding { get; private set; }
+    public string? SelectedReplayPath { get; private set; }
+    public TrainingSetupSelection TrainingSelection
+    {
+        get
+        {
+            var locations = TrainingLocations;
+            var location = locations[Math.Clamp(_trainingLocationIndex, 0, locations.Count - 1)];
+            return new TrainingSetupSelection(
+                location.StageId,
+                location.CheckpointId,
+                _trainingPower,
+                _trainingLives,
+                _trainingBombs,
+                _trainingRank / 10d,
+                _trainingGauge,
+                _trainingInvincible,
+                _trainingSlow,
+                _trainingHitboxes);
+        }
+    }
     public IReadOnlyList<string> MenuItems => State switch
     {
         GameShellState.Title => TitleItems,
@@ -147,17 +227,21 @@ public sealed class GameShell
         GameShellState.DifficultySelect => SelectionLabels(Current.Difficulties),
         GameShellState.ShipSelect => SelectionLabels(Current.Ships),
         GameShellState.Pause => PauseItems,
-        GameShellState.Result => ResultItems,
-        GameShellState.Leaderboard => ["BACK"],
+        GameShellState.Result => _resultReplayPath is null ? ResultItems : ResultReplayItems,
+        GameShellState.Leaderboard => LeaderboardItems,
+        GameShellState.TrainingSetup => TrainingItems,
         GameShellState.Options => OptionsMenu.ItemLabels,
         _ => []
     };
 
-    public string SelectedValue => State == GameShellState.Options
-        ? IsAwaitingKeyBinding
+    public string SelectedValue => State switch
+    {
+        GameShellState.Options => IsAwaitingKeyBinding
             ? _keyBindingRejected ? "KEY IN USE" : "PRESS A KEY"
-            : OptionsMenu.GetValue(Settings, _selectionIndex)
-        : string.Empty;
+            : OptionsMenu.GetValue(Settings, _selectionIndex),
+        GameShellState.TrainingSetup => GetTrainingValue(_selectionIndex),
+        _ => string.Empty
+    };
 
     public GameShellCommand Update(IMenuInput input)
     {
@@ -180,6 +264,7 @@ public sealed class GameShell
         else if (input.DownPressed) _selectionIndex = (_selectionIndex + 1) % items.Count;
 
         if (State == GameShellState.Options) return UpdateOptions(input);
+        if (State == GameShellState.TrainingSetup) return UpdateTraining(input);
         return input.ConfirmPressed ? ConfirmSelection() : GameShellCommand.None;
     }
 
@@ -212,6 +297,11 @@ public sealed class GameShell
 
     public void ReplaceSettings(GameSettings settings) =>
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
+
+    public void SetLeaderboardEntries(IReadOnlyList<CompletedRunRecord> entries) =>
+        _leaderboardEntries = entries ?? throw new ArgumentNullException(nameof(entries));
+
+    public void SetResultReplay(string? replayPath) => _resultReplayPath = replayPath;
 
     public GameShellCommand RetryResult()
     {
@@ -268,6 +358,7 @@ public sealed class GameShell
         GameShellState.Pause => ResumeFromMenu(),
         GameShellState.Result => ReturnToTitle(),
         GameShellState.Leaderboard => CloseLeaderboard(),
+        GameShellState.TrainingSetup => ReturnToTitle(),
         GameShellState.Options => CloseOptions(),
         _ => GameShellCommand.None
     };
@@ -280,7 +371,8 @@ public sealed class GameShell
         GameShellState.ShipSelect => ConfirmShip(),
         GameShellState.Pause => ConfirmPause(),
         GameShellState.Result => ConfirmResult(),
-        GameShellState.Leaderboard => ReturnToTitle(),
+        GameShellState.Leaderboard => ConfirmLeaderboard(),
+        GameShellState.TrainingSetup => ConfirmTraining(),
         _ => GameShellCommand.None
     };
 
@@ -288,17 +380,23 @@ public sealed class GameShell
     {
         if (_selectionIndex == 1)
         {
+            State = GameShellState.TrainingSetup;
+            _selectionIndex = 0;
+            return GameShellCommand.None;
+        }
+        if (_selectionIndex == 2)
+        {
             _leaderboardReturnState = GameShellState.Title;
             State = GameShellState.Leaderboard;
             _selectionIndex = 0;
             return GameShellCommand.OpenLeaderboard;
         }
-        if (_selectionIndex == 2)
+        if (_selectionIndex == 3)
         {
             OpenOptions(GameShellState.Title);
             return GameShellCommand.None;
         }
-        if (_selectionIndex == 3) return GameShellCommand.Quit;
+        if (_selectionIndex == 4) return GameShellCommand.Quit;
         return OpenSelection(GameShellState.ModeSelect, Current.Modes, _selectedMode);
     }
 
@@ -359,7 +457,15 @@ public sealed class GameShell
             _selectionIndex = 0;
             return GameShellCommand.RetryRun;
         }
-        if (_selectionIndex == 1)
+        if (_resultReplayPath is not null && _selectionIndex == 1)
+        {
+            SelectedReplayPath = _resultReplayPath;
+            State = GameShellState.Playing;
+            _selectionIndex = 0;
+            return GameShellCommand.PlayReplay;
+        }
+        var leaderboardIndex = _resultReplayPath is null ? 1 : 2;
+        if (_selectionIndex == leaderboardIndex)
         {
             _leaderboardReturnState = GameShellState.Result;
             State = GameShellState.Leaderboard;
@@ -368,6 +474,81 @@ public sealed class GameShell
         }
         return ReturnToTitle();
     }
+
+    private GameShellCommand ConfirmLeaderboard()
+    {
+        if (_selectionIndex >= _leaderboardEntries.Count) return CloseLeaderboard();
+        var replayPath = _leaderboardEntries[_selectionIndex].ReplayPath;
+        if (string.IsNullOrWhiteSpace(replayPath)) return GameShellCommand.None;
+        SelectedReplayPath = replayPath;
+        State = GameShellState.Playing;
+        _selectionIndex = 0;
+        return GameShellCommand.PlayReplay;
+    }
+
+    private GameShellCommand ConfirmTraining()
+    {
+        if (_selectionIndex == TrainingItems.Length - 2)
+        {
+            State = GameShellState.Playing;
+            _selectionIndex = 0;
+            return GameShellCommand.StartTraining;
+        }
+        if (_selectionIndex == TrainingItems.Length - 1) return ReturnToTitle();
+        return GameShellCommand.None;
+    }
+
+    private GameShellCommand UpdateTraining(IMenuInput input)
+    {
+        var direction = input.LeftPressed ? -1 : input.RightPressed ? 1 : 0;
+        if (direction != 0)
+        {
+            switch (_selectionIndex)
+            {
+                case 0:
+                    _trainingLocationIndex = Wrap(_trainingLocationIndex + direction, TrainingLocations.Count);
+                    break;
+                case 1: _trainingPower = Math.Clamp(_trainingPower + (direction * 10), 0, 100); break;
+                case 2: _trainingLives = Math.Clamp(_trainingLives + direction, 1, 9); break;
+                case 3: _trainingBombs = Math.Clamp(_trainingBombs + direction, 0, 9); break;
+                case 4: _trainingRank = Math.Clamp(_trainingRank + direction, 0, 10); break;
+                case 5: _trainingGauge = Math.Clamp(_trainingGauge + (direction * 10), 0, 100); break;
+                case 6: _trainingInvincible = !_trainingInvincible; break;
+                case 7: _trainingSlow = !_trainingSlow; break;
+                case 8: _trainingHitboxes = !_trainingHitboxes; break;
+            }
+        }
+        return input.ConfirmPressed ? ConfirmTraining() : GameShellCommand.None;
+    }
+
+    private string GetTrainingValue(int index) => index switch
+    {
+        0 => TrainingLocations[_trainingLocationIndex].Label,
+        1 => _trainingPower.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        2 => _trainingLives.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        3 => _trainingBombs.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        4 => (_trainingRank / 10d).ToString("F1", System.Globalization.CultureInfo.InvariantCulture),
+        5 => _trainingGauge.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        6 => _trainingInvincible ? "ON" : "OFF",
+        7 => _trainingSlow ? "ON" : "OFF",
+        8 => _trainingHitboxes ? "ON" : "OFF",
+        _ => string.Empty
+    };
+
+    private IReadOnlyList<TrainingLocationOption> TrainingLocations =>
+        Current.TrainingLocations is { Count: > 0 } locations
+            ? locations
+            : [new TrainingLocationOption("stage")];
+
+    private IReadOnlyList<string> LeaderboardItems =>
+        _leaderboardEntries
+            .Select((entry, index) => string.IsNullOrWhiteSpace(entry.ReplayPath)
+                ? $"{index + 1:D2}  {entry.Score:D8}"
+                : $"PLAY {index + 1:D2}  {entry.Score:D8}")
+            .Append("BACK")
+            .ToArray();
+
+    private static int Wrap(int value, int count) => (value + count) % count;
 
     private GameShellCommand ResumeFromMenu()
     {
@@ -427,6 +608,7 @@ public sealed class GameShell
 
     private void RestoreSelections()
     {
+        _trainingLocationIndex = 0;
         _selectedMode = Restore(
             Current.Modes,
             _lastModes.GetValueOrDefault(SelectedGameId) ?? Current.DefaultModeId);

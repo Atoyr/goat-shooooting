@@ -52,6 +52,23 @@ public sealed class BossPhaseSystem(
         }
     }
 
+    public void BeginAtCheckpoint(
+        Entity entity,
+        BossDefinition boss,
+        string checkpointId,
+        ProjectileStore projectiles,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        ArgumentNullException.ThrowIfNull(entity);
+        ArgumentNullException.ThrowIfNull(boss);
+        ArgumentException.ThrowIfNullOrWhiteSpace(checkpointId);
+        var phaseIndex = boss.Phases.ToList().FindIndex(phase => phase.CheckpointId == checkpointId);
+        if (phaseIndex < 0)
+            throw new DefinitionValidationException($"Boss '{boss.Id}' has no checkpoint '{checkpointId}'.");
+        BeginPhase(entity, boss, phaseIndex, projectiles, telemetry, events);
+    }
+
     private void EndPhase(
         World world,
         Entity entity,

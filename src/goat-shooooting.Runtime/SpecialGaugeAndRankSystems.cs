@@ -325,6 +325,12 @@ public sealed class RankSystem
 
     public void Reset(RunState state) => state.Rank = _rule?.Initial ?? 0;
 
+    public void SetInitial(RunState state, double rank)
+    {
+        if (!double.IsFinite(rank) || rank < 0) throw new ArgumentOutOfRangeException(nameof(rank));
+        state.Rank = _rule is null ? rank : Math.Clamp(rank, _rule.Minimum, _rule.Maximum);
+    }
+
     public void Observe(
         IReadOnlyList<IGameplayEvent> gameplayEvents,
         float deltaTime,
