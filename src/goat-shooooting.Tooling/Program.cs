@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using GoatShooooting.Definitions;
+using GoatShooooting.Runtime;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -37,6 +38,7 @@ public static class Program
         try
         {
             var catalog = new JsonDefinitionRepository(rootDirectory).Load();
+            new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
             var report = HeadlessBenchmarkRunner.Run(catalog);
             Console.WriteLine(JsonSerializer.Serialize(report, new JsonSerializerOptions
             {
@@ -62,9 +64,12 @@ public static class Program
         try
         {
             var catalog = new JsonDefinitionRepository(rootDirectory).Load();
+            new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
             Console.WriteLine(
-                $"VALID: player={catalog.Game.PlayerId}, stage={catalog.Game.StageId}, " +
-                $"enemies={catalog.Enemies.Count}, bullets={catalog.Bullets.Count}, weapons={catalog.Weapons.Count}");
+                $"VALID: schema=2, game={catalog.Game.Id}, player={catalog.Game.PlayerId}, " +
+                $"stage={catalog.Game.StageId}, ships={catalog.Ships.Count}, " +
+                $"projectiles={catalog.Projectiles.Count}, enemies={catalog.Enemies.Count}, " +
+                $"weapons={catalog.Weapons.Count}");
             return 0;
         }
         catch (Exception exception) when (exception is DefinitionValidationException or IOException or UnauthorizedAccessException)

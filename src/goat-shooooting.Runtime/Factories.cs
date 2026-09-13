@@ -30,12 +30,15 @@ public sealed class PlayerFactory
     }
 }
 
-public sealed class EnemyFactory
+public sealed class EnemyFactory(RuntimeCapabilityRegistry? capabilities = null)
 {
+    private readonly RuntimeCapabilityRegistry _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
+
     public Entity Create(World world, EnemyDefinition definition, Vector2 position, bool isBoss = false)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(definition);
+        definition = DefinitionMigrator.Migrate(definition);
 
         var entity = world.CreateEntity()
             .Add(new TransformComponent(position))
@@ -55,27 +58,19 @@ public sealed class EnemyFactory
             entity.Add(new WeaponHolderComponent(definition.WeaponId));
         }
 
-        if (string.Equals(definition.MovementPattern, "sine", StringComparison.Ordinal))
-        {
-            entity.Add(new SineMovementComponent(
-                position.X,
-                definition.MovementAmplitude,
-                definition.MovementFrequency));
-        }
-        else if (string.Equals(definition.MovementPattern, "zigzag", StringComparison.Ordinal))
-        {
-            entity.Add(new ZigzagMovementComponent(
-                position.X,
-                definition.MovementAmplitude,
-                definition.MovementFrequency));
-        }
+        var motion = definition.Motion!;
+        var factory = _capabilities.ActorMotions.Resolve(motion.Type, $"enemy '{definition.Id}' motion");
+        factory.Validate(motion, $"enemy '{definition.Id}' motion");
+        factory.Apply(entity, position, motion);
 
         return entity;
     }
 }
 
-public sealed class BulletFactory
+public sealed class BulletFactory(RuntimeCapabilityRegistry? capabilities = null)
 {
+    private readonly RuntimeCapabilityRegistry _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
+
     public int Create(
         ProjectileStore projectiles,
         BulletDefinition definition,
@@ -86,6 +81,7 @@ public sealed class BulletFactory
     {
         ArgumentNullException.ThrowIfNull(projectiles);
         ArgumentNullException.ThrowIfNull(definition);
+        definition = DefinitionMigrator.Migrate(definition);
         if (direction == Vector2.Zero)
         {
             throw new ArgumentException("Bullet direction cannot be zero.", nameof(direction));
@@ -100,9 +96,12 @@ public sealed class BulletFactory
                 ownerLayer,
                 "Only player or enemy entities may own bullets.")
         };
-        var behavior = string.Equals(definition.MovementPattern, "homing", StringComparison.Ordinal)
-            ? ProjectileBehavior.Homing
-            : ProjectileBehavior.Straight;
+        var behaviorDefinition = definition.Behavior!;
+        var behaviorFactory = _capabilities.ProjectileBehaviors.Resolve(
+            behaviorDefinition.Type,
+            $"bullet '{definition.Id}' behavior");
+        behaviorFactory.Validate(behaviorDefinition, $"bullet '{definition.Id}' behavior");
+        var behavior = behaviorFactory.Create(behaviorDefinition);
         return projectiles.QueueSpawn(new ProjectileSpawnCommand(
             ownerEntityId,
             team,
@@ -113,8 +112,8 @@ public sealed class BulletFactory
             definition.Damage,
             definition.Lifetime,
             definition.Id,
-            behavior,
-            definition.HomingTurnDegreesPerSecond * (MathF.PI / 180)));
+            behavior.Behavior,
+            behavior.HomingTurnRadiansPerSecond));
     }
 
     public Entity Create(
@@ -126,6 +125,7 @@ public sealed class BulletFactory
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(definition);
+        definition = DefinitionMigrator.Migrate(definition);
         if (direction == Vector2.Zero)
         {
             throw new ArgumentException("Bullet direction cannot be zero.", nameof(direction));
@@ -149,10 +149,15 @@ public sealed class BulletFactory
             .Add(new BulletComponent(definition.Id, targetLayer))
             .Add(new LifetimeComponent(definition.Lifetime));
 
-        if (string.Equals(definition.MovementPattern, "homing", StringComparison.Ordinal))
+        var behaviorDefinition = definition.Behavior!;
+        var behaviorFactory = _capabilities.ProjectileBehaviors.Resolve(
+            behaviorDefinition.Type,
+            $"bullet '{definition.Id}' behavior");
+        behaviorFactory.Validate(behaviorDefinition, $"bullet '{definition.Id}' behavior");
+        var behavior = behaviorFactory.Create(behaviorDefinition);
+        if (behavior.Behavior == ProjectileBehavior.Homing)
         {
-            entity.Add(new HomingMovementComponent(
-                definition.HomingTurnDegreesPerSecond * (MathF.PI / 180)));
+            entity.Add(new HomingMovementComponent(behavior.HomingTurnRadiansPerSecond));
         }
 
         return entity;

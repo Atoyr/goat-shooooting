@@ -24,8 +24,10 @@ public sealed class ShootingSimulation
     private readonly IInputState _legacyInput;
     private readonly TickInputState _tickInput = new();
     private readonly IRandomSource _randomSource;
+    private readonly RuntimeCapabilityRegistry _capabilities;
     private readonly PlayerInputSystem _playerInputSystem = new();
-    private readonly WeaponSystem _weaponSystem = new(new BulletFactory());
+    private readonly WeaponSystem _weaponSystem;
+    private readonly EnemyFactory _enemyFactory;
     private readonly ProjectileMovementSystem _projectileMovementSystem = new();
     private readonly ProjectileLifetimeSystem _projectileLifetimeSystem = new();
     private readonly ActorSpatialGrid _actorSpatialGrid = new();
@@ -56,7 +58,8 @@ public sealed class ShootingSimulation
         IDefinitionRepository definitionRepository,
         IInputState input,
         RunConfiguration configuration,
-        IRandomSource? randomSource = null)
+        IRandomSource? randomSource = null,
+        RuntimeCapabilityRegistry? capabilities = null)
     {
         ArgumentNullException.ThrowIfNull(definitionRepository);
         ArgumentNullException.ThrowIfNull(configuration);
@@ -64,7 +67,11 @@ public sealed class ShootingSimulation
         _legacyInput = input ?? throw new ArgumentNullException(nameof(input));
         Configuration = configuration;
         _randomSource = randomSource ?? new SeededRandomSource(configuration.Seed);
+        _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
+        _enemyFactory = new EnemyFactory(_capabilities);
+        _weaponSystem = new WeaponSystem(new BulletFactory(_capabilities), _capabilities);
         Definitions = _definitionRepository.Load();
+        new CapabilityValidator().Validate(Definitions, _capabilities);
         World = null!;
         Player = null!;
         Telemetry = null!;
@@ -316,6 +323,16 @@ public sealed class ShootingSimulation
             return false;
         }
 
+        try
+        {
+            new CapabilityValidator().Validate(result.Catalog!, _capabilities);
+        }
+        catch (DefinitionValidationException exception)
+        {
+            DefinitionReloadError = exception.Message;
+            return false;
+        }
+
         Definitions = result.Catalog!;
         DefinitionReloadError = null;
         DefinitionReloadCount++;
@@ -373,7 +390,7 @@ public sealed class ShootingSimulation
         CurrentStage = Definitions.GetStage(stageId);
         StageNumber++;
         _stageStartScore = Telemetry.Score;
-        _stageSystem = new StageSystem(CurrentStage, new EnemyFactory(), Telemetry.BossesKilled);
+        _stageSystem = new StageSystem(CurrentStage, _enemyFactory, Telemetry.BossesKilled, _capabilities);
         Phase = CurrentStage.OpeningDuration > 0 ? StagePhase.Opening : StagePhase.Playing;
         _phaseElapsed = 0;
         _phaseTicks = 0;

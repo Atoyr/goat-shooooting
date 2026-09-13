@@ -5,6 +5,7 @@
   "additionalProperties": false,
   "required": ["id", "speed", "weaponId", "x", "y", "radius"],
   "properties": {
+    "schemaVersion": { "type": "integer", "enum": [1, 2], "default": 1 },
     "id": { "type": "string", "minLength": 1 },
     "lives": { "type": "integer", "minimum": 1, "default": 2 },
     "bombs": { "type": "integer", "minimum": 0, "default": 2 },

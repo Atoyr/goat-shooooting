@@ -29,29 +29,41 @@ public sealed class JsonDefinitionRepository(string rootDirectory) : IDefinition
             ReadAll<EnemyDefinition>(Path.Combine(_rootDirectory, "enemies")),
             ReadAll<BulletDefinition>(Path.Combine(_rootDirectory, "bullets")),
             ReadAll<WeaponDefinition>(Path.Combine(_rootDirectory, "weapons")),
-            ReadAll<StageDefinition>(Path.Combine(_rootDirectory, "stages")));
+            ReadAll<StageDefinition>(Path.Combine(_rootDirectory, "stages")),
+            ships: ReadAll<ShipDefinition>(Path.Combine(_rootDirectory, "ships"), requiredSchemaVersion: 2),
+            projectiles: ReadAll<ProjectileDefinition>(Path.Combine(_rootDirectory, "projectiles"), requiredSchemaVersion: 2),
+            items: ReadAll<ItemDefinition>(Path.Combine(_rootDirectory, "items"), requiredSchemaVersion: 2),
+            patterns: ReadAll<PatternDefinition>(Path.Combine(_rootDirectory, "patterns"), requiredSchemaVersion: 2),
+            bosses: ReadAll<BossDefinition>(Path.Combine(_rootDirectory, "bosses"), requiredSchemaVersion: 2),
+            ruleSets: ReadAll<RuleSetDefinition>(Path.Combine(_rootDirectory, "rulesets"), requiredSchemaVersion: 2),
+            difficulties: ReadAll<DifficultyDefinition>(Path.Combine(_rootDirectory, "difficulties"), requiredSchemaVersion: 2),
+            visuals: ReadAll<VisualDefinition>(Path.Combine(_rootDirectory, "visuals"), requiredSchemaVersion: 2),
+            audio: ReadAll<AudioDefinition>(Path.Combine(_rootDirectory, "audio"), requiredSchemaVersion: 2));
     }
 
-    private static IReadOnlyList<T> ReadAll<T>(string directory, string? allowSingleFile = null)
+    private static IReadOnlyList<T> ReadAll<T>(
+        string directory,
+        string? allowSingleFile = null,
+        int? requiredSchemaVersion = null)
     {
         var result = new List<T>();
         if (allowSingleFile is not null && File.Exists(allowSingleFile))
         {
-            result.Add(Read<T>(allowSingleFile));
+            result.Add(Read<T>(allowSingleFile, requiredSchemaVersion));
         }
 
         if (Directory.Exists(directory))
         {
             foreach (var file in Directory.EnumerateFiles(directory, "*.json").OrderBy(static path => path, StringComparer.Ordinal))
             {
-                result.Add(Read<T>(file));
+                result.Add(Read<T>(file, requiredSchemaVersion));
             }
         }
 
         return result;
     }
 
-    private static T Read<T>(string path)
+    private static T Read<T>(string path, int? requiredSchemaVersion = null)
     {
         if (!File.Exists(path))
         {
@@ -60,7 +72,20 @@ public sealed class JsonDefinitionRepository(string rootDirectory) : IDefinition
 
         try
         {
-            return JsonSerializer.Deserialize<T>(File.ReadAllText(path), JsonOptions)
+            var content = File.ReadAllText(path);
+            if (requiredSchemaVersion is not null)
+            {
+                using var document = JsonDocument.Parse(content);
+                if (!document.RootElement.TryGetProperty("schemaVersion", out var schemaVersion) ||
+                    schemaVersion.ValueKind != JsonValueKind.Number ||
+                    !schemaVersion.TryGetInt32(out var value) || value != requiredSchemaVersion)
+                {
+                    throw new DefinitionValidationException(
+                        $"Definition file '{path}' is invalid at JSON path '$.schemaVersion': expected {requiredSchemaVersion}.");
+                }
+            }
+
+            return JsonSerializer.Deserialize<T>(content, JsonOptions)
                 ?? throw new DefinitionValidationException($"Definition file '{path}' contains null.");
         }
         catch (JsonException exception)

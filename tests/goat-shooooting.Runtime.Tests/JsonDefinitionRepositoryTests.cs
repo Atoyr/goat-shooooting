@@ -35,8 +35,10 @@ public sealed class JsonDefinitionRepositoryTests
     [Fact]
     public void UnsupportedMovementPatternProducesValidationError()
     {
+        var definitions = TestDefinitions.Create(movementPattern: "spiral");
+
         var exception = Assert.Throws<DefinitionValidationException>(
-            () => TestDefinitions.Create(movementPattern: "spiral"));
+            () => ValidateCapabilities(definitions));
 
         Assert.Contains("spiral", exception.Message);
     }
@@ -44,13 +46,13 @@ public sealed class JsonDefinitionRepositoryTests
     [Fact]
     public void ZigzagMovementRequiresPositiveAmplitudeAndFrequency()
     {
-        var amplitudeException = Assert.Throws<DefinitionValidationException>(
-            () => TestDefinitions.Create(movementPattern: "zigzag", movementFrequency: 1));
-        var frequencyException = Assert.Throws<DefinitionValidationException>(
-            () => TestDefinitions.Create(movementPattern: "zigzag", movementAmplitude: 10));
+        var missingAmplitude = TestDefinitions.Create(movementPattern: "zigzag", movementFrequency: 1);
+        var missingFrequency = TestDefinitions.Create(movementPattern: "zigzag", movementAmplitude: 10);
+        var amplitudeException = Assert.Throws<DefinitionValidationException>(() => ValidateCapabilities(missingAmplitude));
+        var frequencyException = Assert.Throws<DefinitionValidationException>(() => ValidateCapabilities(missingFrequency));
 
-        Assert.Contains("movement amplitude", amplitudeException.Message);
-        Assert.Contains("movement frequency", frequencyException.Message);
+        Assert.Contains("amplitude", amplitudeException.Message);
+        Assert.Contains("frequency", frequencyException.Message);
     }
 
     [Fact]
@@ -63,15 +65,16 @@ public sealed class JsonDefinitionRepositoryTests
             HomingTurnDegreesPerSecond = 0
         };
 
-        var exception = Assert.Throws<DefinitionValidationException>(() => new DefinitionCatalog(
+        var definitions = new DefinitionCatalog(
             baseline.Game,
             baseline.Players.Values,
             baseline.Enemies.Values,
             new[] { bullet },
             baseline.Weapons.Values,
-            baseline.Stages.Values));
+            baseline.Stages.Values);
+        var exception = Assert.Throws<DefinitionValidationException>(() => ValidateCapabilities(definitions));
 
-        Assert.Contains("homing turn", exception.Message);
+        Assert.Contains("turnDegreesPerSecond", exception.Message);
     }
 
     [Fact]
@@ -101,13 +104,14 @@ public sealed class JsonDefinitionRepositoryTests
         var baseline = TestDefinitions.Create();
         var weapon = baseline.GetWeapon("weapon") with { FirePattern = "random" };
 
-        var exception = Assert.Throws<DefinitionValidationException>(() => new DefinitionCatalog(
+        var definitions = new DefinitionCatalog(
             baseline.Game,
             baseline.Players.Values,
             baseline.Enemies.Values,
             baseline.Bullets.Values,
             new[] { weapon },
-            baseline.Stages.Values));
+            baseline.Stages.Values);
+        var exception = Assert.Throws<DefinitionValidationException>(() => ValidateCapabilities(definitions));
 
         Assert.Contains("random", exception.Message);
     }
@@ -256,4 +260,7 @@ public sealed class JsonDefinitionRepositoryTests
         baseline.Bullets.Values,
         baseline.Weapons.Values,
         baseline.Stages.Values);
+
+    private static void ValidateCapabilities(DefinitionCatalog definitions) =>
+        new CapabilityValidator().Validate(definitions, RuntimeCapabilityRegistry.CreateBuiltIn());
 }

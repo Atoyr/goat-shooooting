@@ -23,9 +23,12 @@ public sealed class PlayerInputSystem
     }
 }
 
-public sealed class WeaponSystem(BulletFactory bulletFactory)
+public sealed class WeaponSystem(
+    BulletFactory bulletFactory,
+    RuntimeCapabilityRegistry? capabilities = null)
 {
     private readonly BulletFactory _bulletFactory = bulletFactory ?? throw new ArgumentNullException(nameof(bulletFactory));
+    private readonly RuntimeCapabilityRegistry _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
 
     public void Update(
         World world,
@@ -79,7 +82,9 @@ public sealed class WeaponSystem(BulletFactory bulletFactory)
             var weapon = definitions.GetWeapon(holder.WeaponId);
             var bullet = definitions.GetBullet(weapon.BulletId);
             var baseDirection = ownerLayer == CollisionLayer.Player ? -Vector2.UnitY : Vector2.UnitY;
-            foreach (var direction in GetDirections(weapon, holder, baseDirection))
+            var pattern = weapon.Pattern!;
+            var patternFactory = _capabilities.FirePatterns.Resolve(pattern.Type, $"weapon '{weapon.Id}' pattern");
+            foreach (var direction in patternFactory.GetDirections(pattern, holder, baseDirection))
             {
                 if (projectiles is null)
                 {
@@ -108,81 +113,9 @@ public sealed class WeaponSystem(BulletFactory bulletFactory)
                 }
             }
 
-            AdvancePattern(weapon, holder);
+            patternFactory.Advance(pattern, holder);
             holder.CooldownRemaining = weapon.Cooldown;
         }
-    }
-
-    private static IEnumerable<Vector2> GetDirections(
-        WeaponDefinition weapon,
-        WeaponHolderComponent holder,
-        Vector2 baseDirection)
-    {
-        if (string.Equals(weapon.FirePattern, "spread", StringComparison.Ordinal))
-        {
-            for (var projectileIndex = 0; projectileIndex < weapon.ProjectileCount; projectileIndex++)
-            {
-                var normalizedOffset = weapon.ProjectileCount == 1
-                    ? 0
-                    : ((float)projectileIndex / (weapon.ProjectileCount - 1)) - 0.5f;
-                yield return Rotate(
-                    baseDirection,
-                    normalizedOffset * weapon.SpreadDegrees * (MathF.PI / 180));
-            }
-
-            yield break;
-        }
-
-        var armSpacing = 360f / weapon.ProjectileCount;
-        for (var arm = 0; arm < weapon.ProjectileCount; arm++)
-        {
-            yield return RotateDegrees(baseDirection, holder.PatternAngleDegrees + (arm * armSpacing));
-        }
-
-        if (string.Equals(weapon.FirePattern, "double-washing-machine", StringComparison.Ordinal))
-        {
-            for (var arm = 0; arm < weapon.ProjectileCount; arm++)
-            {
-                yield return RotateDegrees(
-                    baseDirection,
-                    -holder.PatternAngleDegrees + ((arm + 0.5f) * armSpacing));
-            }
-        }
-    }
-
-    private static void AdvancePattern(WeaponDefinition weapon, WeaponHolderComponent holder)
-    {
-        if (string.Equals(weapon.FirePattern, "spread", StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        holder.PatternAngleDegrees = NormalizeDegrees(
-            holder.PatternAngleDegrees + (weapon.RotationDegreesPerShot * holder.PatternDirection));
-        holder.ShotsSinceDirectionChange++;
-        if (holder.ShotsSinceDirectionChange >= weapon.RotationSwitchShots)
-        {
-            holder.PatternDirection *= -1;
-            holder.ShotsSinceDirectionChange = 0;
-        }
-    }
-
-    private static Vector2 RotateDegrees(Vector2 vector, float angleDegrees) =>
-        Rotate(vector, angleDegrees * (MathF.PI / 180));
-
-    private static float NormalizeDegrees(float angle)
-    {
-        angle %= 360;
-        return angle < 0 ? angle + 360 : angle;
-    }
-
-    private static Vector2 Rotate(Vector2 vector, float angle)
-    {
-        var cosine = MathF.Cos(angle);
-        var sine = MathF.Sin(angle);
-        return new Vector2(
-            (vector.X * cosine) - (vector.Y * sine),
-            (vector.X * sine) + (vector.Y * cosine));
     }
 }
 
@@ -326,11 +259,12 @@ public sealed class OutOfBoundsSystem
     }
 }
 
-public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFactory)
+public sealed class StageSystem
 {
-    private readonly StageDefinition _definition = definition ?? throw new ArgumentNullException(nameof(definition));
-    private readonly EnemyFactory _enemyFactory = enemyFactory ?? throw new ArgumentNullException(nameof(enemyFactory));
-    private readonly int[] _spawnedCounts = new int[definition.Events.Count];
+    private readonly StageDefinition _definition;
+    private readonly EnemyFactory _enemyFactory;
+    private readonly RuntimeCapabilityRegistry _capabilities;
+    private readonly int[] _spawnedCounts;
     private readonly int _bossesKilledAtStart;
     private double _elapsed;
     private long _elapsedTicks;
@@ -338,9 +272,13 @@ public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFa
     public StageSystem(
         StageDefinition definition,
         EnemyFactory enemyFactory,
-        int bossesKilledAtStart = 0)
-        : this(definition, enemyFactory)
+        int bossesKilledAtStart = 0,
+        RuntimeCapabilityRegistry? capabilities = null)
     {
+        _definition = definition ?? throw new ArgumentNullException(nameof(definition));
+        _enemyFactory = enemyFactory ?? throw new ArgumentNullException(nameof(enemyFactory));
+        _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
+        _spawnedCounts = new int[definition.Events.Count];
         _bossesKilledAtStart = bossesKilledAtStart;
     }
 
@@ -397,11 +335,15 @@ public sealed class StageSystem(StageDefinition definition, EnemyFactory enemyFa
                     break;
                 }
 
-                _enemyFactory.Create(
+                var handler = _capabilities.StageEventHandlers.Resolve(
+                    stageEvent.Type,
+                    $"stage '{_definition.Id}' event[{index}]");
+                handler.Execute(
                     world,
-                    definitions.GetEnemy(stageEvent.EnemyId),
-                    new Vector2(stageEvent.X + (spawnIndex * stageEvent.SpacingX), stageEvent.Y),
-                    stageEvent.IsBoss);
+                    definitions,
+                    stageEvent,
+                    spawnIndex,
+                    _enemyFactory);
                 _spawnedCounts[index]++;
                 telemetry.EnemiesSpawned++;
             }

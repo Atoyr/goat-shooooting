@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Item Definition v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "kind", "value", "visualId"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "id": { "type": "string", "minLength": 1 },
+    "kind": { "enum": ["power", "score", "bomb", "life", "gauge"] },
+    "value": { "type": "integer", "minimum": 1 },
+    "visualId": { "type": "string", "minLength": 1 }
+  }
+}

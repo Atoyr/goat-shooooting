@@ -5,6 +5,7 @@
   "additionalProperties": false,
   "required": ["id", "speed", "damage", "radius", "lifetime"],
   "properties": {
+    "schemaVersion": { "type": "integer", "enum": [1, 2], "default": 1 },
     "id": { "type": "string", "minLength": 1 },
     "speed": { "type": "number", "exclusiveMinimum": 0 },
     "damage": { "type": "integer", "minimum": 1 },
@@ -22,6 +23,7 @@
       "maximum": 1440,
       "default": 180,
       "description": "homing時に1秒間で曲がれる最大角度です。"
-    }
+    },
+    "behavior": { "$ref": "capability.schema.json" }
   }
 }

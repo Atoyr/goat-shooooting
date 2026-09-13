@@ -11,7 +11,7 @@
 - [x] P0 契約と計測基準
 - [x] P1 固定tick、入力、乱数、Event stream
 - [x] P2 Projectile hot path、collision、graze
-- [ ] P3 Definition v2とRegistry
+- [x] P3 Definition v2とRegistry
 - [ ] P4 Ship、focus、複数攻撃、laser、option
 - [ ] P5 Item、power、death、extend、continue
 - [ ] P6 Motion／Attack timeline

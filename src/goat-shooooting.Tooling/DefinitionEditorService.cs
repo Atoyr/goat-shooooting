@@ -1,4 +1,5 @@
 using GoatShooooting.Definitions;
+using GoatShooooting.Runtime;
 
 namespace GoatShooooting.Tooling;
 
@@ -37,6 +38,15 @@ public sealed class DefinitionEditorService
         if (normalized.StartsWith("bullets/", StringComparison.OrdinalIgnoreCase)) return "bullet";
         if (normalized.StartsWith("weapons/", StringComparison.OrdinalIgnoreCase)) return "weapon";
         if (normalized.StartsWith("stages/", StringComparison.OrdinalIgnoreCase)) return "stage";
+        if (normalized.StartsWith("ships/", StringComparison.OrdinalIgnoreCase)) return "ship";
+        if (normalized.StartsWith("projectiles/", StringComparison.OrdinalIgnoreCase)) return "projectile";
+        if (normalized.StartsWith("items/", StringComparison.OrdinalIgnoreCase)) return "item";
+        if (normalized.StartsWith("patterns/", StringComparison.OrdinalIgnoreCase)) return "pattern";
+        if (normalized.StartsWith("bosses/", StringComparison.OrdinalIgnoreCase)) return "boss";
+        if (normalized.StartsWith("rulesets/", StringComparison.OrdinalIgnoreCase)) return "ruleset";
+        if (normalized.StartsWith("difficulties/", StringComparison.OrdinalIgnoreCase)) return "difficulty";
+        if (normalized.StartsWith("visuals/", StringComparison.OrdinalIgnoreCase)) return "visual";
+        if (normalized.StartsWith("audio/", StringComparison.OrdinalIgnoreCase)) return "audio";
         throw new ArgumentException($"Cannot select a schema for '{relativePath}'.", nameof(relativePath));
     }
 
@@ -62,6 +72,7 @@ public sealed class DefinitionEditorService
             Directory.CreateDirectory(Path.GetDirectoryName(temporaryTarget)!);
             File.WriteAllText(temporaryTarget, content);
             var catalog = new JsonDefinitionRepository(temporaryRoot).Load();
+            new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
             return new EditorValidationResult(
                 true,
                 $"Valid: {catalog.Enemies.Count} enemies, {catalog.Weapons.Count} weapons, {catalog.Stages.Count} stages.");

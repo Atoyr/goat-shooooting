@@ -5,6 +5,7 @@
   "additionalProperties": false,
   "required": ["id", "events"],
   "properties": {
+    "schemaVersion": { "type": "integer", "enum": [1, 2], "default": 1 },
     "id": { "type": "string", "minLength": 1 },
     "title": { "type": "string", "description": "ステージ開始時に表示するタイトルです。" },
     "subtitle": { "type": "string", "description": "タイトルの下に表示する短い副題です。" },
@@ -22,6 +23,7 @@
         "additionalProperties": false,
         "required": ["time", "type", "enemyId", "x", "y"],
         "properties": {
+          "schemaVersion": { "type": "integer", "enum": [1, 2], "default": 1 },
           "time": { "type": "number", "minimum": 0 },
           "type": { "const": "spawn-enemy" },
           "enemyId": { "type": "string", "minLength": 1 },

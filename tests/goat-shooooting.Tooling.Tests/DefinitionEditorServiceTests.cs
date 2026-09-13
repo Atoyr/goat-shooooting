@@ -7,6 +7,22 @@ namespace GoatShooooting.Tooling.Tests;
 
 public sealed class DefinitionEditorServiceTests
 {
+    [Theory]
+    [InlineData("ships/a.json", "ship")]
+    [InlineData("projectiles/a.json", "projectile")]
+    [InlineData("items/a.json", "item")]
+    [InlineData("patterns/a.json", "pattern")]
+    [InlineData("bosses/a.json", "boss")]
+    [InlineData("rulesets/a.json", "ruleset")]
+    [InlineData("difficulties/a.json", "difficulty")]
+    [InlineData("visuals/a.json", "visual")]
+    [InlineData("audio/a.json", "audio")]
+    public void V2DefinitionPathsSelectTheirSchema(string path, string schema)
+    {
+        using var fixture = DefinitionFixture.Create();
+        Assert.Equal(schema, new DefinitionEditorService(fixture.Path).GetSchemaName(path));
+    }
+
     [Fact]
     public void ValidEditIsSavedAndReloadable()
     {
@@ -50,7 +66,7 @@ public sealed class DefinitionEditorServiceTests
         var schemaDirectory = Path.Combine(AppContext.BaseDirectory, "schemas");
         var schemaPaths = Directory.GetFiles(schemaDirectory, "*.schema.json");
 
-        Assert.Equal(6, schemaPaths.Length);
+        Assert.Equal(16, schemaPaths.Length);
         foreach (var schemaPath in schemaPaths)
         {
             using var document = JsonDocument.Parse(File.ReadAllText(schemaPath));

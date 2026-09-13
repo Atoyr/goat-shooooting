@@ -208,6 +208,13 @@ P0では既存ゲームの進行を変更せず、後続Phaseが共有する次�
 - `ProjectileSpawnedEvent`、`ProjectileHitEvent`、`PlayerGrazedEvent`、`ProjectileCancelledEvent`を固定tickのevent streamへ追加した。canonical state hashにはProjectileの全simulation field、graze状態、候補数を含める。
 - benchmark JSONはformat version 2とし、`collisionCandidatesChecked`を追加した。P2からstress workloadを要件どおり10,000 Projectileの600 ticksへ変更したため、P0の1 update値とは総時間を直接比較しない。2026-09-13のDebug計測では、sample 600 ticksが20.287 ms／749,848 bytes（P2直前22.617 ms／1,816,712 bytes）、stress 600 ticksが211.153 ms／33,546,576 bytes（平均0.352 ms／55,911 bytes per tick）だった。P2直前のECS stress 1 tickは3,522.505 ms／2,084,752 bytesである。wall-clockとallocationは回帰観測用で、CI閾値にはしない。
 
+### 4.9 P3実装注記（Definition v2とCapability Registry）
+
+- `player.json`、`bullets/`、既存weapon／enemy／stage／gameはschemaVersion省略をv1として読み、`DefinitionCatalog`構築時にschemaVersion 2のmemory modelへ変換する。legacy lookupとfieldは互換のため残し、PlayerからShip、BulletからProjectileも同じIDで生成する。source JSONは書き換えない。
+- v2専用の`ships/`、`projectiles/`、`items/`、`patterns/`、`bosses/`、`rulesets/`、`difficulties/`、`visuals/`、`audio/`は各fileで`schemaVersion: 2`を必須とする。v1由来と明示v2の同一IDは曖昧な上書きをせずduplicate errorにする。
+- Definitions層はunknown JSON property、finite range、ID参照、stage／pattern cycle、command数4,096、repeat 64、理論spawn数100,000のtimeline budgetを検証する。Runtimeの`CapabilityValidator`はprojectile behavior、actor motion、fire pattern、stage event、score rule、special gauge ruleのtypeとparameter contractをRegistryから解決する。未登録type／parameterは論理file名とJSON pathを含むerrorになり、hot reloadはlast-known-good catalogを維持する。
+- 現行`straight`／`homing`、`straight`／`sine`／`zigzag`、`spread`／`washing-machine`／`double-washing-machine`、`spawn-enemy`の生成・実行は組み込みRegistry経由へ移した。後続Phaseのtimeline、score、gauge機能は定義recordだけを用意し、未実装command／ruleを黙って無視しない。
+
 ## 5. Definition v2
 
 すべてを一度に巨大な`game.json`へ入れず、次の単位を追加する。

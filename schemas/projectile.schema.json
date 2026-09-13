@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Projectile Definition v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "speed", "damage", "hitRadius", "lifetime", "visualId", "behavior"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "id": { "type": "string", "minLength": 1 },
+    "speed": { "type": "number", "exclusiveMinimum": 0 },
+    "damage": { "type": "integer", "minimum": 1 },
+    "hitRadius": { "type": "number", "exclusiveMinimum": 0 },
+    "lifetime": { "type": "number", "exclusiveMinimum": 0 },
+    "visualId": { "type": "string", "minLength": 1 },
+    "behavior": { "$ref": "capability.schema.json" },
+    "canDamage": { "type": "boolean", "default": true },
+    "canBeCancelled": { "type": "boolean", "default": true },
+    "cancelResistance": { "enum": ["soft", "hard", "uncancelable"], "default": "soft" },
+    "pierceCount": { "type": "integer", "minimum": 0, "default": 0 },
+    "damageType": { "const": "normal", "default": "normal" },
+    "clearBehavior": { "const": "remove", "default": "remove" }
+  }
+}

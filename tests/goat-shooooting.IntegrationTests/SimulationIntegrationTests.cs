@@ -220,6 +220,13 @@ public sealed class SimulationIntegrationTests
 
         Assert.Same(lastGoodWorld, simulation.World);
         Assert.Equal("enemy hp is invalid", simulation.DefinitionReloadError);
+
+        repository.Next = new DefinitionReloadResult(CreateDefinitionsWithUnsupportedMotion(), null);
+        simulation.Update(0);
+
+        Assert.Same(lastGoodWorld, simulation.World);
+        Assert.Equal(1, simulation.DefinitionReloadCount);
+        Assert.Contains("unsupported-motion", simulation.DefinitionReloadError);
     }
 
     private static DefinitionCatalog CreateDefinitions(
@@ -321,6 +328,27 @@ public sealed class SimulationIntegrationTests
                     OpeningDuration = 1
                 }
             });
+    }
+
+    private static DefinitionCatalog CreateDefinitionsWithUnsupportedMotion()
+    {
+        var baseline = CreateDefinitions(spawnTime: 10, enemyHp: 10, enemySpeed: 0);
+        var enemy = new EnemyDefinition
+        {
+            SchemaVersion = 2,
+            Id = "enemy",
+            Hp = 10,
+            Speed = 0,
+            Radius = 10,
+            Motion = new CapabilityDefinition { Type = "unsupported-motion" }
+        };
+        return new DefinitionCatalog(
+            baseline.Game,
+            baseline.Players.Values,
+            new[] { enemy },
+            baseline.Bullets.Values,
+            baseline.Weapons.Values,
+            baseline.Stages.Values);
     }
 
     private sealed class StubReloadableRepository(DefinitionCatalog initial) : IReloadableDefinitionRepository

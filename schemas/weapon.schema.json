@@ -3,10 +3,13 @@
   "title": "Weapon Definition",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "bulletId", "cooldown"],
+  "required": ["id", "cooldown"],
+  "anyOf": [{ "required": ["bulletId"] }, { "required": ["projectileId"] }],
   "properties": {
+    "schemaVersion": { "type": "integer", "enum": [1, 2], "default": 1 },
     "id": { "type": "string", "minLength": 1 },
     "bulletId": { "type": "string", "minLength": 1 },
+    "projectileId": { "type": "string", "minLength": 1 },
     "cooldown": { "type": "number", "minimum": 0 },
     "projectileCount": { "type": "integer", "minimum": 1, "default": 1 },
     "spreadDegrees": { "type": "number", "minimum": 0, "maximum": 180, "default": 0 },
@@ -28,6 +31,7 @@
       "minimum": 1,
       "default": 24,
       "description": "洗濯機パターンが回転方向を反転するまでの発射回数です。"
-    }
+    },
+    "pattern": { "$ref": "capability.schema.json" }
   }
 }

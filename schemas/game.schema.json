@@ -3,12 +3,22 @@
   "title": "Game Definition",
   "type": "object",
   "additionalProperties": false,
-  "required": ["playerId", "stageId", "width", "height"],
+  "oneOf": [
+    { "required": ["playerId", "stageId"] },
+    { "required": ["schemaVersion", "id", "defaultRuleSetId", "ruleSetIds", "difficultyIds", "shipIds", "stageRouteId"] }
+  ],
   "properties": {
+    "schemaVersion": { "type": "integer", "enum": [1, 2], "default": 1 },
+    "id": { "type": "string", "minLength": 1 },
     "playerId": { "type": "string", "minLength": 1, "description": "Player definition id." },
     "stageId": { "type": "string", "minLength": 1, "description": "Initial stage definition id." },
     "width": { "type": "integer", "minimum": 1, "description": "Playfield width in pixels." },
-    "height": { "type": "integer", "minimum": 1, "description": "Playfield height in pixels." },
+    "height": { "type": "integer", "minimum": 1, "default": 720, "description": "Playfield height in pixels." },
+    "defaultRuleSetId": { "type": "string", "minLength": 1 },
+    "ruleSetIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "difficultyIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "shipIds": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "stageRouteId": { "type": "string", "minLength": 1 },
     "screenLayout": {
       "type": "string",
       "enum": ["full", "touhou", "donpachi"],

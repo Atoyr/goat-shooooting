@@ -47,6 +47,8 @@ dotnet run --project src/goat-shooooting.Tooling -- validate games/gauntlet
 
 成功時はコンテンツ数を表示してexit code 0、不正な参照・値・未知のプロパティ・JSON構文エラーはファイル、JSON Path、行・バイト位置を可能な範囲で表示してexit code 1を返します。
 
+既存の`player.json`、`bullets/`、weapon／enemy／stageはschema v1として引き続き読め、読込時だけschema v2のShip／Projectile／Capability modelへ変換されます。v2専用directory（`ships/`、`projectiles/`、`items/`、`patterns/`、`bosses/`、`rulesets/`、`difficulties/`、`visuals/`、`audio/`）では各JSONに`"schemaVersion": 2`が必須です。未知のcapability typeやparameterはvalidation errorとなり、Runtimeのhot reloadは直前の正常なcatalogを維持します。
+
 現行Runtimeのheadless性能基準をJSONで取得する場合:
 
 ```bash
