@@ -146,6 +146,21 @@ public sealed class FrameworkAdapterTests
     }
 
     [Fact]
+    public void TitleMenuLayoutKeepsAllItemsAboveControlFooter()
+    {
+        var layout = PrimitiveRenderLayout.CreateShellMenuLayout(
+            new Microsoft.Xna.Framework.Rectangle(0, 0, 1020, 720),
+            GameShellState.Title,
+            itemCount: 6);
+
+        const int menuTextHeight = 14;
+        var lastItemBottom = layout.ItemsTop + (5 * layout.ItemSpacing) + menuTextHeight;
+
+        Assert.Equal(420, layout.Panel.Height);
+        Assert.True(lastItemBottom < layout.FooterTop);
+    }
+
+    [Fact]
     public void TouhouLayoutPlacesPlayfieldLeftAndHudPanelRight()
     {
         var definition = new GameDefinition

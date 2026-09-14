@@ -1157,14 +1157,15 @@ public sealed class ShootingGame : Game
         var pixel = _pixel ?? throw new InvalidOperationException("Content has not been loaded.");
         var window = _layout.Window;
         var centerX = window.Center.X;
-        var centerY = window.Center.Y;
         var isOptions = _shell.State == GameShellState.Options;
         var isTraining = _shell.State == GameShellState.TrainingSetup;
-        var isDetailed = _shell.State is GameShellState.Result or GameShellState.Leaderboard or
-            GameShellState.Information;
-        var panelWidth = isOptions || isDetailed || isTraining ? Math.Min(window.Width - 48, 680) : 420;
-        var panelHeight = isOptions || isDetailed || isTraining ? Math.Min(window.Height - 48, 560) : 300;
-        var panelTop = centerY - (panelHeight / 2);
+        var items = _shell.State == GameShellState.Leaderboard
+            ? new[] { _strings.Get("menu.back") }
+            : _shell.MenuItems;
+        var menuLayout = PrimitiveRenderLayout.CreateShellMenuLayout(window, _shell.State, items.Count);
+        var panelWidth = menuLayout.Panel.Width;
+        var panelHeight = menuLayout.Panel.Height;
+        var panelTop = menuLayout.Panel.Top;
         var title = _shell.State switch
         {
             GameShellState.Title => "GOAT-SHOOOOTING",
@@ -1183,7 +1184,7 @@ public sealed class ShootingGame : Game
         spriteBatch.Begin(samplerState: SamplerState.PointClamp);
         spriteBatch.Draw(
             pixel,
-            new Rectangle(centerX - (panelWidth / 2), panelTop, panelWidth, panelHeight),
+            menuLayout.Panel,
             new Color(10, 20, 40, clearBackground ? 255 : 242));
         spriteBatch.Draw(
             pixel,
@@ -1258,21 +1259,8 @@ public sealed class ShootingGame : Game
                 new Color(68, 210, 255));
         }
 
-        var items = _shell.State == GameShellState.Leaderboard
-            ? new[] { _strings.Get("menu.back") }
-            : _shell.MenuItems;
-        var itemSpacing = isOptions || isTraining ? 23 : 46;
-        var itemsTop = isOptions || isTraining
-            ? panelTop + 78
-            : _shell.State == GameShellState.Result
-            ? panelTop + 210
-            : _shell.State == GameShellState.Leaderboard
-            ? panelTop + panelHeight - 80
-            : _shell.State == GameShellState.Information
-            ? panelTop + panelHeight - 42
-            : _shell.State == GameShellState.Title
-            ? centerY - 24
-            : centerY - ((items.Count - 1) * itemSpacing / 2);
+        var itemSpacing = menuLayout.ItemSpacing;
+        var itemsTop = menuLayout.ItemsTop;
         const int maximumVisibleOptions = 19;
         var firstIndex = isOptions
             ? Math.Clamp(_shell.SelectionIndex - (maximumVisibleOptions / 2), 0,
@@ -1312,7 +1300,7 @@ public sealed class ShootingGame : Game
                 : $"{_strings.Get("glyph.keyboard")}  {_appliedSettings.Input.Confirm} CONFIRM  " +
                     $"{_appliedSettings.Input.Cancel} BACK",
             centerX,
-            panelTop + panelHeight - 30,
+            menuLayout.FooterTop,
             1,
             new Color(160, 185, 210));
         spriteBatch.End();

@@ -17,6 +17,12 @@ public readonly record struct PresentationHudLayout(
     Rectangle Boss,
     Rectangle Warning);
 
+public readonly record struct ShellMenuLayout(
+    Rectangle Panel,
+    int ItemsTop,
+    int ItemSpacing,
+    int FooterTop);
+
 public static class PrimitiveRenderLayout
 {
     private const int GlyphWidth = 5;
@@ -167,6 +173,53 @@ public static class PrimitiveRenderLayout
             Math.Max(1, layout.Playfield.Width - 48),
             44);
         return new PresentationHudLayout(statistics, boss, warning);
+    }
+
+    public static ShellMenuLayout CreateShellMenuLayout(
+        Rectangle window,
+        GameShellState state,
+        int itemCount)
+    {
+        if (itemCount < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(itemCount));
+        }
+
+        var isOptions = state == GameShellState.Options;
+        var isTraining = state == GameShellState.TrainingSetup;
+        var isDetailed = state is GameShellState.Result or GameShellState.Leaderboard or
+            GameShellState.Information;
+        var panelWidth = isOptions || isDetailed || isTraining
+            ? Math.Min(window.Width - 48, 680)
+            : 420;
+        var panelHeight = isOptions || isDetailed || isTraining
+            ? Math.Min(window.Height - 48, 560)
+            : state == GameShellState.Title
+                ? Math.Min(window.Height - 48, 420)
+                : 300;
+        var panel = new Rectangle(
+            window.Center.X - (panelWidth / 2),
+            window.Center.Y - (panelHeight / 2),
+            panelWidth,
+            panelHeight);
+        var itemSpacing = isOptions || isTraining
+            ? 23
+            : state == GameShellState.Title
+                ? 34
+                : 46;
+        var itemsTop = isOptions || isTraining
+            ? panel.Top + 78
+            : state == GameShellState.Result
+                ? panel.Top + 210
+                : state == GameShellState.Leaderboard
+                    ? panel.Bottom - 80
+                    : state == GameShellState.Information
+                        ? panel.Bottom - 42
+                        : state == GameShellState.Title
+                            ? window.Center.Y - 24
+                            : window.Center.Y - ((itemCount - 1) * itemSpacing / 2);
+
+        return new ShellMenuLayout(panel, itemsTop, itemSpacing, panel.Bottom - 30);
     }
 
     public static Point MeasurePixelText(string text, int scale = 2)
