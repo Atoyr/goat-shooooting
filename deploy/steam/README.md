@@ -40,7 +40,8 @@ AppID: ______  DepotID: ______  BuildID: ______  Version: ______  実施日: ___
 - [ ] Windowed／BorderlessFullscreen、Alt+Tab、Alt+Enter
 - [ ] 1080p、1440p、4K、高DPI、複数モニター
 - [ ] 音声デバイスなし、デバイス切替、ミュート
-- [ ] sample／gauntletのハイスコアとクリア回数を保存
+- [ ] SYNC DRIVEの全ship／difficulty、Score Attack、Training、Replay、ランキングを確認
+- [ ] sample／gauntletの既存ハイスコアとクリア回数を保持
 - [ ] 更新後も`%LOCALAPPDATA%/GoatShooooting`の設定とプロフィールを保持
 - [ ] profile破損時に退避、既定値復旧、ログ出力
 - [ ] 前のBuildIDへロールバックして起動
@@ -48,3 +49,5 @@ AppID: ______  DepotID: ______  BuildID: ______  Version: ______  実施日: ___
 - [ ] アンインストール、再インストール後もローカルプロフィールを保持
 
 全項目のBuildIDと結果を記録してから、Steamworks管理画面でテスト済みBuildIDをDefault branchへ手動昇格します。アップロードスクリプトからDefault branchへは反映しません。
+
+外部playtestは[`docs/release/PLAYTEST-FEEDBACK.md`](../../docs/release/PLAYTEST-FEEDBACK.md)、全体の判定は[`docs/release/P16-RELEASE-CHECKLIST.md`](../../docs/release/P16-RELEASE-CHECKLIST.md)へ記録します。AppID／DepotID／BuildID、実機結果、10名以上の報告が空欄のままならRelease Candidateへ昇格しません。

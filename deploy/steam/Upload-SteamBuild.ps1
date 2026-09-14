@@ -64,9 +64,18 @@ function Expand-VdfTemplate([string]$TemplatePath, [hashtable]$Values) {
 function Assert-PublishContent {
     $requiredFiles = @(
         'GoatShooooting.exe',
+        'BUILD-ID.txt',
         'THIRD-PARTY-NOTICES.txt',
+        'ASSET-LICENSES.txt',
+        'PRIVACY.txt',
+        'SUPPORT.txt',
         'games/sample/game.json',
-        'games/gauntlet/game.json'
+        'games/gauntlet/game.json',
+        'games/sync-drive/game.json',
+        'games/sync-drive/assets.json',
+        'games/sync-drive/assets/audio/sync-stage.wav',
+        'games/sync-drive/assets/audio/sync-boss.wav',
+        'games/sync-drive/assets/audio/sync-special.wav'
     )
     foreach ($relativePath in $requiredFiles) {
         $path = Join-Path $contentRoot $relativePath

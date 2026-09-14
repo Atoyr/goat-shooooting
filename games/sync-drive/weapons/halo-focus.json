@@ -1,0 +1,1 @@
+{"schemaVersion":2,"actionType":"projectile","id":"halo-focus","projectileId":"player-needle","cooldown":0.065,"emitters":[{"id":"pin","projectileId":"player-needle","fireInterval":0.065,"angleSource":"forward","distribution":"fan","projectileCount":3,"spreadDegrees":12.0,"rotationDegreesPerShot":0.0,"speedMultipliers":[1.0]}]}

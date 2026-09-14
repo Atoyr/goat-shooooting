@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"attack-cycle-12","kind":"attack","commands":[{"type":"fire","parameters":{"weaponId":"enemy-pattern-12"},"repeatCount":1,"maximumSpawnCount":12,"difficultyTags":[]},{"type":"wait","parameters":{"duration":0.55},"repeatCount":1,"maximumSpawnCount":0,"difficultyTags":[]}]}

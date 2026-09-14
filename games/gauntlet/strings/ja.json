@@ -1,5 +1,5 @@
 {
-  "menu.start":"スタート","menu.training":"トレーニング","menu.leaderboard":"ランキング","menu.options":"設定","menu.information":"情報","menu.quit":"終了","menu.resume":"再開","menu.retry":"リトライ","menu.title":"タイトル","menu.back":"戻る","menu.playReplay":"リプレイ再生",
+  "menu.start":"スタート","menu.training":"トレーニング","menu.leaderboard":"ランキング","menu.options":"設定","menu.information":"情報","menu.quit":"終了","menu.resume":"再開","menu.retry":"リトライ","menu.title":"タイトル","menu.back":"戻る","menu.playReplay":"リプレイ再生","options.accessibilityPreset":"アクセシビリティ設定",
   "info.controls.title":"操作説明","info.controls.body":"移動 矢印またはWASD  ショット Z  低速 CTRL  ボム X  スペシャル C",
   "info.scoring.title":"スコア説明","info.scoring.body":"敵を連続撃破し 弾をかすり アイテムを集めて 倍率を維持します",
   "info.credits.title":"クレジット","info.credits.body":"設計 コード オリジナル画像  GOAT SHOOOOTING TEAM",

@@ -13,10 +13,10 @@ public static class Program
 {
     public static async Task<int> Main(string[] args)
     {
-        if (args.Length < 2 || args[0] is not ("validate" or "benchmark" or "editor" or "render-smoke"))
+        if (args.Length < 2 || args[0] is not ("validate" or "benchmark" or "editor" or "render-smoke" or "release-qa"))
         {
             Console.Error.WriteLine(
-                "Usage: goat-shooooting.Tooling validate|benchmark|render-smoke|editor <game-directory> [--port 5078] [--no-open]");
+                "Usage: goat-shooooting.Tooling validate|benchmark|render-smoke|release-qa|editor <game-directory> [--port 5078] [--no-open]");
             return 2;
         }
 
@@ -36,7 +36,39 @@ public static class Program
             return RenderSmoke(rootDirectory);
         }
 
+        if (args[0] == "release-qa")
+        {
+            return ReleaseQa(rootDirectory);
+        }
+
         return await RunEditorAsync(rootDirectory, args).ConfigureAwait(false);
+    }
+
+    private static int ReleaseQa(string rootDirectory)
+    {
+        try
+        {
+            var report = ProductReleaseQaRunner.Run(rootDirectory);
+            Console.WriteLine(JsonSerializer.Serialize(report, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true
+            }));
+            Console.WriteLine("RELEASE QA PASSED");
+            return 0;
+        }
+        catch (Exception exception) when (exception is
+                   DefinitionValidationException or
+                   InvalidDataException or
+                   IOException or
+                   UnauthorizedAccessException or
+                   ArgumentException or
+                   InvalidOperationException or
+                   ReplayException)
+        {
+            Console.Error.WriteLine($"RELEASE QA FAILED: {exception.Message}");
+            return 1;
+        }
     }
 
     private static int Benchmark(string rootDirectory)

@@ -1,0 +1,10 @@
+SYNC DRIVE Support
+==================
+
+Repository and issue tracker: https://github.com/atoyr/goat-shooooting
+
+Include the build identifier shown in the executable file properties or ZIP
+name, Windows version, GPU, input device, display mode, audio-device status,
+steps to reproduce, expected and actual behavior, and the newest relevant
+Replay file. Never include Steam credentials, passwords, or unrelated user
+data.

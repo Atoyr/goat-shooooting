@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"drone-7","hp":67,"speed":0,"radius":14,"score":275,"motion":{"type":"straight","parameters":{}},"motionPatternId":"motion-7","attackPatternIds":["attack-7"],"dropTable":[{"itemId":"sync-shard","count":2,"chance":1.0,"scatterSpeed":70},{"itemId":"score-crystal","count":1,"chance":0.65,"scatterSpeed":55}]}

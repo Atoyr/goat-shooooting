@@ -1,0 +1,1 @@
+{"schemaVersion":2,"actionType":"projectile","id":"vector-wide","projectileId":"player-pulse","cooldown":0.07,"emitters":[{"id":"wide","projectileId":"player-pulse","fireInterval":0.07,"angleSource":"forward","distribution":"fan","projectileCount":5,"spreadDegrees":32.0,"rotationDegreesPerShot":0.0,"speedMultipliers":[1.0]}]}

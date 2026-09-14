@@ -85,13 +85,26 @@ public static class Program
 
     private static int RunSmokeTest(IDefinitionRepository definitions)
     {
+        var catalog = definitions.Load();
         var input = new MutableInputState { Fire = true };
-        var simulation = new ShootingSimulation(definitions, input);
+        var configuration = string.IsNullOrWhiteSpace(catalog.Game.DefaultRuleSetId)
+            ? new RunConfiguration("legacy", seed: 0)
+            : new RunConfiguration(
+                catalog.Game.Id,
+                seed: 0,
+                catalog.Game.DefaultRuleSetId,
+                catalog.Game.DifficultyIds.First(),
+                catalog.Game.ShipIds.First());
+        var simulation = new ShootingSimulation(definitions, input, configuration);
         // The smoke runner is intentionally long-lived so it can exercise the complete stage path.
         // Retry below verifies that runtime state returns to the configured life count.
         simulation.Player.Get<LivesComponent>().Remaining = 100;
-        const int maximumFrames = 60 * 210;
         var stages = GetStageRoute(simulation.Definitions);
+        var authoredSeconds = stages.Sum(stage =>
+            (stage.Events.Count == 0 ? 0 : stage.Events.Max(static stageEvent =>
+                stageEvent.Time + ((stageEvent.Count - 1) * stageEvent.SpawnInterval))) +
+            stage.OpeningDuration + stage.ResultsDuration);
+        var maximumFrames = Math.Max(60 * 210, (int)Math.Ceiling((authoredSeconds + (stages.Count * 120)) * 60));
         var expectedEnemies = stages.Sum(stage =>
             stage.Events.Sum(static stageEvent => stageEvent.Count));
         var expectedScore = stages.Sum(stage => stage.Events.Sum(stageEvent =>
@@ -149,11 +162,21 @@ public static class Program
         Require(telemetry.EnemiesKilled > 0, "No enemy reached zero HP.");
         Require(telemetry.BombsUsed > 0, "No bomb was used.");
         Require(telemetry.EnemyBulletsCleared > 0, "No enemy bullet was cleared by a bomb.");
-        Require(
-            telemetry.EnemiesKilled == telemetry.EnemiesSpawned,
-            $"Not every spawned enemy was defeated (spawned={telemetry.EnemiesSpawned}, killed={telemetry.EnemiesKilled}, " +
-            $"status={simulation.Status}, lives={simulation.Player.Get<LivesComponent>().Remaining}).");
-        Require(telemetry.Score == expectedScore, "The expected score was not awarded for the complete stage.");
+        if (string.IsNullOrWhiteSpace(simulation.Definitions.Game.DefaultRuleSetId))
+        {
+            Require(
+                telemetry.EnemiesKilled == telemetry.EnemiesSpawned,
+                $"Not every spawned enemy was defeated (spawned={telemetry.EnemiesSpawned}, killed={telemetry.EnemiesKilled}, " +
+                $"status={simulation.Status}, lives={simulation.Player.Get<LivesComponent>().Remaining}).");
+            Require(telemetry.Score == expectedScore, "The expected score was not awarded for the complete stage.");
+        }
+        else
+        {
+            Require(telemetry.BossesKilled == simulation.Definitions.Bosses.Count,
+                "Not every content-defined boss was defeated.");
+            Require(telemetry.Score > 0 && telemetry.Score == simulation.RunState.Score,
+                "The content-defined score pipeline did not award an authoritative score.");
+        }
         Require(simulation.Elapsed >= lastEventTime, "The simulation did not run through the final wave.");
         Require(!simulation.World.Query<EnemyComponent>().Any(), "A dead enemy remained in the world.");
         Require(observedDestructionFeedback, "No enemy destruction feedback was emitted.");
@@ -181,6 +204,13 @@ public static class Program
 
     private static IReadOnlyList<StageDefinition> GetStageRoute(DefinitionCatalog definitions)
     {
+        if (!string.IsNullOrWhiteSpace(definitions.Game.DefaultRuleSetId))
+        {
+            return definitions.GetRuleSet(definitions.Game.DefaultRuleSetId).StageIds
+                .Select(definitions.GetStage)
+                .ToArray();
+        }
+
         var stages = new List<StageDefinition>();
         var stage = definitions.GetStage(definitions.Game.StageId);
         while (true)

@@ -42,6 +42,7 @@ internal static class OptionsMenu
         "options.effectsVolume",
         "options.voiceVolume",
         "options.muted",
+        "options.accessibilityPreset",
         "options.screenShake",
         "options.flash",
         "options.particles",
@@ -70,7 +71,7 @@ internal static class OptionsMenu
 
     public static int BackIndex => LabelKeys.Length - 1;
 
-    public static bool IsInputIndex(int index) => index is >= 17 and <= 28;
+    public static bool IsInputIndex(int index) => index is >= 18 and <= 29;
 
     public static GameSettings Adjust(GameSettings settings, int index, int direction) => index switch
     {
@@ -124,27 +125,28 @@ internal static class OptionsMenu
             }
         },
         8 => settings with { Audio = settings.Audio with { Muted = !settings.Audio.Muted } },
-        9 => settings with
+        9 => settings.ApplyAccessibilityPreset(),
+        10 => settings with
         {
             Gameplay = settings.Gameplay with
             {
                 ScreenShakeStrength = AdjustUnit(settings.Gameplay.ScreenShakeStrength, direction)
             }
         },
-        10 => settings with { Gameplay = settings.Gameplay with { FlashIntensity = AdjustUnit(settings.Gameplay.FlashIntensity, direction) } },
-        11 => settings with { Gameplay = settings.Gameplay with { ParticleDensity = AdjustUnit(settings.Gameplay.ParticleDensity, direction) } },
-        12 => settings with { Gameplay = settings.Gameplay with { BackgroundBrightness = AdjustUnit(settings.Gameplay.BackgroundBrightness, direction) } },
-        13 => settings with { Gameplay = settings.Gameplay with { BulletOutline = !settings.Gameplay.BulletOutline } },
-        14 => settings with { Gameplay = settings.Gameplay with { BulletPalette = CyclePalette(settings.Gameplay.BulletPalette, direction) } },
-        15 => settings with { Gameplay = settings.Gameplay with { HudScale = AdjustHudScale(settings.Gameplay.HudScale, direction) } },
-        16 => settings with
+        11 => settings with { Gameplay = settings.Gameplay with { FlashIntensity = AdjustUnit(settings.Gameplay.FlashIntensity, direction) } },
+        12 => settings with { Gameplay = settings.Gameplay with { ParticleDensity = AdjustUnit(settings.Gameplay.ParticleDensity, direction) } },
+        13 => settings with { Gameplay = settings.Gameplay with { BackgroundBrightness = AdjustUnit(settings.Gameplay.BackgroundBrightness, direction) } },
+        14 => settings with { Gameplay = settings.Gameplay with { BulletOutline = !settings.Gameplay.BulletOutline } },
+        15 => settings with { Gameplay = settings.Gameplay with { BulletPalette = CyclePalette(settings.Gameplay.BulletPalette, direction) } },
+        16 => settings with { Gameplay = settings.Gameplay with { HudScale = AdjustHudScale(settings.Gameplay.HudScale, direction) } },
+        17 => settings with
         {
             Gameplay = settings.Gameplay with
             {
                 ControllerVibration = !settings.Gameplay.ControllerVibration
             }
         },
-        >= 17 and <= 28 => AdjustInput(settings, index, direction),
+        >= 18 and <= 29 => AdjustInput(settings, index, direction),
         _ => settings
     };
 
@@ -159,26 +161,27 @@ internal static class OptionsMenu
         6 => Percent(settings.Audio.EffectsVolume),
         7 => Percent(settings.Audio.VoiceVolume),
         8 => OnOff(settings.Audio.Muted),
-        9 => Percent(settings.Gameplay.ScreenShakeStrength),
-        10 => Percent(settings.Gameplay.FlashIntensity),
-        11 => Percent(settings.Gameplay.ParticleDensity),
-        12 => Percent(settings.Gameplay.BackgroundBrightness),
-        13 => OnOff(settings.Gameplay.BulletOutline),
-        14 => settings.Gameplay.BulletPalette.ToUpperInvariant(),
-        15 => Percent(settings.Gameplay.HudScale),
-        16 => OnOff(settings.Gameplay.ControllerVibration),
-        17 => settings.Input.MoveUp,
-        18 => settings.Input.MoveDown,
-        19 => settings.Input.MoveLeft,
-        20 => settings.Input.MoveRight,
-        21 => settings.Input.Fire,
-        22 => settings.Input.Focus,
-        23 => settings.Input.Special,
-        24 => settings.Input.Bomb,
-        25 => settings.Input.Pause,
-        26 => settings.Input.Confirm,
-        27 => settings.Input.Cancel,
-        28 => settings.Input.Retry,
+        9 => UsesAccessibilityPreset(settings) ? "ACTIVE" : "APPLY",
+        10 => Percent(settings.Gameplay.ScreenShakeStrength),
+        11 => Percent(settings.Gameplay.FlashIntensity),
+        12 => Percent(settings.Gameplay.ParticleDensity),
+        13 => Percent(settings.Gameplay.BackgroundBrightness),
+        14 => OnOff(settings.Gameplay.BulletOutline),
+        15 => settings.Gameplay.BulletPalette.ToUpperInvariant(),
+        16 => Percent(settings.Gameplay.HudScale),
+        17 => OnOff(settings.Gameplay.ControllerVibration),
+        18 => settings.Input.MoveUp,
+        19 => settings.Input.MoveDown,
+        20 => settings.Input.MoveLeft,
+        21 => settings.Input.MoveRight,
+        22 => settings.Input.Fire,
+        23 => settings.Input.Focus,
+        24 => settings.Input.Special,
+        25 => settings.Input.Bomb,
+        26 => settings.Input.Pause,
+        27 => settings.Input.Confirm,
+        28 => settings.Input.Cancel,
+        29 => settings.Input.Retry,
         _ => string.Empty
     };
 
@@ -196,8 +199,8 @@ internal static class OptionsMenu
         }
 
         var input = settings.Input;
-        if ((index == 26 && string.Equals(key, input.Cancel, StringComparison.OrdinalIgnoreCase)) ||
-            (index == 27 && string.Equals(key, input.Confirm, StringComparison.OrdinalIgnoreCase)))
+        if ((index == 27 && string.Equals(key, input.Cancel, StringComparison.OrdinalIgnoreCase)) ||
+            (index == 28 && string.Equals(key, input.Confirm, StringComparison.OrdinalIgnoreCase)))
         {
             adjustedSettings = settings;
             return false;
@@ -205,18 +208,18 @@ internal static class OptionsMenu
 
         var adjusted = index switch
         {
-            17 => input with { MoveUp = key },
-            18 => input with { MoveDown = key },
-            19 => input with { MoveLeft = key },
-            20 => input with { MoveRight = key },
-            21 => input with { Fire = key },
-            22 => input with { Focus = key },
-            23 => input with { Special = key },
-            24 => input with { Bomb = key },
-            25 => input with { Pause = key },
-            26 => input with { Confirm = key },
-            27 => input with { Cancel = key },
-            28 => input with { Retry = key },
+            18 => input with { MoveUp = key },
+            19 => input with { MoveDown = key },
+            20 => input with { MoveLeft = key },
+            21 => input with { MoveRight = key },
+            22 => input with { Fire = key },
+            23 => input with { Focus = key },
+            24 => input with { Special = key },
+            25 => input with { Bomb = key },
+            26 => input with { Pause = key },
+            27 => input with { Confirm = key },
+            28 => input with { Cancel = key },
+            29 => input with { Retry = key },
             _ => input
         };
         adjustedSettings = settings with { Input = adjusted };
@@ -228,26 +231,26 @@ internal static class OptionsMenu
         var input = settings.Input;
         var current = GetValue(settings, index);
         var next = CycleKey(current, direction);
-        if ((index == 26 && string.Equals(next, input.Cancel, StringComparison.OrdinalIgnoreCase)) ||
-            (index == 27 && string.Equals(next, input.Confirm, StringComparison.OrdinalIgnoreCase)))
+        if ((index == 27 && string.Equals(next, input.Cancel, StringComparison.OrdinalIgnoreCase)) ||
+            (index == 28 && string.Equals(next, input.Confirm, StringComparison.OrdinalIgnoreCase)))
         {
             next = CycleKey(next, direction);
         }
 
         var adjusted = index switch
         {
-            17 => input with { MoveUp = next },
-            18 => input with { MoveDown = next },
-            19 => input with { MoveLeft = next },
-            20 => input with { MoveRight = next },
-            21 => input with { Fire = next },
-            22 => input with { Focus = next },
-            23 => input with { Special = next },
-            24 => input with { Bomb = next },
-            25 => input with { Pause = next },
-            26 => input with { Confirm = next },
-            27 => input with { Cancel = next },
-            28 => input with { Retry = next },
+            18 => input with { MoveUp = next },
+            19 => input with { MoveDown = next },
+            20 => input with { MoveLeft = next },
+            21 => input with { MoveRight = next },
+            22 => input with { Fire = next },
+            23 => input with { Focus = next },
+            24 => input with { Special = next },
+            25 => input with { Bomb = next },
+            26 => input with { Pause = next },
+            27 => input with { Confirm = next },
+            28 => input with { Cancel = next },
+            29 => input with { Retry = next },
             _ => input
         };
         return settings with { Input = adjusted };
@@ -276,4 +279,14 @@ internal static class OptionsMenu
         var index = Array.IndexOf(values, current);
         return values[(Math.Max(0, index) + direction + values.Length) % values.Length];
     }
+
+    private static bool UsesAccessibilityPreset(GameSettings settings) =>
+        settings.Gameplay.ScreenShakeStrength == 0 &&
+        settings.Gameplay.FlashIntensity == 0.2f &&
+        settings.Gameplay.ParticleDensity == 0.5f &&
+        settings.Gameplay.BackgroundBrightness == 0.65f &&
+        settings.Gameplay.BulletOutline &&
+        settings.Gameplay.BulletPalette == "high-contrast" &&
+        settings.Gameplay.HudScale == 1.25f &&
+        !settings.Gameplay.ControllerVibration;
 }

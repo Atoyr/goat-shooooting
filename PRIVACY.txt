@@ -1,0 +1,18 @@
+SYNC DRIVE Privacy Notice
+=========================
+
+Effective date: 2026-09-14
+
+SYNC DRIVE does not transmit telemetry, analytics, account data, gameplay
+records, crash reports, or personal information. Settings, local leaderboard
+entries, profiles, and Replay files remain on the player's device under the
+platform user-data directory.
+
+Players who voluntarily submit the external playtest feedback form choose
+what information to provide. Reproduction data should contain build ID,
+platform, input/display/audio configuration, steps, expected/actual behavior,
+and an optional Replay. Do not submit names, passwords, account tokens, or
+unrelated files. Feedback is retained only as long as needed to evaluate the
+test build or meet the repository owner's legal obligations.
+
+Privacy contact: use the support channel listed in SUPPORT.txt.

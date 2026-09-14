@@ -53,8 +53,11 @@ try {
     Invoke-DotNet @('test', 'goat-shooooting.sln', '-c', 'Release', '--no-build', '--no-restore')
     Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'validate', 'games/sample')
     Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'validate', 'games/gauntlet')
+    Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'validate', 'games/sync-drive')
     Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'render-smoke', 'games/sample')
     Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'render-smoke', 'games/gauntlet')
+    Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'render-smoke', 'games/sync-drive')
+    Invoke-DotNet @('run', '--project', 'src/goat-shooooting.Tooling', '-c', 'Release', '--no-build', '--', 'release-qa', 'games/sync-drive')
     Invoke-DotNet @('restore', $projectPath, '-r', 'win-x64', '--locked-mode')
     Invoke-DotNet @(
         'publish',
@@ -72,12 +75,17 @@ try {
         throw "Published executable was not found: $executablePath"
     }
 
+    Set-Content -LiteralPath (Join-Path $publishDirectory 'BUILD-ID.txt') `
+        -Value "SYNC DRIVE $Version win-x64" -Encoding ascii
+
     & $executablePath --smoke-test
     if ($LASTEXITCODE -ne 0) { throw 'Published sample smoke test failed.' }
     & $executablePath --game gauntlet --smoke-test
     if ($LASTEXITCODE -ne 0) { throw 'Published gauntlet smoke test failed.' }
+    & $executablePath --game sync-drive --smoke-test
+    if ($LASTEXITCODE -ne 0) { throw 'Published SYNC DRIVE smoke test failed.' }
 
-    foreach ($gameId in @('sample', 'gauntlet')) {
+    foreach ($gameId in @('sample', 'gauntlet', 'sync-drive')) {
         if (-not (Test-Path -LiteralPath (Join-Path $publishDirectory "games/$gameId/game.json") -PathType Leaf)) {
             throw "Published content pack '$gameId' is incomplete."
         }
@@ -93,6 +101,17 @@ try {
                 if (-not $texturePath.StartsWith($publishedGamePrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
                     -not (Test-Path -LiteralPath $texturePath -PathType Leaf)) {
                     throw "Published asset '$($texture.id)' is missing or outside content pack '$gameId'."
+                }
+            }
+        }
+
+        $definitionFiles = Get-ChildItem -LiteralPath (Join-Path $publishDirectory "games/$gameId/audio") -Filter '*.json' -File -ErrorAction SilentlyContinue
+        foreach ($definitionFile in $definitionFiles) {
+            $audioDefinition = Get-Content -Raw -LiteralPath $definitionFile.FullName | ConvertFrom-Json
+            if ($audioDefinition.assetId -and -not $audioDefinition.assetId.StartsWith('tone://', [System.StringComparison]::OrdinalIgnoreCase)) {
+                $audioPath = [System.IO.Path]::GetFullPath((Join-Path (Join-Path $publishDirectory "games/$gameId") $audioDefinition.assetId))
+                if (-not (Test-Path -LiteralPath $audioPath -PathType Leaf)) {
+                    throw "Published audio '$($audioDefinition.id)' is missing from content pack '$gameId'."
                 }
             }
         }

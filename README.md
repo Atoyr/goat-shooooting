@@ -34,7 +34,7 @@ Steam Depotへ配置できるwin-x64 self-contained成果物、ZIP、SHA-256、�
 ./build/Publish-Game.ps1
 ```
 
-成果物は`artifacts/publish/win-x64`、配布ZIPは`artifacts/packages`へ生成されます。スクリプトはReleaseの全テスト、両Definition検証、公開exeからの両smoke test、開発ファイル混入チェックを実行します。
+成果物は`artifacts/publish/win-x64`、配布ZIPは`artifacts/packages`へ生成されます。スクリプトはReleaseの全テスト、sample／gauntlet／SYNC DRIVEのDefinition・render・公開exe smoke、全ship×difficulty soak、Replay regression、10,000弾stress、開発ファイル混入チェックを実行します。
 
 SteamworksのAppIDとDepot ID取得後の非公開beta投入手順、認証情報を保存しないSteamCMD実行方法、手動QA項目は[Steam非公開betaの投入とQA](deploy/steam/README.md)を参照してください。
 
@@ -45,6 +45,7 @@ Definitionだけを検証する場合:
 ```bash
 dotnet run --project src/goat-shooooting.Tooling -- validate games/sample
 dotnet run --project src/goat-shooooting.Tooling -- validate games/gauntlet
+dotnet run --project src/goat-shooooting.Tooling -- validate games/sync-drive
 ```
 
 visual manifestと代表asset解決をGPUなしで検査する場合:
@@ -52,6 +53,7 @@ visual manifestと代表asset解決をGPUなしで検査する場合:
 ```bash
 dotnet run --project src/goat-shooooting.Tooling -- render-smoke games/sample
 dotnet run --project src/goat-shooooting.Tooling -- render-smoke games/gauntlet
+dotnet run --project src/goat-shooooting.Tooling -- render-smoke games/sync-drive
 ```
 
 成功時はコンテンツ数を表示してexit code 0、不正な参照・値・未知のプロパティ・JSON構文エラーはファイル、JSON Path、行・バイト位置を可能な範囲で表示してexit code 1を返します。
@@ -81,6 +83,22 @@ dotnet run --project src/goat-shooooting.SampleGame
 ```bash
 dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 ```
+
+製品vertical slice `SYNC DRIVE`を起動:
+
+```bash
+dotnet run --project src/goat-shooooting.SampleGame -- --game sync-drive
+```
+
+SYNC DRIVEはcontinueなしの5 stage、3 ship、Novice／Arcade／Expert、Score Attack、全stage／15 boss phase Training、Replay、mode×difficulty×ship別local leaderboardをcontentから提供します。3 segmentのゲージをかすり・接近攻撃・撃破・shard回収で溜め、1〜3 segmentのDRIVE中にsoft弾をcancelして、画面上部のcollection lineで倍率をbankするオリジナルrulesetです。authoring上の1周は22.67分です。
+
+製品Release QA:
+
+```bash
+dotnet run --project src/goat-shooooting.Tooling -- release-qa games/sync-drive
+```
+
+配布assetと権利は[`ASSET-LICENSES.txt`](ASSET-LICENSES.txt)、手動QAと未完了release blockerは[`docs/release/P16-RELEASE-CHECKLIST.md`](docs/release/P16-RELEASE-CHECKLIST.md)を参照してください。
 
 操作:
 
@@ -145,6 +163,7 @@ tests/
   goat-shooooting.Tooling.Tests
 games/sample/                  60秒の標準コンテンツパック
 games/gauntlet/                高速・縦長の第2コンテンツパック
+games/sync-drive/              5 stageの製品vertical slice
 schemas/                       各DefinitionのJSON Schema
 ```
 

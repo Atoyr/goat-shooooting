@@ -9,7 +9,9 @@ public readonly record struct VisualAssetFrame(
     Rectangle Source,
     Vector2 Origin,
     SpriteEffects Effects,
-    int Layer);
+    int Layer,
+    int? DisplayWidth,
+    int? DisplayHeight);
 
 public interface IVisualAssetCatalog : IDisposable
 {
@@ -144,7 +146,9 @@ public sealed class MonoGameVisualAssetCatalog : IVisualAssetCatalog
             new Rectangle(sprite.X, sprite.Y, sprite.Width, sprite.Height),
             new Vector2(sprite.OriginX ?? sprite.Width / 2f, sprite.OriginY ?? sprite.Height / 2f),
             effects,
-            sprite.Layer);
+            sprite.Layer,
+            sprite.DisplayWidth,
+            sprite.DisplayHeight);
         return true;
     }
 

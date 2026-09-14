@@ -10,9 +10,14 @@ First-party content note
 
 The tone:// cue definitions under games/sample/audio and games/gauntlet/audio
 are original parameter sets created for this repository. They contain no
-sampled or third-party audio. The generated visual placeholders are documented
-in games/sample/assets/README.md. Production replacements must add their
-license and source to this notice or the content pack asset ledger.
+sampled or third-party audio. The generated visual fixtures are documented in
+games/sample/assets/README.md.
+
+SYNC DRIVE product images and original synthesized WAV files are documented
+with prompts, provenance, generation method, redistribution classification,
+and SHA-256 values in ASSET-LICENSES.txt. They contain no third-party image or
+audio source material. Projectile graphics are produced by the first-party
+code renderer.
 
 MonoGame.Framework.DesktopGL 3.8.5.1
 Copyright the MonoGame project contributors.

@@ -1,0 +1,1 @@
+{"schemaVersion":2,"canDamage":true,"canBeCancelled":true,"behavior":{"type":"straight","parameters":{}},"damageType":"normal","clearBehavior":"remove","id":"player-needle","speed":940,"damage":82,"hitRadius":3,"lifetime":2,"visualId":"player-shot-visual","cancelResistance":"soft","pierceCount":1}

@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"attack-16","kind":"attack","commands":[{"type":"repeat","parameters":{},"patternId":"attack-cycle-4","repeatCount":31,"maximumSpawnCount":0,"difficultyTags":[]}]}

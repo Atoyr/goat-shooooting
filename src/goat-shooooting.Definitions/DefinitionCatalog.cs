@@ -591,7 +591,15 @@ public sealed class DefinitionCatalog
             }
             foreach (var id in ruleSet.StageIds) _ = GetStage(id);
             foreach (var rule in ruleSet.ScoreRules) ValidateCapabilityShape(rule, $"Rule set '{ruleSet.Id}' score rule");
-            if (ruleSet.SpecialGaugeRule is not null) ValidateCapabilityShape(ruleSet.SpecialGaugeRule, $"Rule set '{ruleSet.Id}' special gauge rule");
+            if (ruleSet.SpecialGaugeRule is not null)
+            {
+                ValidateCapabilityShape(ruleSet.SpecialGaugeRule, $"Rule set '{ruleSet.Id}' special gauge rule");
+                if (ruleSet.SpecialGaugeRule.Parameters.TryGetValue("cancelItemId", out var cancelItem) &&
+                    cancelItem.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(cancelItem.GetString()))
+                {
+                    _ = GetItem(cancelItem.GetString()!);
+                }
+            }
             if (ruleSet.RankRule is not null)
             {
                 ValidateCapabilityShape(ruleSet.RankRule, $"Rule set '{ruleSet.Id}' rank rule");

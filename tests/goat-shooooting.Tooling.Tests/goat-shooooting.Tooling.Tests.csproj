@@ -9,5 +9,6 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5"><PrivateAssets>all</PrivateAssets></PackageReference>
     <Content Include="..\..\schemas\*.schema.json" Link="schemas\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\..\games\editor-v2\**\*.json" Link="Fixtures\editor-v2\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\games\sync-drive\**\*.json" Link="Fixtures\sync-drive\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

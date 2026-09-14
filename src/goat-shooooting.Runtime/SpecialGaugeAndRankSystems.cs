@@ -33,7 +33,8 @@ public sealed record SpecialGaugeRule(
     bool CancelProjectiles,
     bool Invincible,
     string VisualCue,
-    string AudioCue);
+    string AudioCue,
+    string CancelItemId);
 
 public sealed record RankRule(
     double Initial,
@@ -163,6 +164,8 @@ public sealed class SpecialGaugeSystem
             }
 
             if (state.SpecialGaugeValue <= 0) End(state, "drained", events);
+            else if (input.IsPressed(InputButtons.Focus) && _rule.CancelProjectiles)
+                CancelEnemyProjectiles(projectiles, telemetry, events);
         }
         else if (state.SpecialPhase == SpecialGaugePhase.Cooldown)
         {
@@ -290,11 +293,19 @@ public sealed class SpecialGaugeSystem
         for (var index = 0; index < projectiles.ActiveCount; index++)
         {
             if (projectiles.IsPendingRemovalAt(index) || projectiles.TeamAt(index) != ProjectileTeam.Enemy ||
-                !projectiles.CanBeCancelledAt(index)) continue;
+                !projectiles.CanBeCancelledAt(index) ||
+                projectiles.CancelResistanceAt(index) != ProjectileCancelResistance.Soft) continue;
+            var position = projectiles.PositionAt(index);
             projectiles.QueueRemoveAt(index);
             telemetry.EnemyBulletsCleared++;
             var projectileId = projectiles.IdAt(index);
-            events.Publish((frame, sequence) => new ProjectileCancelledEvent(frame, sequence, projectileId));
+            events.Publish((frame, sequence) => new ProjectileCancelledEvent(
+                frame,
+                sequence,
+                projectileId,
+                Source: "special-gauge",
+                X: position.X,
+                Y: position.Y));
         }
     }
 
@@ -442,7 +453,7 @@ internal sealed class StandardSpecialGaugeRuleFactory : ISpecialGaugeRuleFactory
             "activation", "stageCost", "maximumLevel", "damageCharge", "killCharge", "grazeCharge",
             "cancelCharge", "itemCharge", "lockCharge", "drainPerSecond", "killExtensionSeconds",
             "cooldownSeconds", "endOnBomb", "endOnDeath", "damageMultiplier", "fireIntervalMultiplier",
-            "scoreMultiplier", "cancelProjectiles", "invincible", "visualCue", "audioCue");
+            "scoreMultiplier", "cancelProjectiles", "invincible", "visualCue", "audioCue", "cancelItemId");
         var activation = Parameters.String(value, "activation", "manual");
         if (activation is not ("manual" or "automatic" or "staged"))
             throw new DefinitionValidationException($"Capability at '{path}' has unsupported activation '{activation}'.");
@@ -467,7 +478,8 @@ internal sealed class StandardSpecialGaugeRuleFactory : ISpecialGaugeRuleFactory
             Parameters.Boolean(value, "cancelProjectiles"),
             Parameters.Boolean(value, "invincible"),
             Parameters.String(value, "visualCue", string.Empty),
-            Parameters.String(value, "audioCue", string.Empty));
+            Parameters.String(value, "audioCue", string.Empty),
+            Parameters.String(value, "cancelItemId", string.Empty));
     }
 }
 

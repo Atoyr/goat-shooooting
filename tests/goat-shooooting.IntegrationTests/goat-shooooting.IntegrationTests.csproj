@@ -4,6 +4,7 @@
     <ProjectReference Include="..\..\src\goat-shooooting.Core\goat-shooooting.Core.csproj" />
     <ProjectReference Include="..\..\src\goat-shooooting.Definitions\goat-shooooting.Definitions.csproj" />
     <ProjectReference Include="..\..\src\goat-shooooting.Runtime\goat-shooooting.Runtime.csproj" />
+    <ProjectReference Include="..\..\src\goat-shooooting.SampleGame\goat-shooooting.SampleGame.csproj" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
     <PackageReference Include="xunit" Version="2.4.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5"><PrivateAssets>all</PrivateAssets></PackageReference>

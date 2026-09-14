@@ -1,5 +1,5 @@
 {
-  "menu.start":"START","menu.training":"TRAINING","menu.leaderboard":"LEADERBOARD","menu.options":"OPTIONS","menu.information":"INFORMATION","menu.quit":"QUIT","menu.resume":"RESUME","menu.retry":"RETRY","menu.title":"TITLE","menu.back":"BACK","menu.playReplay":"PLAY REPLAY",
+  "menu.start":"START","menu.training":"TRAINING","menu.leaderboard":"LEADERBOARD","menu.options":"OPTIONS","menu.information":"INFORMATION","menu.quit":"QUIT","menu.resume":"RESUME","menu.retry":"RETRY","menu.title":"TITLE","menu.back":"BACK","menu.playReplay":"PLAY REPLAY","options.accessibilityPreset":"ACCESSIBILITY PRESET",
   "info.controls.title":"CONTROLS","info.controls.body":"MOVE ARROWS OR WASD  FIRE Z  FOCUS CTRL  BOMB X  SPECIAL C",
   "info.scoring.title":"SCORING HELP","info.scoring.body":"CHAIN KILLS  GRAZE BULLETS  COLLECT ITEMS  KEEP MULTIPLIER",
   "info.credits.title":"CREDITS","info.credits.body":"DESIGN CODE AND ORIGINAL ART  GOAT SHOOOOTING TEAM",

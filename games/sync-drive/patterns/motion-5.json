@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"motion-5","kind":"motion","commands":[{"type":"follow-path","parameters":{"duration":19,"points":[{"x":680,"y":120},{"x":20,"y":210},{"x":680,"y":310}],"easing":"ease-in-out","space":"world","reference":"none"},"repeatCount":1,"maximumSpawnCount":0,"difficultyTags":[]}]}

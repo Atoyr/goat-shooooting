@@ -15,7 +15,7 @@ public sealed class VisualAssetManifestTests
             {
               "schemaVersion": 1,
               "textures": [{ "id": "atlas", "path": "assets/atlas.png" }],
-              "sprites": [{ "id": "frame", "textureId": "atlas", "x": 4, "y": 2, "width": 8, "height": 4, "originX": 4, "originY": 2 }],
+              "sprites": [{ "id": "frame", "textureId": "atlas", "x": 4, "y": 2, "width": 8, "height": 4, "originX": 4, "originY": 2, "displayWidth": 32, "displayHeight": 16 }],
               "animations": [{ "id": "idle", "frames": ["frame"], "frameDurationSeconds": 0.1 }],
               "backgrounds": [{ "id": "space", "layers": [{ "assetId": "frame", "scrollY": 10, "parallax": 0.5 }] }]
             }
@@ -29,6 +29,8 @@ public sealed class VisualAssetManifestTests
         Assert.True(System.IO.Path.IsPathFullyQualified(texture.ResolvedPath));
         Assert.Single(manifest.Animations);
         Assert.Single(manifest.Backgrounds);
+        Assert.Equal(32, Assert.Single(manifest.Sprites).DisplayWidth);
+        Assert.Equal(16, Assert.Single(manifest.Sprites).DisplayHeight);
     }
 
     [Theory]
@@ -37,6 +39,7 @@ public sealed class VisualAssetManifestTests
     [InlineData("missing", "not found")]
     [InlineData("rectangle", "outside")]
     [InlineData("duration", "duration")]
+    [InlineData("display-size", "display size")]
     public void InvalidManifestReportsUnsafeAndOutOfRangeAssets(string mutation, string expectedMessage)
     {
         using var directory = new AssetDirectory();
@@ -51,6 +54,8 @@ public sealed class VisualAssetManifestTests
             ? """[{"id":"frame","textureId":"atlas","x":0,"y":0,"width":4,"height":4},{"id":"frame","textureId":"atlas","x":0,"y":0,"width":4,"height":4}]"""
             : mutation == "rectangle"
                 ? """[{"id":"frame","textureId":"atlas","x":7,"y":0,"width":2,"height":4}]"""
+                : mutation == "display-size"
+                    ? """[{"id":"frame","textureId":"atlas","x":0,"y":0,"width":4,"height":4,"displayWidth":0}]"""
                 : """[{"id":"frame","textureId":"atlas","x":0,"y":0,"width":4,"height":4}]""";
         var duration = mutation == "duration" ? 0 : 0.1;
         directory.WriteManifest($$"""

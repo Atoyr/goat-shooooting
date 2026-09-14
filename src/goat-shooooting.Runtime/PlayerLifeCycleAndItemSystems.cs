@@ -278,6 +278,24 @@ public sealed class ItemDropSystem(ItemFactory? itemFactory = null)
             }
         }
     }
+
+    public void SpawnProjectileCancelDrops(
+        World world,
+        DefinitionCatalog definitions,
+        IEnumerable<IGameplayEvent> gameplayEvents,
+        string? itemDefinitionId,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        if (string.IsNullOrWhiteSpace(itemDefinitionId)) return;
+        var item = definitions.GetItem(itemDefinitionId);
+        foreach (var cancelled in gameplayEvents.OfType<ProjectileCancelledEvent>().ToArray())
+        {
+            if (cancelled.Source != "special-gauge" || cancelled.X is not { } x || cancelled.Y is not { } y)
+                continue;
+            _itemFactory.Create(world, item, new Vector2(x, y), Vector2.Zero, telemetry, events);
+        }
+    }
 }
 
 public sealed class ItemSystem
@@ -338,7 +356,7 @@ public sealed class ItemSystem
             difference = playerPosition - transform.Position;
             if (difference.LengthSquared() <= rules.ItemCollectionRadius * rules.ItemCollectionRadius)
             {
-                Collect(player, itemEntity, rules, runState, telemetry, events);
+                Collect(player, itemEntity, rules, runState, telemetry, events, collectAll);
             }
             else if (transform.Position.Y > playfieldHeight + 32)
             {
@@ -353,7 +371,8 @@ public sealed class ItemSystem
         RuleSetDefinition rules,
         RunState runState,
         SimulationTelemetry telemetry,
-        GameEventBuffer events)
+        GameEventBuffer events,
+        bool collectedAboveLine)
     {
         var item = itemEntity.Get<ItemComponent>();
         var ship = player.Get<ShipComponent>();
@@ -402,7 +421,7 @@ public sealed class ItemSystem
 
         telemetry.ItemsCollected++;
         events.Publish((frame, sequence) => new ItemCollectedEvent(
-            frame, sequence, player.Id, item.DefinitionId, item.Value, item.Kind, scoreValue));
+            frame, sequence, player.Id, item.DefinitionId, item.Value, item.Kind, scoreValue, collectedAboveLine));
         itemEntity.Add(new PendingDestroyComponent());
     }
 

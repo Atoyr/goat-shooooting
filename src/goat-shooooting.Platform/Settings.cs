@@ -17,6 +17,21 @@ public sealed record GameSettings
     public InputSettings Input { get; init; } = new();
     public string Locale { get; init; } = "en";
 
+    public GameSettings ApplyAccessibilityPreset() => this with
+    {
+        Gameplay = Gameplay with
+        {
+            ScreenShakeStrength = 0,
+            FlashIntensity = 0.2f,
+            ParticleDensity = 0.5f,
+            BackgroundBrightness = 0.65f,
+            BulletOutline = true,
+            BulletPalette = "high-contrast",
+            HudScale = 1.25f,
+            ControllerVibration = false
+        }
+    };
+
     internal GameSettings Normalize()
     {
         var defaults = new GameSettings();

@@ -863,8 +863,8 @@ public sealed class ShootingGame : Game
                 DrawDiamondMarker(spriteBatch, pixel, interpolated, item.Radius + 4, Color.White);
             if (TryResolveVisual(item, animationSeconds, out var frame))
             {
-                var width = item.Size.X > 0 ? item.Size.X : item.Radius * 2;
-                var height = item.Size.Y > 0 ? item.Size.Y : item.Radius * 2;
+                var width = frame.DisplayWidth ?? (item.Size.X > 0 ? item.Size.X : item.Radius * 2);
+                var height = frame.DisplayHeight ?? (item.Size.Y > 0 ? item.Size.Y : item.Radius * 2);
                 var effects = frame.Effects |
                     (item.FlipX ? SpriteEffects.FlipHorizontally : SpriteEffects.None) |
                     (item.FlipY ? SpriteEffects.FlipVertically : SpriteEffects.None);
@@ -934,7 +934,7 @@ public sealed class ShootingGame : Game
         }
 
         PresentLogicalCanvas(logicalCanvas);
-        if (_renderScreenshotPath is not null && !_renderScreenshotSaved && _simulation.RunState.Frame >= 420)
+        if (_renderScreenshotPath is not null && !_renderScreenshotSaved && _simulation.RunState.Frame >= 360)
         {
             var directory = Path.GetDirectoryName(_renderScreenshotPath);
             if (!string.IsNullOrWhiteSpace(directory)) Directory.CreateDirectory(directory);

@@ -136,6 +136,49 @@ public sealed class ScoreRulePipelineTests
     }
 
     [Fact]
+    public void SyncBankRequiresHighLineShardsDecaysAndDropsOnHit()
+    {
+        var pipeline = Pipeline(
+            Rule("sync-bank", ("base", 1), ("perShard", 0.1), ("maximum", 2),
+                ("decayPerSecond", 0.6), ("hitLoss", 0.5)),
+            Rule("base-kill"));
+        var state = new RunState();
+
+        pipeline.Apply(
+            new IGameplayEvent[]
+            {
+                new ItemCollectedEvent(0, 0, 1, "shard", 5, "gauge", CollectedAboveLine: false),
+                new EnemyDestroyedEvent(0, 1, 2, "enemy", 100)
+            },
+            state,
+            StartedEvents(0));
+        Assert.Equal(100, state.Score);
+        Assert.Equal(1, state.Multiplier);
+
+        pipeline.Apply(
+            new IGameplayEvent[]
+            {
+                new ItemCollectedEvent(1, 0, 1, "shard", 5, "gauge", CollectedAboveLine: true),
+                new EnemyDestroyedEvent(1, 1, 3, "enemy", 100)
+            },
+            state,
+            StartedEvents(1));
+        Assert.Equal(250, state.Score);
+        Assert.Equal(1.5, state.Multiplier, 6);
+
+        pipeline.Apply(
+            new IGameplayEvent[]
+            {
+                new PlayerHitEvent(2, 0, 1, 4),
+                new EnemyDestroyedEvent(2, 1, 5, "enemy", 100)
+            },
+            state,
+            StartedEvents(2));
+        Assert.Equal(350, state.Score);
+        Assert.Equal(1, state.Multiplier, 6);
+    }
+
+    [Fact]
     public void BuiltInRuleValidationRejectsUnknownAndNegativeParameters()
     {
         var registry = RuntimeCapabilityRegistry.CreateBuiltIn();
@@ -145,6 +188,10 @@ public sealed class ScoreRulePipelineTests
             Rule("graze", ("typo", 1)), "rules/test"));
         Assert.Throws<DefinitionValidationException>(() => factory.Validate(
             Rule("graze", ("points", -1)), "rules/test"));
+        var bank = registry.ScoreRules.Resolve("sync-bank", "rules/test");
+        Assert.Throws<DefinitionValidationException>(() => bank.Validate(
+            Rule("sync-bank", ("base", 2), ("perShard", 0.1), ("maximum", 1),
+                ("decayPerSecond", 0.1), ("hitLoss", 0.5)), "rules/test"));
     }
 
     private static RunState ApplyKills(params CapabilityDefinition[] rules)

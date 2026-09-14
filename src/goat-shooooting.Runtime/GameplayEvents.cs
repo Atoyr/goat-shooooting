@@ -46,7 +46,10 @@ public sealed record ProjectileCancelledEvent(
     long Frame,
     int Sequence,
     int ProjectileEntityId,
-    bool AwardsScore = true) : IGameplayEvent;
+    bool AwardsScore = true,
+    string Source = "",
+    float? X = null,
+    float? Y = null) : IGameplayEvent;
 
 public sealed record ItemCollectedEvent(
     long Frame,
@@ -55,7 +58,8 @@ public sealed record ItemCollectedEvent(
     string ItemDefinitionId,
     int Value,
     string Kind = "",
-    int ScoreValue = 0) : IGameplayEvent;
+    int ScoreValue = 0,
+    bool CollectedAboveLine = false) : IGameplayEvent;
 
 public sealed record ItemSpawnedEvent(
     long Frame,

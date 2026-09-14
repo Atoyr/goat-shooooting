@@ -452,6 +452,13 @@ public sealed class ShootingSimulation
             Projectiles,
             Telemetry,
             Events);
+        _itemDropSystem.SpawnProjectileCancelDrops(
+            World,
+            Definitions,
+            Events.Events,
+            _specialGaugeSystem.Rule?.CancelItemId,
+            Telemetry,
+            Events);
         _rankSystem.Observe(
             Events.Events,
             deltaTime,

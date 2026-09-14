@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"enemy-pattern-7","projectileId":"enemy-soft","cooldown":0.2,"actionType":"projectile","emitters":[{"id":"emitter-7","projectileId":"enemy-soft","fireInterval":0.5800000000000001,"angleSource":"aim-at-player","distribution":"fan","projectileCount":8,"spreadDegrees":67.0,"rotationDegreesPerShot":14.0,"speedMultipliers":[0.82,1.0]}]}

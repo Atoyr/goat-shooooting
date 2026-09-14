@@ -1,0 +1,1 @@
+{"schemaVersion":2,"actionType":"projectile","id":"halo-wave","projectileId":"player-pulse","cooldown":0.08,"emitters":[{"id":"wave","projectileId":"player-pulse","fireInterval":0.08,"angleSource":"forward","distribution":"fan","projectileCount":7,"spreadDegrees":54.0,"rotationDegreesPerShot":0.0,"speedMultipliers":[1.0]}]}

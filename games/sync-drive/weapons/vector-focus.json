@@ -1,0 +1,1 @@
+{"schemaVersion":2,"actionType":"projectile","id":"vector-focus","projectileId":"player-needle","cooldown":0.055,"emitters":[{"id":"focus","projectileId":"player-needle","fireInterval":0.055,"angleSource":"forward","distribution":"fan","projectileCount":2,"spreadDegrees":5.0,"rotationDegreesPerShot":0.0,"speedMultipliers":[1.0]}]}

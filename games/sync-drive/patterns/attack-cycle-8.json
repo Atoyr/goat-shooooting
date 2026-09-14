@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"attack-cycle-8","kind":"attack","commands":[{"type":"fire","parameters":{"weaponId":"enemy-pattern-8"},"repeatCount":1,"maximumSpawnCount":4,"difficultyTags":[]},{"type":"wait","parameters":{"duration":0.55},"repeatCount":1,"maximumSpawnCount":0,"difficultyTags":[]}]}

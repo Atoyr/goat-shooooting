@@ -34,6 +34,8 @@ public sealed record SpriteRegionDefinition
     public int Y { get; init; }
     public int Width { get; init; }
     public int Height { get; init; }
+    public int? DisplayWidth { get; init; }
+    public int? DisplayHeight { get; init; }
     public float? OriginX { get; init; }
     public float? OriginY { get; init; }
     public bool FlipX { get; init; }
@@ -135,6 +137,8 @@ public static class VisualAssetManifestLoader
                     $"Sprite '{sprite.Id}' rectangle is outside texture '{texture.Id}' ({texture.Width}x{texture.Height}).");
             ValidateOrigin(sprite.OriginX, sprite.Width, sprite.Id, "X");
             ValidateOrigin(sprite.OriginY, sprite.Height, sprite.Id, "Y");
+            if (sprite.DisplayWidth is <= 0 || sprite.DisplayHeight is <= 0)
+                throw new DefinitionValidationException($"Sprite '{sprite.Id}' display size must be positive when specified.");
         }
 
         foreach (var animation in manifest.Animations)

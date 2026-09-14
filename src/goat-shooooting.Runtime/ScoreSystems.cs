@@ -140,7 +140,8 @@ internal enum BuiltInScoreRuleKind
     BossBonus,
     StageClear,
     ResourceConversion,
-    ExtendThreshold
+    ExtendThreshold,
+    SyncBank
 }
 
 internal sealed class BuiltInScoreRuleFactory(
@@ -162,7 +163,8 @@ internal sealed class BuiltInScoreRuleFactory(
         new BuiltInScoreRuleFactory("boss-bonus", BuiltInScoreRuleKind.BossBonus),
         new BuiltInScoreRuleFactory("stage-clear", BuiltInScoreRuleKind.StageClear),
         new BuiltInScoreRuleFactory("resource-conversion", BuiltInScoreRuleKind.ResourceConversion),
-        new BuiltInScoreRuleFactory("extend-threshold", BuiltInScoreRuleKind.ExtendThreshold)
+        new BuiltInScoreRuleFactory("extend-threshold", BuiltInScoreRuleKind.ExtendThreshold),
+        new BuiltInScoreRuleFactory("sync-bank", BuiltInScoreRuleKind.SyncBank)
     };
 
     public void Validate(CapabilityDefinition capability, string path)
@@ -177,6 +179,7 @@ internal sealed class BuiltInScoreRuleFactory(
             BuiltInScoreRuleKind.ItemGrowth => new[] { "growthPerItem", "maximumMultiplier", "timeoutFrames" },
             BuiltInScoreRuleKind.StageClear => new[] { "stagePoints", "allClearPoints" },
             BuiltInScoreRuleKind.ResourceConversion => new[] { "lifePoints", "bombPoints" },
+            BuiltInScoreRuleKind.SyncBank => new[] { "base", "perShard", "maximum", "decayPerSecond", "hitLoss" },
             _ => Array.Empty<string>()
         };
         CapabilityParameters.RequireOnly(capability, path, parameters);
@@ -188,7 +191,7 @@ internal sealed class BuiltInScoreRuleFactory(
             }
 
             if (name is "base" or "perChain" or "perHit" or "maximum" or "distance" or "multiplier" or
-                "growthPerItem" or "maximumMultiplier")
+                "growthPerItem" or "maximumMultiplier" or "perShard" or "decayPerSecond" or "hitLoss")
             {
                 if (!value.TryGetDouble(out var number) || !double.IsFinite(number) || number < 0)
                 {
@@ -211,6 +214,13 @@ internal sealed class BuiltInScoreRuleFactory(
             parameters.Any(name => name is "maximum" or "distance" or "multiplier" or "maximumMultiplier" && GetDouble(capability, name) <= 0))
         {
             throw new DefinitionValidationException($"Capability at '{path}' requires positive limit and multiplier values.");
+        }
+
+        if (kind == BuiltInScoreRuleKind.SyncBank &&
+            (GetDouble(capability, "base") <= 0 || GetDouble(capability, "maximum") < GetDouble(capability, "base")))
+        {
+            throw new DefinitionValidationException(
+                $"Capability at '{path}' requires a positive base and maximum >= base.");
         }
     }
 
@@ -236,6 +246,12 @@ internal sealed class BuiltInScoreRule(
         if (kind == BuiltInScoreRuleKind.ItemGrowth && state.LastItemFrame >= 0 &&
             frame - state.LastItemFrame > GetLong("timeoutFrames")) state.ConsecutiveItems = 0;
         if (kind == BuiltInScoreRuleKind.Multiplier) UpdateMultiplier(state);
+        if (kind == BuiltInScoreRuleKind.SyncBank)
+        {
+            state.Multiplier = Math.Max(
+                GetDouble("base"),
+                state.Multiplier - (GetDouble("decayPerSecond") / SimulationTiming.TicksPerSecond));
+        }
     }
 
     public void Apply(ScoreRuleContext context)
@@ -309,6 +325,9 @@ internal sealed class BuiltInScoreRule(
                 break;
             case BuiltInScoreRuleKind.ExtendThreshold:
                 break;
+            case BuiltInScoreRuleKind.SyncBank:
+                ApplySyncBank(context);
+                break;
         }
     }
 
@@ -378,6 +397,24 @@ internal sealed class BuiltInScoreRule(
             GetDouble("maximumMultiplier"),
             1 + ((context.State.ConsecutiveItems - 1) * GetDouble("growthPerItem")));
         context.Add(item.ScoreValue, "item-collected", item.ItemDefinitionId, "item", multiplier);
+    }
+
+    private void ApplySyncBank(ScoreRuleContext context)
+    {
+        var minimum = GetDouble("base");
+        if (context.State.Multiplier < minimum) context.State.Multiplier = minimum;
+        if (context.Event is ItemCollectedEvent { Kind: "gauge", CollectedAboveLine: true } shard)
+        {
+            context.State.Multiplier = Math.Min(
+                GetDouble("maximum"),
+                context.State.Multiplier + (shard.Value * GetDouble("perShard")));
+        }
+        else if (context.Event is PlayerHitEvent)
+        {
+            context.State.Multiplier = Math.Max(minimum, context.State.Multiplier - GetDouble("hitLoss"));
+        }
+
+        context.EventMultiplier *= context.State.Multiplier;
     }
 
     private long GetLong(string name) => definition.Parameters[name].GetInt64();

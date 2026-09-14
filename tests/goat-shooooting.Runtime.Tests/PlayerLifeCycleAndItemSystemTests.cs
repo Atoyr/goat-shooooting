@@ -196,6 +196,27 @@ public sealed class PlayerLifeCycleAndItemSystemTests
     }
 
     [Fact]
+    public void SpecialGaugeCancellationSpawnsConfiguredShardAtProjectilePositionOnly()
+    {
+        var world = new World();
+        var definitions = CreateItemCatalog();
+        var telemetry = new SimulationTelemetry();
+        var events = StartedEvents();
+        events.Publish((frame, sequence) => new ProjectileCancelledEvent(
+            frame, sequence, 10, Source: "special-gauge", X: 120, Y: 240));
+        events.Publish((frame, sequence) => new ProjectileCancelledEvent(
+            frame, sequence, 11, Source: "bomb", X: 300, Y: 400));
+
+        new ItemDropSystem().SpawnProjectileCancelDrops(
+            world, definitions, events.Events, "sync-shard", telemetry, events);
+
+        var shard = Assert.Single(world.Query<ItemComponent, TransformComponent>());
+        Assert.Equal("sync-shard", shard.Get<ItemComponent>().DefinitionId);
+        Assert.Equal(new Vector2(120, 240), shard.Get<TransformComponent>().Position);
+        Assert.Equal(1, telemetry.ItemsSpawned);
+    }
+
+    [Fact]
     public void ScoreExtendThresholdIsClaimedOnce()
     {
         var (world, player) = CreatePlayer(initialLives: 2);
@@ -382,7 +403,7 @@ public sealed class PlayerLifeCycleAndItemSystemTests
             InitialCredits = credits,
             ExtendScoreThresholds = thresholds ?? Array.Empty<long>()
         };
-        var items = new[] { Item("power", "power", 1) };
+        var items = new[] { Item("power", "power", 1), Item("sync-shard", "gauge", 4) };
         return new DefinitionCatalog(
             new GameDefinition { Id = "test", PlayerId = "legacy", StageId = "stage", Width = 800, Height = 600 },
             new[]

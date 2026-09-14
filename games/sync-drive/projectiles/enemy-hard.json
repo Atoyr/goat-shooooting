@@ -1,0 +1,1 @@
+{"schemaVersion":2,"canDamage":true,"canBeCancelled":true,"behavior":{"type":"straight","parameters":{}},"damageType":"normal","clearBehavior":"remove","id":"enemy-hard","speed":160,"damage":1,"hitRadius":5,"lifetime":8,"visualId":"enemy-hard-visual","cancelResistance":"hard"}

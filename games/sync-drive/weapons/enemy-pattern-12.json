@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"enemy-pattern-12","projectileId":"enemy-hard","cooldown":0.2,"actionType":"projectile","emitters":[{"id":"emitter-12","projectileId":"enemy-hard","fireInterval":0.34,"angleSource":"rotating","distribution":"ring","projectileCount":6,"spreadDegrees":360.0,"rotationDegreesPerShot":19.0,"speedMultipliers":[0.82,1.0]}]}

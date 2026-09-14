@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "textures": [
+    { "id": "sync-atlas", "path": "assets/sync-drive-atlas.png" },
+    { "id": "sync-background-texture", "path": "assets/sync-drive-background.png" }
+  ],
+  "sprites": [
+    { "id": "ship-vector", "textureId": "sync-atlas", "x": 0, "y": 0, "width": 310, "height": 316, "displayWidth": 52, "displayHeight": 54, "layer": 20 },
+    { "id": "ship-lancer", "textureId": "sync-atlas", "x": 310, "y": 0, "width": 310, "height": 316, "displayWidth": 52, "displayHeight": 54, "layer": 20 },
+    { "id": "ship-halo", "textureId": "sync-atlas", "x": 620, "y": 0, "width": 310, "height": 316, "displayWidth": 52, "displayHeight": 54, "layer": 20 },
+    { "id": "drone-1", "textureId": "sync-atlas", "x": 930, "y": 0, "width": 311, "height": 316, "layer": 20 },
+    { "id": "drone-2", "textureId": "sync-atlas", "x": 0, "y": 316, "width": 310, "height": 316, "layer": 20 },
+    { "id": "drone-3", "textureId": "sync-atlas", "x": 310, "y": 316, "width": 310, "height": 316, "layer": 20 },
+    { "id": "drone-4", "textureId": "sync-atlas", "x": 620, "y": 316, "width": 310, "height": 316, "layer": 20 },
+    { "id": "drone-5", "textureId": "sync-atlas", "x": 930, "y": 316, "width": 311, "height": 316, "layer": 20 },
+    { "id": "drone-6", "textureId": "sync-atlas", "x": 0, "y": 632, "width": 310, "height": 316, "layer": 20 },
+    { "id": "drone-7", "textureId": "sync-atlas", "x": 310, "y": 632, "width": 310, "height": 316, "layer": 20 },
+    { "id": "drone-8", "textureId": "sync-atlas", "x": 620, "y": 632, "width": 310, "height": 316, "layer": 20 },
+    { "id": "drone-9", "textureId": "sync-atlas", "x": 930, "y": 632, "width": 311, "height": 316, "layer": 20 },
+    { "id": "drone-10", "textureId": "sync-atlas", "x": 0, "y": 316, "width": 310, "height": 316, "layer": 20 },
+    { "id": "drone-11", "textureId": "sync-atlas", "x": 310, "y": 316, "width": 310, "height": 316, "layer": 20 },
+    { "id": "drone-12", "textureId": "sync-atlas", "x": 620, "y": 316, "width": 310, "height": 316, "layer": 20 },
+    { "id": "boss-body-1", "textureId": "sync-atlas", "x": 310, "y": 632, "width": 310, "height": 316, "layer": 20 },
+    { "id": "boss-body-2", "textureId": "sync-atlas", "x": 620, "y": 632, "width": 310, "height": 316, "layer": 20 },
+    { "id": "boss-body-3", "textureId": "sync-atlas", "x": 930, "y": 632, "width": 311, "height": 316, "layer": 20 },
+    { "id": "boss-body-4", "textureId": "sync-atlas", "x": 0, "y": 948, "width": 310, "height": 319, "layer": 20 },
+    { "id": "boss-body-5", "textureId": "sync-atlas", "x": 310, "y": 948, "width": 310, "height": 319, "layer": 20 },
+    { "id": "player-shot", "textureId": "sync-atlas", "x": 155, "y": 150, "width": 1, "height": 1, "originX": 0.5, "originY": 0.5, "layer": 20 },
+    { "id": "enemy-soft-shot", "textureId": "sync-atlas", "x": 1000, "y": 160, "width": 1, "height": 1, "originX": 0.5, "originY": 0.5, "layer": 20 },
+    { "id": "enemy-hard-shot", "textureId": "sync-atlas", "x": 700, "y": 750, "width": 1, "height": 1, "originX": 0.5, "originY": 0.5, "layer": 20 },
+    { "id": "sync-shard", "textureId": "sync-atlas", "x": 310, "y": 948, "width": 310, "height": 319, "displayWidth": 22, "displayHeight": 23, "layer": 22 },
+    { "id": "sync-space-image", "textureId": "sync-background-texture", "x": 0, "y": 0, "width": 1024, "height": 1536, "originX": 0, "originY": 0, "layer": -100 }
+  ],
+  "animations": [],
+  "backgrounds": [
+    { "id": "sync-space", "layers": [
+      { "assetId": "sync-space-image", "scrollY": 12, "parallax": 0.25, "opacity": 0.94, "layer": -100 }
+    ] }
+  ]
+}

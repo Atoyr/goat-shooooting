@@ -1,0 +1,1 @@
+{"schemaVersion":2,"canDamage":true,"canBeCancelled":true,"behavior":{"type":"straight","parameters":{}},"damageType":"normal","clearBehavior":"remove","id":"player-pulse","speed":760,"damage":52,"hitRadius":4,"lifetime":2,"visualId":"player-shot-visual","cancelResistance":"soft"}

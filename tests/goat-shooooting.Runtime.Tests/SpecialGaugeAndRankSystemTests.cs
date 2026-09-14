@@ -56,7 +56,25 @@ public sealed class SpecialGaugeAndRankSystemTests
         Assert.Equal("drive-flare", activated.VisualCue);
         Assert.Equal("drive-on", activated.AudioCue);
 
+        var focusProjectiles = EnemyProjectileStore(ProjectileCancelResistance.Soft, ProjectileCancelResistance.Hard);
         events.BeginTick(2);
+        system.BeginTick(
+            new InputFrame(0, 0, InputButtons.Focus),
+            SimulationTiming.TickDurationSeconds,
+            state,
+            player,
+            focusProjectiles,
+            telemetry,
+            events);
+        Assert.True(focusProjectiles.GetSnapshot(0).PendingRemoval);
+        Assert.False(focusProjectiles.GetSnapshot(1).PendingRemoval);
+        Assert.Single(events.Events.OfType<ProjectileCancelledEvent>());
+        var cancelled = Assert.Single(events.Events.OfType<ProjectileCancelledEvent>());
+        Assert.Equal("special-gauge", cancelled.Source);
+        Assert.Equal(0, cancelled.X);
+        Assert.Equal(0, cancelled.Y);
+
+        events.BeginTick(3);
         events.Publish((frame, sequence) => new EnemyDestroyedEvent(frame, sequence, 2, "enemy", 100));
         ScoreRulePipeline.Create(rules, capabilities).Apply(events.Events, state, events);
         Assert.Equal(200, state.Score);
@@ -120,7 +138,7 @@ public sealed class SpecialGaugeAndRankSystemTests
         var state = new RunState();
         var rank = new RankRule(0.5, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0.5f, 0.25, 0, 0, string.Empty);
         var special = new SpecialGaugeRule("manual", 10, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-            true, true, 2, 0.5f, 2, false, false, string.Empty, string.Empty);
+            true, true, 2, 0.5f, 2, false, false, string.Empty, string.Empty, string.Empty);
         var difficulty = new DifficultyDefinition
         {
             Id = "expert",
@@ -266,6 +284,7 @@ public sealed class SpecialGaugeAndRankSystemTests
         var invalidGauge = Rules(Special(("activation", "\"typo\"")));
         var invalidRank = Rules(null, Rank(("minimum", "1"), ("initial", "0"), ("maximum", "2"))) with { Id = "rank" };
         var invalidTime = Rules() with { Id = "time", ClearCondition = "time-attack" };
+        var missingCancelItem = Rules(Special(("cancelItemId", "\"missing\""))) with { Id = "cancel-item" };
         var capabilities = RuntimeCapabilityRegistry.CreateBuiltIn();
 
         Assert.Throws<DefinitionValidationException>(() =>
@@ -273,6 +292,7 @@ public sealed class SpecialGaugeAndRankSystemTests
         Assert.Throws<DefinitionValidationException>(() =>
             new CapabilityValidator().Validate(CopyWithRules(baseline, invalidRank), capabilities));
         Assert.Throws<DefinitionValidationException>(() => CopyWithRules(baseline, invalidTime));
+        Assert.Throws<DefinitionValidationException>(() => CopyWithRules(baseline, missingCancelItem));
     }
 
     private static RuleSetDefinition Rules(
@@ -306,11 +326,25 @@ public sealed class SpecialGaugeAndRankSystemTests
         .Add(new TransformComponent(Vector2.Zero))
         .Add(new InvincibilityComponent(1));
 
-    private static ProjectileStore EnemyProjectileStore()
+    private static ProjectileStore EnemyProjectileStore(
+        params ProjectileCancelResistance[] resistances)
     {
         var result = new ProjectileStore();
-        result.QueueSpawn(new ProjectileSpawnCommand(
-            2, ProjectileTeam.Enemy, "shot", Vector2.Zero, Vector2.UnitY, 1, 1, 10, "shot"));
+        if (resistances.Length == 0) resistances = new[] { ProjectileCancelResistance.Soft };
+        foreach (var resistance in resistances)
+        {
+            result.QueueSpawn(new ProjectileSpawnCommand(
+                2,
+                ProjectileTeam.Enemy,
+                "shot",
+                Vector2.Zero,
+                Vector2.UnitY,
+                1,
+                1,
+                10,
+                "shot",
+                CancelResistance: resistance));
+        }
         result.CommitSpawns();
         return result;
     }

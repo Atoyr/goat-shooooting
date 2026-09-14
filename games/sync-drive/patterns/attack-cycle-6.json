@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"attack-cycle-6","kind":"attack","commands":[{"type":"fire","parameters":{"weaponId":"enemy-pattern-6"},"repeatCount":1,"maximumSpawnCount":14,"difficultyTags":[]},{"type":"wait","parameters":{"duration":0.75},"repeatCount":1,"maximumSpawnCount":0,"difficultyTags":[]}]}

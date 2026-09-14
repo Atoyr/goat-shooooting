@@ -658,6 +658,14 @@ Editor previewとproduction Runtimeでpattern計算コードを共有し、JavaS
 - Play／Pause／Step／Seek／seed変更／difficulty比較はpreview APIの同一契約を使う。10,000 projectile benchmarkと同seed二重実行によるReplay regressionをEditorから起動できる。validation error、弾数、budget、score traceは保存前に表示する。
 - `games/editor-v2`は全v2主要種別、follow-path control point、attack timeline、boss checkpoint、二difficultyを含む編集用fixtureである。製品packではなく、Editorの変更・preview・保存・再読込確認に用いる。
 
+### 9.2 P16実装契約とRelease Candidate境界
+
+- `games/sync-drive`は製品vertical sliceであり、continueなしの5 stage、Novice／Arcade／Expert、Vector／Lancer／Halo、SYNC DRIVE／Score Attack、12通常enemy、5 boss／15 phase、40 motion／attack patternを持つ。最終boss出現までを合計したauthoring上のrouteは22.67分で、stage／boss checkpointは既存Training、通常runはReplayとcategory別local leaderboardへ接続する。
+- signature ruleは`radiant-drive`の3×100 gaugeを使い、撃破、graze、damage、itemでchargeし、1～3 segmentをstaged activationする。active中はdamage／fire interval／scoreを増幅し、focus時にsoft projectileだけをcancelして、cancel位置へRuleSet指定のSYNC shardを生成する。hard／uncancelable projectileとlaserは残る。shardのcollection line回収を`sync-bank`へ渡し、chain／hit、item growth、dynamic rank、boss time／no-miss／no-bomb bonusを既存event駆動pipelineで合成する。Core／Runtimeへfile APIやMonoGame依存を追加しない。
+- `release-qa`はproduct WAV／visual／locale、content規模、authoring duration、全ship×difficultyの保護soak、Boss Training Replayのcanonical hash、10,000 projectile×600 tickを検証する。保護soakはcontent／routeのstability gateであり、人間のsurvival balance測定を代替しない。
+- `build/Publish-Game.ps1`とRelease workflowは三content packのvalidation／render／smoke、product release QA、self-contained win-x64 publish、公開exe smoke、asset／notice検査、symbol分離、ZIP／SHA-256を実行する。`BUILD-ID.txt`は外部報告をpackage versionへ結び付ける。
+- 画像prompt／hashと無sample PCM音源は`ASSET-LICENSES.txt`、privacy／support、store copy、手動QA、playtest form、既知の問題は`docs/release`で管理する。10名以上の外部playtest、実機最低環境、実Steam private betaが未実施ならP16とRelease Candidate gateは未完了のままとする。
+
 ## 10. Testと観測性
 
 ### Unit
