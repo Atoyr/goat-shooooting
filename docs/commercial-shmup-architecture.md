@@ -650,6 +650,14 @@ Definition Editorを段階的に次へ伸ばす。
 
 Editor previewとproduction Runtimeでpattern計算コードを共有し、JavaScript側へ別実装を複製しない。必要ならToolingからheadless Runtime APIを呼び、そのsnapshotをCanvasへ渡す。
 
+### 9.1 P15実装契約
+
+- `DefinitionEditorService`はcontent pack外へ出られないfile／PNG境界であり、一覧、読込、複製、削除、検証、保存を提供する。変更候補とpack内assetを隔離directoryへ複製し、Definition、capability、visual asset、audio asset、存在するlocale catalogの全検証が成功した場合だけtemporary fileからatomic replaceする。削除も参照を除いた候補catalogが正常な場合だけ実行し、失敗時はlast-known-goodを維持する。
+- `/api/preview`は候補catalogを`MemoryDefinitionRepository`経由でproduction `ShootingSimulation`へ渡す。0～36,000 frameをseed／difficulty付きで先頭から決定論的にseekし、renderer-neutral snapshot、active／累計projectile数、再帰的な理論spawn budget、score breakdown／event trace、canonical state hashを返す。Browserは軌道、emitter、boss phaseを再計算しない。
+- Browser Editorはv1に加えてShip、Projectile、Item、Pattern、Boss、RuleSet、Difficulty、Visual、Audioと`assets.json`をschema-driven formで編集する。配列／nested object、参照select、motion control point、motion／attack timeline、emitter、boss phase、stage enemy／boss／background／BGM／warning track、sprite region／animationをvisual操作へ公開する。
+- Play／Pause／Step／Seek／seed変更／difficulty比較はpreview APIの同一契約を使う。10,000 projectile benchmarkと同seed二重実行によるReplay regressionをEditorから起動できる。validation error、弾数、budget、score traceは保存前に表示する。
+- `games/editor-v2`は全v2主要種別、follow-path control point、attack timeline、boss checkpoint、二difficultyを含む編集用fixtureである。製品packではなく、Editorの変更・preview・保存・再読込確認に用いる。
+
 ## 10. Testと観測性
 
 ### Unit

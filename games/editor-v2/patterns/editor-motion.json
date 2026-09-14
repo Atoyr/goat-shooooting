@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"editor-motion","kind":"motion","commands":[{"type":"follow-path","parameters":{"duration":4,"points":[{"x":400,"y":100},{"x":220,"y":180},{"x":580,"y":180},{"x":400,"y":100}],"space":"world","reference":"none"},"repeatCount":1,"maximumSpawnCount":0,"difficultyTags":[]}]}

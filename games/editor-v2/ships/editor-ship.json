@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"editor-ship","hitRadius":3,"grazeRadius":22,"normalSpeed":260,"focusSpeed":130,"initialLives":3,"initialBombs":3,"maximumPower":100,"normalWeaponIds":["editor-shot"],"focusWeaponIds":["editor-shot"],"visualId":"ship-visual"}

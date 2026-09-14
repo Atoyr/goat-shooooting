@@ -109,9 +109,8 @@ public static class HeadlessBenchmarkRunner
             simulation.Tick(default);
         }
 
-        var playerDefinition = definitions.GetPlayer(definitions.Game.PlayerId);
-        var weapon = definitions.GetWeapon(playerDefinition.WeaponId);
-        var bullet = definitions.GetBullet(weapon.BulletId);
+        var projectile = definitions.Projectiles.Values.FirstOrDefault()
+            ?? throw new InvalidOperationException("Benchmark requires at least one projectile definition.");
         var factory = new BulletFactory();
         const int columns = 100;
         for (var index = 0; index < bulletCount; index++)
@@ -123,7 +122,7 @@ public static class HeadlessBenchmarkRunner
                 ((row % columns) + 0.5f) / columns * definitions.Game.Height);
             factory.Create(
                 simulation.Projectiles,
-                bullet,
+                projectile,
                 position,
                 -Vector2.UnitY,
                 CollisionLayer.Player,

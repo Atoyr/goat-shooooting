@@ -68,6 +68,21 @@ public sealed class HeadlessBenchmarkRunnerTests
         Assert.True(stress.AllocatedBytes >= 0);
     }
 
+    [Fact]
+    public void RunnerSupportsPureV2CatalogWithoutLegacyPlayerOrBullet()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "Fixtures", "editor-v2");
+        var definitions = new JsonDefinitionRepository(path).Load();
+
+        var report = HeadlessBenchmarkRunner.Run(
+            definitions,
+            new HeadlessBenchmarkOptions(SampleTicks: 2, StressBulletCount: 20, StressTicks: 1));
+
+        Assert.Empty(definitions.Players);
+        Assert.Empty(definitions.Bullets);
+        Assert.Equal(20, report.Scenarios[1].InitialActiveBullets);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(100_001)]

@@ -23,7 +23,7 @@
 - [x] P12 Asset catalog、Sprite、Background
 - [x] P13 Effect、HUD、視認性
 - [x] P14 Audio、Localization、Accessibility
-- [ ] P15 Definition Editor v2
+- [x] P15 Definition Editor v2
 - [ ] P16 製品vertical sliceとRelease QA
 
 Phaseを完了したセッションは、この進捗欄の該当項目だけを`[x]`へ更新する。部分実装では完了扱いにしない。

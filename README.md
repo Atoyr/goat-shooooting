@@ -167,9 +167,19 @@ ShootingSimulation -> RenderSystem snapshot -> MonoGame renderer
 dotnet run --project src/goat-shooooting.Tooling -- editor games/sample
 ```
 
-Editorはビジュアル編集を標準モードとして提供します。左側からゲーム素材を選び、右側の日本語フォームで値を変更すると、Player、Enemy、Bullet、Weaponの見た目・軌道・弾幕が中央へ即時プレビューされます。Stageでは、下部タイムラインの時刻を選ぶと、その時刻に出現するEnemyだけが中央キャンバスへ表示されます。Enemyをドラッグして出現位置を変更でき、イベントの追加、複製、削除、出現時刻、編隊数、間隔も画面操作で設定できます。
+Editorはビジュアル編集を標準モードとして提供します。v1に加えてShip、Projectile、Item、Pattern、Boss、RuleSet、Difficulty、Visual、Audio、sprite／animation manifestを一覧・作成・複製・削除でき、nested formと参照selectから編集できます。motion pathのcontrol point、motion／attack timeline、emitterのshape／angle／speed／burst／difficulty tag、boss phaseのHP／timer／pattern／cancel／bonus／checkpointもフォーム化されています。
 
-JSONを直接調整したい場合だけ、上部の`JSON`へ切り替えます。新しいEnemy、Bullet、Weapon、Stageは左上で種類を選んで`＋ 新規`を押し、IDを指定して作成します。`検証`は保存せずコンテンツパック全体を確認し、`保存`は参照を含めて正常な場合だけ実ファイルを置き換えます。`../`などでゲームディレクトリ外へアクセスすることはできません。
+Play／Pause／Step／Seek、seed変更、difficulty比較は`/api/preview`からproduction `ShootingSimulation`を実行します。Browser側に弾幕や移動計算の別実装は持たず、active／累計projectile、理論spawn budget、validation error、scoring event traceとbreakdownをsnapshotとともに表示します。Stage timelineにはenemy／bossと、背景、BGM、boss warningのtrackを表示し、`assets.json`ではPNGのsprite regionとanimationを再生確認できます。BenchmarkとReplay Regressionも同じ画面から起動できます。
+
+JSONを直接調整したい場合だけ、上部の`JSON`へ切り替えます。`検証`は保存せずcontent pack全体を確認し、`保存`はDefinition、capability、visual／audio asset、localeを含む全検証が正常な場合だけ実ファイルをatomicに置き換えます。参照中のDefinitionは削除できず、失敗時は既存fileを維持します。`../`などでゲームディレクトリ外へアクセスすることはできません。
+
+全v2操作を小さなfixtureで確認する場合:
+
+```bash
+dotnet run --project src/goat-shooooting.Tooling -- editor games/editor-v2
+```
+
+![Definition Editor v2のstage timeline、Runtime preview操作、参照form](docs/assets/p15-editor-v2.png)
 
 Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内容のハッシュを毎フレーム確認します。Editorなどで正常な変更を保存するとDefinitionとWorldを自動的に再構築し、不正な変更の場合は最後に正常だった状態で動作を継続してウィンドウタイトルへエラーを表示します。
 

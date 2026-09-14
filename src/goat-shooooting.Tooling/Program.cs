@@ -73,18 +73,31 @@ public static class Program
             new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
             var assets = VisualAssetManifestLoader.LoadOptional(rootDirectory, catalog);
             var audio = AudioAssetResolver.Resolve(rootDirectory, catalog);
-            var japanese = JsonStringCatalogLoader.Load(rootDirectory, "ja");
-            if (japanese.MissingKeys.Count > 0)
-                throw new InvalidDataException($"Japanese string catalog is missing: {string.Join(", ", japanese.MissingKeys)}.");
+            var stringsDirectory = Path.Combine(rootDirectory, "strings");
+            var localeCount = Directory.Exists(stringsDirectory)
+                ? Directory.GetFiles(stringsDirectory, "*.json", SearchOption.TopDirectoryOnly).Length
+                : 0;
+            if (localeCount > 0)
+            {
+                _ = JsonStringCatalogLoader.Load(rootDirectory, "en");
+                var japanese = JsonStringCatalogLoader.Load(rootDirectory, "ja");
+                if (japanese.MissingKeys.Count > 0)
+                    throw new InvalidDataException($"Japanese string catalog is missing: {string.Join(", ", japanese.MissingKeys)}.");
+            }
             Console.WriteLine(
                 $"VALID: schema=2, game={catalog.Game.Id}, player={catalog.Game.PlayerId}, " +
                 $"stage={catalog.Game.StageId}, ships={catalog.Ships.Count}, " +
                 $"projectiles={catalog.Projectiles.Count}, enemies={catalog.Enemies.Count}, " +
                 $"weapons={catalog.Weapons.Count}, textures={assets.Textures.Count}, sprites={assets.Sprites.Count}, " +
-                $"audioCues={audio.Count}, locales=2");
+                $"audioCues={audio.Count}, locales={localeCount}");
             return 0;
         }
-        catch (Exception exception) when (exception is DefinitionValidationException or IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception exception) when (exception is
+                   DefinitionValidationException or
+                   InvalidDataException or
+                   IOException or
+                   UnauthorizedAccessException or
+                   ArgumentException)
         {
             Console.Error.WriteLine($"INVALID: {exception.Message}");
             return 1;
@@ -146,10 +159,20 @@ public static class Program
             var schemaName = service.GetSchemaName(path);
             return Results.File(Path.Combine(schemaRoot, $"{schemaName}.schema.json"), "application/schema+json");
         }));
+        app.MapGet("/api/asset", (string path) => Handle(() =>
+            Results.File(service.GetImageAssetPath(path), "image/png")));
         app.MapPost("/api/validate", (EditorRequest request) => Handle(() =>
             Results.Json(service.Validate(request.Path, request.Content))));
+        app.MapPost("/api/preview", (EditorPreviewRequest request) => Handle(() =>
+            Results.Json(service.Preview(request))));
+        app.MapPost("/api/benchmark", (EditorRequest request) => Handle(() =>
+            Results.Json(service.Benchmark(request.Path, request.Content))));
+        app.MapPost("/api/duplicate", (EditorDuplicateRequest request) => Handle(() =>
+            Results.Json(service.Duplicate(request.SourcePath, request.TargetPath, request.NewId))));
         app.MapPut("/api/file", (EditorRequest request) => Handle(() =>
             Results.Json(service.Save(request.Path, request.Content))));
+        app.MapDelete("/api/file", (string path) => Handle(() =>
+            Results.Json(service.Delete(path))));
 
         Console.WriteLine($"Definition Editor: {url}");
         Console.WriteLine($"Editing: {rootDirectory}");
@@ -204,11 +227,19 @@ public static class Program
         {
             return action();
         }
-        catch (Exception exception) when (exception is ArgumentException or IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is
+                   ArgumentException or
+                   DefinitionValidationException or
+                   InvalidDataException or
+                   IOException or
+                   UnauthorizedAccessException or
+                   InvalidOperationException or
+                   JsonException)
         {
             return Results.BadRequest(new { error = exception.Message });
         }
     }
 
     public sealed record EditorRequest(string Path, string Content);
+    public sealed record EditorDuplicateRequest(string SourcePath, string TargetPath, string NewId);
 }

@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"editor-bullet","speed":260,"damage":10,"hitRadius":4,"lifetime":6,"visualId":"bullet-visual","behavior":{"type":"straight","parameters":{}},"canDamage":true,"canBeCancelled":true,"cancelResistance":"soft","pierceCount":0,"damageType":"normal","clearBehavior":"remove"}

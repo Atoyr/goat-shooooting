@@ -1,0 +1,1 @@
+{"schemaVersion":2,"id":"editor-boss-body","hp":1200,"speed":0,"radius":28,"score":5000,"motion":{"type":"straight","parameters":{}},"motionPatternId":"editor-motion","attackPatternIds":["editor-attack"],"dropTable":[{"itemId":"score-item","count":4,"chance":1,"scatterSpeed":80}]}
