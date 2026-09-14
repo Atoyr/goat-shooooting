@@ -1,0 +1,1 @@
+{"schemaVersion":2,"canDamage":true,"canBeCancelled":true,"behavior":{"type":"homing","parameters":{"turnDegreesPerSecond":720}},"damageType":"normal","clearBehavior":"remove","id":"lancer-lock-shot","speed":620,"damage":34,"hitRadius":3,"lifetime":2.4,"visualId":"player-shot-visual","cancelResistance":"soft","pierceCount":0}

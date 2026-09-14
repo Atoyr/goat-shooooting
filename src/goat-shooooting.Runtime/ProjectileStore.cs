@@ -49,7 +49,8 @@ public readonly record struct ProjectileSpawnCommand(
     int PierceCount = 0,
     ProjectileDamageType DamageType = ProjectileDamageType.Normal,
     ProjectileClearBehavior ClearBehavior = ProjectileClearBehavior.Remove,
-    float AccelerationPerSecond = 0);
+    float AccelerationPerSecond = 0,
+    int TargetEntityId = 0);
 
 public readonly record struct ProjectileSnapshot(
     int Id,
@@ -73,7 +74,8 @@ public readonly record struct ProjectileSnapshot(
     ProjectileClearBehavior ClearBehavior,
     float AccelerationPerSecond,
     int GrazedPlayerEntityId,
-    bool PendingRemoval);
+    bool PendingRemoval,
+    int TargetEntityId);
 
 /// <summary>Dense, reusable structure-of-arrays storage for active projectiles.</summary>
 public sealed class ProjectileStore
@@ -103,6 +105,7 @@ public sealed class ProjectileStore
     private float[] _accelerations;
     private int[] _grazedPlayerEntityIds;
     private bool[] _pendingRemoval;
+    private int[] _targetEntityIds;
     private int _nextId = 1;
 
     public ProjectileStore(int initialCapacity = DefaultCapacity)
@@ -136,6 +139,7 @@ public sealed class ProjectileStore
         _accelerations = new float[capacity];
         _grazedPlayerEntityIds = new int[capacity];
         _pendingRemoval = new bool[capacity];
+        _targetEntityIds = new int[capacity];
     }
 
     public int ActiveCount { get; private set; }
@@ -180,6 +184,7 @@ public sealed class ProjectileStore
             _accelerations[index] = command.AccelerationPerSecond;
             _grazedPlayerEntityIds[index] = 0;
             _pendingRemoval[index] = false;
+            _targetEntityIds[index] = command.TargetEntityId;
             events?.Publish((frame, sequence) => new ProjectileSpawnedEvent(
                 frame,
                 sequence,
@@ -244,7 +249,8 @@ public sealed class ProjectileStore
             _clearBehaviors[index],
             _accelerations[index],
             _grazedPlayerEntityIds[index],
-            _pendingRemoval[index]);
+            _pendingRemoval[index],
+            _targetEntityIds[index]);
     }
 
     internal int IdAt(int index) => _ids[index];
@@ -270,6 +276,7 @@ public sealed class ProjectileStore
     internal float AccelerationAt(int index) => _accelerations[index];
     internal ref int GrazedPlayerEntityIdAt(int index) => ref _grazedPlayerEntityIds[index];
     internal bool IsPendingRemovalAt(int index) => _pendingRemoval[index];
+    internal int TargetEntityIdAt(int index) => _targetEntityIds[index];
 
     private static void Validate(ProjectileSpawnCommand command)
     {
@@ -290,7 +297,7 @@ public sealed class ProjectileStore
             !float.IsFinite(command.Lifetime) || command.Lifetime <= 0 ||
             !float.IsFinite(command.HomingTurnRadiansPerSecond) || command.HomingTurnRadiansPerSecond < 0 ||
             !float.IsFinite(command.AccelerationPerSecond) ||
-            command.Damage <= 0 || command.PierceCount < 0)
+            command.Damage <= 0 || command.PierceCount < 0 || command.TargetEntityId < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(command), "Projectile numeric values are invalid.");
         }
@@ -327,6 +334,7 @@ public sealed class ProjectileStore
         Array.Resize(ref _accelerations, capacity);
         Array.Resize(ref _grazedPlayerEntityIds, capacity);
         Array.Resize(ref _pendingRemoval, capacity);
+        Array.Resize(ref _targetEntityIds, capacity);
     }
 
     private void RemoveAt(int index)
@@ -357,11 +365,13 @@ public sealed class ProjectileStore
             _accelerations[index] = _accelerations[last];
             _grazedPlayerEntityIds[index] = _grazedPlayerEntityIds[last];
             _pendingRemoval[index] = _pendingRemoval[last];
+            _targetEntityIds[index] = _targetEntityIds[last];
         }
 
         _definitionIds[last] = null!;
         _visualIds[last] = null!;
         _pendingRemoval[last] = false;
+        _targetEntityIds[last] = 0;
         ActiveCount--;
     }
 

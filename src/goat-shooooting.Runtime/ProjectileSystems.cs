@@ -69,21 +69,29 @@ public sealed class ProjectileMovementSystem
         var targetLayer = projectiles.TeamAt(projectileIndex) == ProjectileTeam.Player
             ? CollisionLayer.Enemy
             : CollisionLayer.Player;
-        foreach (var entity in world.Entities)
+        var targetEntityId = projectiles.TargetEntityIdAt(projectileIndex);
+        if (targetEntityId > 0)
         {
-            if (entity.Has<PendingDestroyComponent>() ||
-                !entity.TryGet<TransformComponent>(out var transform) ||
-                !entity.TryGet<ColliderComponent>(out var collider) ||
-                collider.Layer != targetLayer)
+            var lockedTarget = OptionFollowSystem.FindEntity(world, targetEntityId);
+            if (lockedTarget is not null && IsValidTarget(lockedTarget, targetLayer))
             {
-                continue;
+                nearest = lockedTarget;
             }
-
-            var distanceSquared = Vector2.DistanceSquared(projectilePosition, transform.Position);
-            if (distanceSquared < nearestDistanceSquared)
+        }
+        else
+        {
+            foreach (var entity in world.Entities)
             {
-                nearest = entity;
-                nearestDistanceSquared = distanceSquared;
+                if (!IsValidTarget(entity, targetLayer)) continue;
+
+                var distanceSquared = Vector2.DistanceSquared(
+                    projectilePosition,
+                    entity.Get<TransformComponent>().Position);
+                if (distanceSquared < nearestDistanceSquared)
+                {
+                    nearest = entity;
+                    nearestDistanceSquared = distanceSquared;
+                }
             }
         }
 
@@ -107,6 +115,12 @@ public sealed class ProjectileMovementSystem
         var maximumTurn = projectiles.HomingTurnRateAt(projectileIndex) * deltaTime;
         velocity = Rotate(currentDirection, Math.Clamp(signedAngle, -maximumTurn, maximumTurn)) * speed;
     }
+
+    private static bool IsValidTarget(Entity entity, CollisionLayer targetLayer) =>
+        !entity.Has<PendingDestroyComponent>() &&
+        entity.TryGet<TransformComponent>(out _) &&
+        entity.TryGet<ColliderComponent>(out var collider) &&
+        collider.Layer == targetLayer;
 
     private static Vector2 Rotate(Vector2 vector, float angle)
     {

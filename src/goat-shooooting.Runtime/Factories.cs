@@ -192,7 +192,8 @@ public sealed class BulletFactory(RuntimeCapabilityRegistry? capabilities = null
         int ownerEntityId,
         float speedMultiplier = 1,
         float damageMultiplier = 1,
-        float accelerationPerSecond = 0)
+        float accelerationPerSecond = 0,
+        int targetEntityId = 0)
     {
         ArgumentNullException.ThrowIfNull(projectiles);
         ArgumentNullException.ThrowIfNull(definition);
@@ -234,7 +235,8 @@ public sealed class BulletFactory(RuntimeCapabilityRegistry? capabilities = null
             definition.PierceCount,
             ProjectileDamageType.Normal,
             ProjectileClearBehavior.Remove,
-            accelerationPerSecond));
+            accelerationPerSecond,
+            targetEntityId));
     }
 
     public Entity Create(

@@ -1,6 +1,6 @@
 {
   "menu.start":"SYNC DRIVE","menu.training":"TRAINING","menu.leaderboard":"LOCAL LEADERBOARD","menu.options":"OPTIONS","menu.information":"PILOT GUIDE","menu.quit":"QUIT","menu.resume":"RESUME","menu.retry":"RETRY","menu.title":"TITLE","menu.back":"BACK","menu.playReplay":"PLAY REPLAY","options.accessibilityPreset":"ACCESSIBILITY PRESET",
-  "info.controls.title":"CONTROLS","info.controls.body":"MOVE ARROWS/WASD  FIRE Z  FOCUS CTRL  BOMB X  SYNC C. Gamepad is fully supported.",
+  "info.controls.title":"CONTROLS","info.controls.body":"MOVE ARROWS/WASD  FIRE Z  FOCUS CTRL  BOMB X  SYNC C. Hold FIRE with LANCER to lock up to 4 enemies ahead and concentrate option fire. Gamepad is fully supported.",
   "info.scoring.title":"SYNC DRIVE SCORING","info.scoring.body":"Graze, attack nearby, defeat enemies, and collect green shards to fill 3 SYNC segments. Press SYNC to spend 1-3 full segments. During DRIVE, firepower and score rise and soft bullets cancel. Collect shards above the line to grow the multiplier; it decays when the chain breaks and drops on a hit. Boss bonus rewards time, no miss, no bomb, and banked multiplier.",
   "info.credits.title":"CREDITS","info.credits.body":"Game design, programming, procedural audio, and original visual direction: Atoyr. Product art generated for this project with OpenAI image generation; no third-party reference image was supplied.",
   "info.licenses.title":"LICENSES & PRIVACY","info.licenses.body":"See THIRD-PARTY-NOTICES.txt, ASSET-LICENSES.txt, and PRIVACY.txt. The game sends no telemetry.",

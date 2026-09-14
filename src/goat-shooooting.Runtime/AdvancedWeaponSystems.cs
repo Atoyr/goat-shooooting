@@ -98,13 +98,27 @@ public sealed class AdvancedWeaponSystem
                 projectiles);
             if (!string.IsNullOrWhiteSpace(ship.SpecialWeaponId))
             {
+                var specialWeapon = definitions.GetWeapon(ship.SpecialWeaponId);
+                var specialWantsToFire = specialWeapon.ActionType == "lock-on" &&
+                    specialWeapon.LockOn?.Trigger == "fire"
+                        ? input.Fire
+                        : input.Special;
+                if (specialWantsToFire && specialWeapon.ActionType == "lock-on" &&
+                    specialWeapon.LockOn is { MovementSpeedMultiplier: < 1 } lockOn &&
+                    player.Get<WeaponRuntimeComponent>().GetOrCreate(specialWeapon.Id).HeldSeconds + deltaTime >=
+                    lockOn.HoldDelaySeconds &&
+                    player.TryGet<VelocityComponent>(out var velocity))
+                {
+                    velocity.Value *= lockOn.MovementSpeedMultiplier;
+                }
+
                 ProcessWeapons(
                     world,
                     definitions,
                     player,
                     CollisionLayer.Player,
                     new[] { ship.SpecialWeaponId },
-                    input.Special,
+                    specialWantsToFire,
                     deltaTime,
                     ship.Power,
                     telemetry,
@@ -414,44 +428,118 @@ public sealed class AdvancedWeaponSystem
         var state = runtime.GetOrCreate(weapon.Id);
         state.CooldownRemaining = Math.Max(0, state.CooldownRemaining - deltaTime);
         RemoveInvalidTargets(world, state);
-        if (wantsToFire)
+        state.HeldSeconds = wantsToFire ? state.HeldSeconds + deltaTime : 0;
+        var isEngaged = wantsToFire && state.HeldSeconds >= settings.HoldDelaySeconds;
+        if (isEngaged)
         {
             var newlyLocked = AcquireTargets(world, owner, ownerLayer, settings, state);
             if (newlyLocked > 0 && ownerLayer == CollisionLayer.Player)
             {
                 Events?.Publish((frame, sequence) => new TargetsLockedEvent(frame, sequence, owner.Id, newlyLocked));
             }
-        }
-        else if (state.WasHeld && state.CooldownRemaining <= 0)
-        {
-            foreach (var targetId in state.LockedTargetEntityIds)
+
+            if (settings.FireMode == "continuous" && state.CooldownRemaining <= 0 &&
+                FireAtLockedTargets(
+                    world,
+                    definitions,
+                    owner,
+                    ownerLayer,
+                    weapon,
+                    settings,
+                    state,
+                    power,
+                    telemetry,
+                    projectiles))
             {
-                var target = OptionFollowSystem.FindEntity(world, targetId);
-                if (target is null || target.Has<PendingDestroyComponent>()) continue;
-                var direction = target.Get<TransformComponent>().Position - owner.Get<TransformComponent>().Position;
-                if (direction == Vector2.Zero) direction = ownerLayer == CollisionLayer.Player ? -Vector2.UnitY : Vector2.UnitY;
-                foreach (var emitter in weapon.Emitters)
-                {
-                    FireEmitter(
-                        world,
-                        definitions,
-                        owner,
-                        ownerLayer,
-                        weapon,
-                        emitter,
-                        state,
-                        power,
-                        telemetry,
-                        projectiles,
-                        direction);
-                }
+                state.CooldownRemaining = weapon.Emitters.Max(emitter => GetFireInterval(emitter, ownerLayer));
+            }
+        }
+        else if (!wantsToFire && state.WasHeld)
+        {
+            if (settings.FireMode == "release" && state.CooldownRemaining <= 0 &&
+                FireAtLockedTargets(
+                    world,
+                    definitions,
+                    owner,
+                    ownerLayer,
+                    weapon,
+                    settings,
+                    state,
+                    power,
+                    telemetry,
+                    projectiles))
+            {
+                state.CooldownRemaining = weapon.Emitters.Max(emitter => GetFireInterval(emitter, ownerLayer));
             }
 
             state.LockedTargetEntityIds.Clear();
-            state.CooldownRemaining = weapon.Emitters.Max(emitter => GetFireInterval(emitter, ownerLayer));
         }
 
-        state.WasHeld = wantsToFire;
+        state.WasHeld = isEngaged;
+    }
+
+    private bool FireAtLockedTargets(
+        World world,
+        DefinitionCatalog definitions,
+        Entity owner,
+        CollisionLayer ownerLayer,
+        WeaponDefinition weapon,
+        LockOnWeaponDefinition settings,
+        WeaponActionState state,
+        int power,
+        SimulationTelemetry telemetry,
+        ProjectileStore projectiles)
+    {
+        if (state.LockedTargetEntityIds.Count == 0) return false;
+
+        var optionOrigins = settings.FireFromOptions
+            ? world.Query<OptionUnitComponent, TransformComponent>()
+                .Where(entity => entity.Get<OptionUnitComponent>().OwnerEntityId == owner.Id &&
+                    !entity.Has<PendingDestroyComponent>())
+                .OrderBy(static entity => entity.Id)
+                .Select(entity => entity.Get<TransformComponent>().Position)
+                .ToArray()
+            : Array.Empty<Vector2>();
+        var fired = false;
+        var shotCount = optionOrigins.Length > 0
+            ? Math.Max(optionOrigins.Length, state.LockedTargetEntityIds.Count)
+            : state.LockedTargetEntityIds.Count;
+        for (var shotIndex = 0; shotIndex < shotCount; shotIndex++)
+        {
+            var targetId = state.LockedTargetEntityIds[shotIndex % state.LockedTargetEntityIds.Count];
+            var target = OptionFollowSystem.FindEntity(world, targetId);
+            if (target is null || target.Has<PendingDestroyComponent>() ||
+                !target.TryGet<TransformComponent>(out var targetTransform)) continue;
+            var origin = optionOrigins.Length > 0
+                ? optionOrigins[shotIndex % optionOrigins.Length]
+                : owner.Get<TransformComponent>().Position;
+            var direction = targetTransform.Position - origin;
+            if (direction == Vector2.Zero)
+            {
+                direction = ownerLayer == CollisionLayer.Player ? -Vector2.UnitY : Vector2.UnitY;
+            }
+
+            foreach (var emitter in weapon.Emitters)
+            {
+                FireEmitter(
+                    world,
+                    definitions,
+                    owner,
+                    ownerLayer,
+                    weapon,
+                    emitter,
+                    state,
+                    power,
+                    telemetry,
+                    projectiles,
+                    direction,
+                    origin,
+                    targetId);
+                fired = true;
+            }
+        }
+
+        return fired;
     }
 
     private void FireEmitter(
@@ -465,9 +553,12 @@ public sealed class AdvancedWeaponSystem
         int power,
         SimulationTelemetry telemetry,
         ProjectileStore projectiles,
-        Vector2? forcedDirection = null)
+        Vector2? forcedDirection = null,
+        Vector2? forcedPosition = null,
+        int targetEntityId = 0)
     {
-        var position = owner.Get<TransformComponent>().Position + new Vector2(emitter.OffsetX, emitter.OffsetY);
+        var position = (forcedPosition ?? owner.Get<TransformComponent>().Position) +
+            new Vector2(emitter.OffsetX, emitter.OffsetY);
         var baseDirection = forcedDirection ?? ResolveAngleSource(world, owner, ownerLayer, emitter, state);
         var powerModifier = ResolvePowerModifier(definitions, world, owner, power);
         var count = emitter.ProjectileCount + powerModifier.AdditionalProjectileCount +
@@ -491,7 +582,8 @@ public sealed class AdvancedWeaponSystem
                         : 1),
                     emitter.SpeedMode is "accelerating" or "decelerating"
                         ? emitter.AccelerationPerSecond
-                        : 0);
+                        : 0,
+                    targetEntityId);
                 telemetry.BulletsSpawned++;
                 if (ownerLayer == CollisionLayer.Enemy) telemetry.EnemyBulletsSpawned++;
             }
@@ -679,6 +771,10 @@ public sealed class AdvancedWeaponSystem
         var targetLayer = ownerLayer == CollisionLayer.Player ? CollisionLayer.Enemy : CollisionLayer.Player;
         var origin = owner.Get<TransformComponent>().Position;
         var rangeSquared = settings.Range * settings.Range;
+        var forward = ownerLayer == CollisionLayer.Player ? -Vector2.UnitY : Vector2.UnitY;
+        var minimumForwardDot = settings.AcquisitionAngleDegrees >= 360
+            ? -1
+            : MathF.Cos(settings.AcquisitionAngleDegrees * MathF.PI / 360);
         var candidates = new List<(Entity Entity, float Distance)>();
         foreach (var candidate in world.Entities)
         {
@@ -686,7 +782,14 @@ public sealed class AdvancedWeaponSystem
                 !candidate.TryGet<ColliderComponent>(out var collider) || collider.Layer != targetLayer ||
                 !candidate.TryGet<TransformComponent>(out var transform)) continue;
             var distance = Vector2.DistanceSquared(origin, transform.Position);
-            if (distance <= rangeSquared) candidates.Add((candidate, distance));
+            if (distance > rangeSquared) continue;
+            var offset = transform.Position - origin;
+            if (offset != Vector2.Zero && Vector2.Dot(Vector2.Normalize(offset), forward) < minimumForwardDot)
+            {
+                continue;
+            }
+
+            candidates.Add((candidate, distance));
         }
 
         candidates.Sort(static (left, right) =>

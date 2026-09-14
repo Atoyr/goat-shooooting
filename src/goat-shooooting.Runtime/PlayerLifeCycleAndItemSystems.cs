@@ -174,6 +174,7 @@ public sealed class PlayerLifeCycleSystem
                 state.BurstShotsRemaining = 0;
                 state.BurstCooldownRemaining = 0;
                 state.WasHeld = false;
+                state.HeldSeconds = 0;
                 state.ActiveLaserEntityId = 0;
                 state.LockedTargetEntityIds.Clear();
             }

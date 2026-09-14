@@ -195,6 +195,76 @@ public sealed class AdvancedWeaponSystemTests
     }
 
     [Fact]
+    public void ContinuousLockOnUsesForwardConeOptionsFixedTargetsAndMovementPenalty()
+    {
+        var baseline = CreateDefinitions();
+        var continuous = baseline.GetWeapon("lock") with
+        {
+            LockOn = new LockOnWeaponDefinition
+            {
+                MaximumTargets = 2,
+                Range = 200,
+                FireMode = "continuous",
+                Trigger = "fire",
+                HoldDelaySeconds = 0.2f,
+                AcquisitionAngleDegrees = 60,
+                MovementSpeedMultiplier = 0.5f,
+                FireFromOptions = true
+            }
+        };
+        var definitions = CopyCatalog(
+            baseline,
+            baseline.Weapons.Values.Where(static weapon => weapon.Id != "lock").Append(continuous));
+        var world = new World();
+        var player = new PlayerFactory().Create(world, definitions.GetShip("striker"), new Vector2(100, 200));
+        var nearest = CreateEnemy(world, new Vector2(100, 150));
+        var next = CreateEnemy(world, new Vector2(120, 120));
+        _ = CreateEnemy(world, new Vector2(40, 200));
+        _ = CreateEnemy(world, new Vector2(100, 260));
+        player.Get<VelocityComponent>().Value = new Vector2(240, 0);
+        var projectiles = new ProjectileStore();
+        var system = CreateSystem();
+        var telemetry = new SimulationTelemetry();
+
+        system.Update(world, definitions, new MutableInputState { Fire = true }, 0.1f, telemetry, projectiles);
+        projectiles.CommitSpawns();
+
+        Assert.Empty(player.Get<WeaponRuntimeComponent>().States["lock"].LockedTargetEntityIds);
+        Assert.DoesNotContain(Enumerable.Range(0, projectiles.ActiveCount).Select(projectiles.GetSnapshot),
+            static projectile => projectile.DefinitionId == "missile");
+        Assert.Equal(new Vector2(240, 0), player.Get<VelocityComponent>().Value);
+
+        system.Update(world, definitions, new MutableInputState { Fire = true }, 0.1f, telemetry, projectiles);
+        projectiles.CommitSpawns();
+
+        var lockedShots = Enumerable.Range(0, projectiles.ActiveCount)
+            .Select(projectiles.GetSnapshot)
+            .Where(static projectile => projectile.DefinitionId == "missile")
+            .ToArray();
+        Assert.Equal(new[] { nearest.Id, next.Id },
+            player.Get<WeaponRuntimeComponent>().States["lock"].LockedTargetEntityIds);
+        Assert.Equal(2, lockedShots.Length);
+        Assert.All(lockedShots, shot => Assert.Equal(new Vector2(90, 210), shot.Position));
+        Assert.Equal(new[] { nearest.Id, next.Id }, lockedShots.Select(static shot => shot.TargetEntityId));
+        Assert.Equal(new Vector2(120, 0), player.Get<VelocityComponent>().Value);
+        Assert.Equal(2, new RenderSystem().Capture(world, projectiles)
+            .Count(static item => item.Kind == RenderKind.LockMarker));
+
+        system.Update(world, definitions, new MutableInputState { Fire = true }, 0.1f, telemetry, projectiles);
+        projectiles.CommitSpawns();
+        Assert.Equal(2, Enumerable.Range(0, projectiles.ActiveCount)
+            .Select(projectiles.GetSnapshot)
+            .Count(static projectile => projectile.DefinitionId == "missile"));
+
+        system.Update(world, definitions, new MutableInputState(), 0, telemetry, projectiles);
+        projectiles.CommitSpawns();
+        Assert.Empty(player.Get<WeaponRuntimeComponent>().States["lock"].LockedTargetEntityIds);
+        Assert.Equal(2, Enumerable.Range(0, projectiles.ActiveCount)
+            .Select(projectiles.GetSnapshot)
+            .Count(static projectile => projectile.DefinitionId == "missile"));
+    }
+
+    [Fact]
     public void OptionFollowsOwnerUsesOwnerPowerAndRenderSnapshotExposesShipOptionLaserAndHitbox()
     {
         var definitions = CreateDefinitions();

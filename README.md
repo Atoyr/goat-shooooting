@@ -128,7 +128,7 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 dotnet run --project src/goat-shooooting.SampleGame -- --game sync-drive
 ```
 
-SYNC DRIVEはcontinueなしの5 stage、3 ship、Novice／Arcade／Expert、Score Attack、全stage／15 boss phase Training、Replay、mode×difficulty×ship別local leaderboardをcontentから提供します。3 segmentのゲージをかすり・接近攻撃・撃破・shard回収で溜め、1〜3 segmentのDRIVE中にsoft弾をcancelして、画面上部のcollection lineで倍率をbankするオリジナルrulesetです。authoring上の1周は22.67分です。
+SYNC DRIVEはcontinueなしの5 stage、3 ship、Novice／Arcade／Expert、Score Attack、全stage／15 boss phase Training、Replay、mode×difficulty×ship別local leaderboardをcontentから提供します。Lancerはショット長押しで前方の敵を最大4体ロックし、低速移動しながら4基のoptionから追尾弾を集中射撃します。3 segmentのゲージをかすり・接近攻撃・撃破・shard回収で溜め、1〜3 segmentのDRIVE中にsoft弾をcancelして、画面上部のcollection lineで倍率をbankするオリジナルrulesetです。authoring上の1周は22.67分です。
 
 製品Release QA:
 

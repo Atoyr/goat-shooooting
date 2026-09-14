@@ -99,7 +99,13 @@
       "required": ["maximumTargets", "range"],
       "properties": {
         "maximumTargets": { "type": "integer", "minimum": 1 },
-        "range": { "type": "number", "exclusiveMinimum": 0 }
+        "range": { "type": "number", "exclusiveMinimum": 0 },
+        "fireMode": { "type": "string", "enum": ["release", "continuous"], "default": "release" },
+        "trigger": { "type": "string", "enum": ["special", "fire"], "default": "special" },
+        "holdDelaySeconds": { "type": "number", "minimum": 0, "default": 0 },
+        "acquisitionAngleDegrees": { "type": "number", "exclusiveMinimum": 0, "maximum": 360, "default": 360 },
+        "movementSpeedMultiplier": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "default": 1 },
+        "fireFromOptions": { "type": "boolean", "default": false }
       }
     }
   }

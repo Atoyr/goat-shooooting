@@ -188,6 +188,38 @@ public sealed class ProjectileSystemTests
     }
 
     [Fact]
+    public void HomingProjectileWithLockedTargetDoesNotRetargetToNearestEnemy()
+    {
+        var world = new World();
+        _ = CreateEnemy(world, new Vector2(120, 100));
+        var locked = CreateEnemy(world, new Vector2(100, 200));
+        var projectiles = new ProjectileStore();
+        projectiles.QueueSpawn(CreateCommand(
+            ProjectileTeam.Player,
+            new Vector2(100, 100),
+            new Vector2(100, 0)) with
+        {
+            Behavior = ProjectileBehavior.Homing,
+            HomingTurnRadiansPerSecond = MathF.PI / 2,
+            TargetEntityId = locked.Id
+        });
+        projectiles.CommitSpawns();
+
+        new ProjectileMovementSystem().Update(
+            projectiles,
+            world,
+            0.5f,
+            800,
+            600,
+            new SimulationTelemetry());
+
+        var projectile = projectiles.GetSnapshot(0);
+        Assert.Equal(locked.Id, projectile.TargetEntityId);
+        Assert.InRange(projectile.Velocity.X, 70.70f, 70.72f);
+        Assert.InRange(projectile.Velocity.Y, 70.70f, 70.72f);
+    }
+
+    [Fact]
     public void BulletFactoryPreservesV1HomingDefinitionInProjectileStore()
     {
         var projectiles = new ProjectileStore();

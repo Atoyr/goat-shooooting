@@ -319,6 +319,34 @@ public sealed class DefinitionCatalog
 
                 EnsurePositive(weapon.LockOn.MaximumTargets, $"Weapon '{weapon.Id}' maximum lock targets");
                 EnsurePositive(weapon.LockOn.Range, $"Weapon '{weapon.Id}' lock-on range");
+                EnsureKnownValue(
+                    weapon.LockOn.FireMode,
+                    new[] { "release", "continuous" },
+                    $"Weapon '{weapon.Id}' lock-on fire mode");
+                EnsureKnownValue(
+                    weapon.LockOn.Trigger,
+                    new[] { "special", "fire" },
+                    $"Weapon '{weapon.Id}' lock-on trigger");
+                EnsureNonNegative(
+                    weapon.LockOn.HoldDelaySeconds,
+                    $"Weapon '{weapon.Id}' lock-on hold delay");
+                EnsurePositive(
+                    weapon.LockOn.AcquisitionAngleDegrees,
+                    $"Weapon '{weapon.Id}' lock-on acquisition angle");
+                if (weapon.LockOn.AcquisitionAngleDegrees > 360)
+                {
+                    throw new DefinitionValidationException(
+                        $"Weapon '{weapon.Id}' lock-on acquisition angle must be at most 360.");
+                }
+
+                EnsurePositive(
+                    weapon.LockOn.MovementSpeedMultiplier,
+                    $"Weapon '{weapon.Id}' lock-on movement speed multiplier");
+                if (weapon.LockOn.MovementSpeedMultiplier > 1)
+                {
+                    throw new DefinitionValidationException(
+                        $"Weapon '{weapon.Id}' lock-on movement speed multiplier must be at most 1.");
+                }
             }
         }
 

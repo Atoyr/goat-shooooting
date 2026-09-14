@@ -103,6 +103,12 @@ public sealed record LockOnWeaponDefinition
 {
     public int MaximumTargets { get; init; } = 1;
     public float Range { get; init; }
+    public string FireMode { get; init; } = "release";
+    public string Trigger { get; init; } = "special";
+    public float HoldDelaySeconds { get; init; }
+    public float AcquisitionAngleDegrees { get; init; } = 360;
+    public float MovementSpeedMultiplier { get; init; } = 1;
+    public bool FireFromOptions { get; init; }
 }
 
 public sealed record ProjectileDefinition

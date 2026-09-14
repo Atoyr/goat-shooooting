@@ -1,6 +1,6 @@
 {
   "menu.start":"SYNC DRIVE","menu.training":"トレーニング","menu.leaderboard":"ローカルランキング","menu.options":"オプション","menu.information":"パイロットガイド","menu.quit":"終了","menu.resume":"再開","menu.retry":"リトライ","menu.title":"タイトル","menu.back":"戻る","menu.playReplay":"リプレイ再生","options.accessibilityPreset":"アクセシビリティ設定",
-  "info.controls.title":"操作","info.controls.body":"移動 矢印/WASD  ショット Z  低速 CTRL  ボム X  SYNC C。ゲームパッドのみでも操作できます。",
+  "info.controls.title":"操作","info.controls.body":"移動 矢印/WASD  ショット Z  低速 CTRL  ボム X  SYNC C。LANCERはショット長押しで前方の敵を最大4体ロックし、オプションが集中射撃します。ゲームパッドのみでも操作できます。",
   "info.scoring.title":"SYNC DRIVE スコアリング","info.scoring.body":"かすり、接近攻撃、敵撃破、緑のシャード回収で3本のSYNCゲージを溜めます。満タンの1〜3本をSYNCボタンで消費します。DRIVE中は火力と得点が上がり、soft弾を消去します。画面上部のラインより上でシャードを回収すると倍率をbankします。chainが切れると倍率が減衰し、被弾でも失います。Boss bonusは残り時間、no miss、no bomb、bank倍率で増えます。",
   "info.credits.title":"クレジット","info.credits.body":"ゲームデザイン、プログラム、プロシージャル音源、オリジナルvisual direction: Atoyr。製品画像は第三者reference画像を使わず、このproject用にOpenAI画像生成で制作しました。",
   "info.licenses.title":"ライセンスとプライバシー","info.licenses.body":"THIRD-PARTY-NOTICES.txt、ASSET-LICENSES.txt、PRIVACY.txtを参照してください。本作はtelemetryを送信しません。",

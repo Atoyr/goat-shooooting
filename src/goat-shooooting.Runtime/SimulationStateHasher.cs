@@ -177,6 +177,7 @@ internal static class SimulationStateHasher
                     hash.Add(pair.Value.PatternDirection);
                     hash.Add(pair.Value.ShotsSinceDirectionChange);
                     hash.Add(pair.Value.WasHeld);
+                    hash.Add(pair.Value.HeldSeconds);
                     hash.Add(pair.Value.ActiveLaserEntityId);
                     hash.Add(pair.Value.LockedTargetEntityIds.Count);
                     foreach (var targetId in pair.Value.LockedTargetEntityIds) hash.Add(targetId);
@@ -316,6 +317,7 @@ internal static class SimulationStateHasher
             hash.Add(projectile.AccelerationPerSecond);
             hash.Add(projectile.GrazedPlayerEntityId);
             hash.Add(projectile.PendingRemoval);
+            hash.Add(projectile.TargetEntityId);
         }
 
         hash.Add(simulation.CompletedBossIds.Count);

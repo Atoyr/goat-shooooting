@@ -233,6 +233,7 @@ public sealed class WeaponActionState
     public int PatternDirection { get; set; } = 1;
     public int ShotsSinceDirectionChange { get; set; }
     public bool WasHeld { get; set; }
+    public float HeldSeconds { get; set; }
     public int ActiveLaserEntityId { get; set; }
     public List<int> LockedTargetEntityIds { get; } = new();
 }
