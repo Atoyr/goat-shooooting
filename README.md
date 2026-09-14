@@ -6,7 +6,7 @@ Production Runtimeは60Hz固定の`ShootingSimulation.Tick(InputFrame)`で進行
 
 通常runの完了時にはversion／engine／content hash付きReplayがuser dataの`replays/`へ自動保存され、リザルトの`PLAY REPLAY`またはlocal leaderboardの`REPLAY`付きentryから再生できます。再生中は左右で0.25x～4xの速度変更、P／Startでviewer pause、Enter／Aでhitbox表示を切り替えられ、これらはSimulation結果へ影響しません。不一致や破損、途中終了、desyncはウィンドウタイトルに理由を表示します。
 
-遊び方から独自の弾・敵・ボス・Wave・画面レイアウトの作り方、エンジン拡張までをまとめた[制作マニュアル](https://atoyr.github.io/goat-shooooting/)を公開しています。
+SYNC DRIVEの遊び方、設定、Training／Replayから、独自の弾・敵・ボス・Waveの制作、検証、配布までをまとめた[プレイヤー・制作マニュアル](https://atoyr.github.io/goat-shooooting/)を公開しています。
 
 Steam向けのゲームパッド、設定、セーブ、正式配布ビルドについては、[Steam 配信に向けたロードマップと設計](docs/steam-release-roadmap.md)にまとめています。
 
