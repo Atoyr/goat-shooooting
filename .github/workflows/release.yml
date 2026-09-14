@@ -7,7 +7,7 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   package-win-x64:
@@ -36,6 +36,16 @@ jobs:
         shell: pwsh
         run: ./build/Publish-Game.ps1 -Version '${{ steps.version.outputs.value }}'
 
+      - name: Prepare stable sample download
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          $versionedPackage = 'artifacts/packages/goat-shooooting-${{ steps.version.outputs.value }}-win-x64.zip'
+          $stablePackage = 'artifacts/packages/goat-shooooting-samples-win-x64.zip'
+          Copy-Item -LiteralPath $versionedPackage -Destination $stablePackage
+          $hash = (Get-FileHash -LiteralPath $stablePackage -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash *goat-shooooting-samples-win-x64.zip" | Set-Content -LiteralPath "$stablePackage.sha256" -Encoding ascii
+
       - name: Verify SteamPipe configuration
         shell: pwsh
         run: ./deploy/steam/Upload-SteamBuild.ps1 -AppId 1000 -DepotId 1001 -SkipPublish -DryRun
@@ -55,3 +65,40 @@ jobs:
           name: goat-shooooting-${{ steps.version.outputs.value }}-symbols
           path: artifacts/symbols/*.zip
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = @(
+            'artifacts/packages/goat-shooooting-${{ steps.version.outputs.value }}-win-x64.zip',
+            'artifacts/packages/goat-shooooting-${{ steps.version.outputs.value }}-win-x64.zip.sha256',
+            'artifacts/packages/goat-shooooting-samples-win-x64.zip',
+            'artifacts/packages/goat-shooooting-samples-win-x64.zip.sha256'
+          )
+          & gh release view '${{ github.ref_name }}' *> $null
+          if ($LASTEXITCODE -eq 0) {
+            & gh release upload '${{ github.ref_name }}' @assets --clobber
+            if ($LASTEXITCODE -ne 0) {
+              throw "GitHub Release asset upload failed with exit code $LASTEXITCODE."
+            }
+            exit 0
+          }
+
+          $releaseArguments = @('release', 'create', '${{ github.ref_name }}') + $assets + @(
+            '--verify-tag',
+            '--generate-notes',
+            '--title', 'goat-shooooting ${{ steps.version.outputs.value }}'
+          )
+          if ('${{ contains(github.ref_name, '-') }}' -eq 'true') {
+            $releaseArguments += '--prerelease'
+          }
+          else {
+            $releaseArguments += '--latest'
+          }
+          & gh @releaseArguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "GitHub Release creation failed with exit code $LASTEXITCODE."
+          }

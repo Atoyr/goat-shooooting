@@ -1,12 +1,14 @@
 # goat-shooooting
 
-goat-shooooting は、JSON で定義した Player、Enemy、Weapon、Bullet、Stage を読み込み、MonoGame 上で動作させる小さな 2D シューティング基盤です。プレイヤーと敵の双方が射撃でき、被弾による Game Over、敵全滅による Stage Clear、リトライまでを1プレイとして実行できます。ゲームロジックは描画から独立しており、同じ Production Runtime を headless simulation、統合テスト、smoke test、通常ゲームのすべてで使用します。
+goat-shooooting は、Ship、Projectile、Weapon、Enemy、Pattern、Stage、RuleSetをJSON Definitionで組み立てる2Dシューティング制作基盤です。小さな敵1体の調整から、複数Stage、独自の得点ルール、Training、Replayを備えた作品まで、ゲーム固有コードを増やさず段階的に制作できます。ゲームロジックは描画から独立しており、同じProduction RuntimeをDefinition Editorのpreview、headless simulation、統合テスト、smoke test、通常ゲームで使用します。
 
 Production Runtimeは60Hz固定の`ShootingSimulation.Tick(InputFrame)`で進行します。同一build、同一content、同一seed、同一の量子化入力列ではcanonical state hashが一致します。旧来の`Update(float)`もfixed tickへ変換する互換adapterとして利用できます。
 
 通常runの完了時にはversion／engine／content hash付きReplayがuser dataの`replays/`へ自動保存され、リザルトの`PLAY REPLAY`またはlocal leaderboardの`REPLAY`付きentryから再生できます。再生中は左右で0.25x～4xの速度変更、P／Startでviewer pause、Enter／Aでhitbox表示を切り替えられ、これらはSimulation結果へ影響しません。不一致や破損、途中終了、desyncはウィンドウタイトルに理由を表示します。
 
-SYNC DRIVEの遊び方、設定、Training／Replayから、独自の弾・敵・ボス・Waveの制作、検証、配布までをまとめた[プレイヤー・制作マニュアル](https://atoyr.github.io/goat-shooooting/)を公開しています。
+雛形の選び方、最初の制作ループ、独自の弾・敵・ボス・Wave・RuleSetの組み立て、Editorでの調整、検証、配布までをまとめた[シューティングゲーム制作マニュアル](https://atoyr.github.io/goat-shooooting/)を公開しています。SYNC DRIVEは製品規模での構成例として解説しています。
+
+[Windows x64版の制作サンプルをダウンロード](https://github.com/Atoyr/goat-shooooting/releases/latest/download/goat-shooooting-samples-win-x64.zip)できます。ZIPを展開して`GoatShooooting.exe`を起動してください。.NET Runtimeは不要です。
 
 Steam向けのゲームパッド、設定、セーブ、正式配布ビルドについては、[Steam 配信に向けたロードマップと設計](docs/steam-release-roadmap.md)にまとめています。
 
@@ -17,6 +19,33 @@ Steam向けのゲームパッド、設定、セーブ、正式配布ビルドに
 - NuGet の初回 restore 時に `MonoGame.Framework.DesktopGL` 3.8.5.1 と xUnit 関連パッケージを取得できること
 
 同梱sample／gauntletは再配布可能な自前生成画像と手続きtoneを使用し、外部 Asset なしで実行できます。WAV、sprite atlas、backgroundへ差し替える場合もcontent pack内のDefinitionだけで指定できます。
+
+## 最初の制作ループ
+
+まずは最小構成の [`games/sample`](games/sample) を雛形にします。`enemies/fighter-a.json`のHPや速度、`bullets/`の弾速、`weapons/`の発射間隔、`stages/`の出現時刻を一つずつ変更すると、Definition同士の関係を追いやすくなります。
+
+変更するたびにDefinitionを検証し、実際のproduction Runtimeで手触りを確認します。ゲームを起動したまま正常なJSONを保存した場合は、DefinitionとWorldが自動的に再構築されます。
+
+```bash
+dotnet run --project src/goat-shooooting.Tooling -- validate games/sample
+dotnet run --project src/goat-shooooting.SampleGame
+```
+
+作品を広げるときは、次の順に参照される側から組み立てます。
+
+```text
+Ship / Projectile
+        ↓
+Weapon / Pattern
+        ↓
+Enemy / Boss
+        ↓
+Stage / RuleSet / Difficulty
+        ↓
+Visual / Audio / Locale
+```
+
+`games/sample`は最小ループ、`games/editor-v2`はschema v2とEditor、`games/gauntlet`は別の画面比率とテンポ、`games/sync-drive`は独自RuleSetを含む製品規模の構成を学ぶための制作例です。詳しい手順は[シューティングゲーム制作マニュアル](https://atoyr.github.io/goat-shooooting/)を参照してください。
 
 ## Build と Test
 
@@ -35,6 +64,13 @@ Steam Depotへ配置できるwin-x64 self-contained成果物、ZIP、SHA-256、�
 ```
 
 成果物は`artifacts/publish/win-x64`、配布ZIPは`artifacts/packages`へ生成されます。スクリプトはReleaseの全テスト、sample／gauntlet／SYNC DRIVEのDefinition・render・公開exe smoke、全ship×difficulty soak、Replay regression、10,000弾stress、開発ファイル混入チェックを実行します。
+
+`v1.2.3`形式のタグをpushすると[Release workflow](.github/workflows/release.yml)が同じ検証を実行し、バージョン付きZIPと固定名の最新版ZIPをGitHub Releaseへ添付します。固定名はマニュアルのダウンロードリンクから使用します。ハイフンを含むタグはpre-releaseとして扱います。
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
 
 SteamworksのAppIDとDepot ID取得後の非公開beta投入手順、認証情報を保存しないSteamCMD実行方法、手動QA項目は[Steam非公開betaの投入とQA](deploy/steam/README.md)を参照してください。
 
@@ -70,7 +106,9 @@ dotnet run --project src/goat-shooooting.Tooling -- benchmark games/sample
 
 固定入力によるsample 600 ticksと、10,000 Projectileを投入するstress 600 ticksについて、active entity／projectile数、update時間、allocation、collision候補数、結果checksumを出力します。P13以降は同じ10,000 bullets／600 ticksに対する固定容量effect poolのpeak、drop、時間、allocationも`presentation`として出力します。時間とallocationは環境依存の比較値であり、テストの合否条件には使用しません。
 
-## SampleGame
+## 制作例を起動して比較
+
+同梱packは、同じRuntimeから異なるゲーム性を作れることを示す参照実装です。自分のDefinitionを調整するときの比較対象として利用できます。
 
 通常起動:
 
@@ -84,7 +122,7 @@ dotnet run --project src/goat-shooooting.SampleGame
 dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 ```
 
-製品vertical slice `SYNC DRIVE`を起動:
+独自RuleSetを含む製品規模の構成例 `SYNC DRIVE`を起動:
 
 ```bash
 dotnet run --project src/goat-shooooting.SampleGame -- --game sync-drive

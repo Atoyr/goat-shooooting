@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="goat-shooootingと製品版SYNC DRIVEの遊び方、設定、Replay／Training、Definition制作、検証、配布を解説する公式マニュアル。">
+  <meta name="description" content="JSON Definitionと決定的Simulationを使い、2Dシューティングの自機、弾、敵、弾幕、Stage、RuleSetを制作・検証・配布するための公式マニュアル。">
   <meta name="theme-color" content="#07101f">
-  <title>goat-shooooting プレイヤー・制作マニュアル</title>
+  <title>goat-shooooting シューティングゲーム制作マニュアル</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
   <script src="./app.js" defer></script>
@@ -31,21 +31,16 @@
   <div class="page-shell" id="top">
     <aside class="sidebar" aria-label="マニュアル目次">
       <nav>
-        <p class="nav-label">まず知る</p>
+        <p class="nav-label">作り始める</p>
         <a href="#overview">概要</a>
         <a href="#capabilities">できること</a>
-
-        <p class="nav-label">遊ぶ</p>
-        <a href="#setup">セットアップ</a>
-        <a href="#play">起動と操作</a>
-        <a href="#sync-drive">SYNC DRIVE</a>
-        <a href="#modes">モード・Replay</a>
-        <a href="#settings">設定・アクセシビリティ</a>
-
-        <p class="nav-label">制作する</p>
+        <a href="#download">Windows版をダウンロード</a>
+        <a href="#setup">制作環境の準備</a>
+        <a href="#first-game">最初の制作ループ</a>
         <a href="#workflow">制作の基本手順</a>
+        <a href="#editor">Definition Editor</a>
 
-        <p class="nav-label">Definition</p>
+        <p class="nav-label">ゲームを設計する</p>
         <a href="#definition-map">全体のつながり</a>
         <a href="#game-definition">画面レイアウト</a>
         <a href="#player-definition">Player</a>
@@ -54,12 +49,17 @@
         <a href="#weapon-definition">Weapon・弾幕</a>
         <a href="#stage-definition">Stage・Wave</a>
 
-        <p class="nav-label">実践</p>
+        <p class="nav-label">仕上げる</p>
         <a href="#boss-tutorial">ボスを1体作る</a>
-        <a href="#editor">Definition Editor</a>
         <a href="#hot-reload">ホットリロード</a>
         <a href="#quality">検証とテスト</a>
         <a href="#release">製品ビルド</a>
+
+        <p class="nav-label">制作例を見る</p>
+        <a href="#play">コンテンツパックを確認</a>
+        <a href="#sync-drive">RuleSetの実装例</a>
+        <a href="#modes">製品機能の実装例</a>
+        <a href="#settings">設定画面の実装例</a>
 
         <p class="nav-label">開発者向け</p>
         <a href="#architecture">アーキテクチャ</a>
@@ -71,64 +71,83 @@
 
     <main id="manual">
       <section class="hero searchable" id="overview">
-        <div class="eyebrow">PLAYER &amp; CREATOR MANUAL / COMMERCIAL SHMUP FOUNDATION</div>
-        <h1>遊ぶ、作る、<br><span>製品として届ける。</span></h1>
-        <p class="hero-copy">goat-shooootingは、決定的な弾幕SimulationとJSON Definitionを核に、5ステージの製品vertical slice「SYNC DRIVE」、Training、Replay、ローカルランキング、設定、配布ビルドまで備えた2Dシューティング基盤です。</p>
+        <div class="eyebrow">CREATOR MANUAL / DEFINITION-DRIVEN SHMUP FOUNDATION</div>
+        <h1>弾を設計し、敵を組み、<br><span>一本のゲームにする。</span></h1>
+        <p class="hero-copy">goat-shooootingは、自機、弾、武器、敵、弾幕、Stage、得点ルールをJSON Definitionで組み立てる2Dシューティング制作基盤です。ゲーム固有の内容をRuntimeから分離し、編集、即時確認、自動検証、配布までを一つの制作ループで進められます。</p>
         <div class="hero-actions">
-          <a class="button primary" href="#sync-drive">SYNC DRIVEを遊ぶ</a>
-          <a class="button secondary" href="#workflow">ゲームを作る</a>
+          <a class="button primary" href="#first-game">最初のゲームを作る</a>
+          <a class="button secondary" href="https://github.com/Atoyr/goat-shooooting/releases/latest/download/goat-shooooting-samples-win-x64.zip">サンプルをダウンロード</a>
+          <a class="button secondary" href="#definition-map">仕組みを見る</a>
         </div>
         <div class="status-grid" aria-label="対応機能">
-          <div><strong>5</strong><span>製品ステージ</span></div>
-          <div><strong>3</strong><span>自機・難易度</span></div>
-          <div><strong>40</strong><span>攻撃・移動パターン</span></div>
-          <div><strong>15</strong><span>ボスPhase</span></div>
+          <div><strong>JSON</strong><span>ゲーム内容を定義</span></div>
+          <div><strong>60Hz</strong><span>決定的Simulation</span></div>
+          <div><strong>LIVE</strong><span>編集を即時反映</span></div>
+          <div><strong>QA</strong><span>検証・配布を自動化</span></div>
         </div>
       </section>
 
       <section class="searchable" id="capabilities">
         <div class="section-kicker">QUICK GUIDE / WHAT YOU CAN DO</div>
         <h2>できること</h2>
-        <p class="lead">完成したゲームを遊ぶ機能と、コードを変更せずに内容を調整して配布する制作機能を、同じproduction経路で提供します。</p>
+        <p class="lead">小さな敵1体の調整から、複数Stage、独自の得点ルール、Training、Replayを備えた作品まで、同じDefinitionとproduction Runtimeを使って段階的に育てられます。</p>
 
         <figure class="gameplay-demo">
-          <a href="./assets/menu-demo.gif" aria-label="タイトル、オプション、ポーズ、リザルトメニューのGIFを原寸で開く">
-            <img src="./assets/menu-demo.gif" width="624" height="440" loading="lazy" alt="タイトル画面でゲームを選び、オプションを変更して、プレイ中のポーズとリザルトへ移るメニューデモ">
+          <a href="./assets/p15-editor-v2.png" aria-label="Definition Editor v2の画面を原寸で開く">
+            <img src="./assets/p15-editor-v2.png" width="1600" height="1000" loading="lazy" alt="Definition Editor v2でStage timeline、Runtime preview、Definitionの入力フォームを並べている制作画面">
           </a>
           <figcaption>
-            <strong>ひと通り遊べる画面構成</strong>
-            <span>ゲーム選択、設定変更、プレイ、ポーズ、リトライまでの流れを14秒のGIFで確認できます。クリックすると原寸で開きます。</span>
+            <strong>作りながら、実際のRuntimeで確かめる</strong>
+            <span>Stage timeline、弾幕や移動のpreview、参照フォーム、検証結果を一画面で確認できます。クリックすると原寸で開きます。</span>
           </figcaption>
         </figure>
 
         <div class="capability-grid">
-          <article><strong>製品版を遊ぶ</strong><p>SYNC DRIVE、Score Attack、3自機、3難易度、5ステージ、continueなしの1周を収録しています。</p></article>
-          <article><strong>腕を磨く</strong><p>全ステージ／15ボスPhaseのTraining、Replay再生、速度変更、hitbox表示を利用できます。</p></article>
-          <article><strong>記録を残す</strong><p>mode×difficulty×ship別のローカルランキング、best score、決定的Replayを保存します。</p></article>
-          <article><strong>遊びやすく整える</strong><p>キー割り当て、ゲームパッド、日英表示、音量、画面効果、弾色、HUD倍率を設定できます。</p></article>
-          <article><strong>ゲーム内容を作る</strong><p>schema v2のShip、Projectile、Item、Pattern、Boss、RuleSet、Difficulty、StageをJSONで構成できます。</p></article>
-          <article><strong>検証して配布する</strong><p>Definition／描画／simulation QAとself-contained win-x64パッケージ作成を自動化しています。</p></article>
+          <article><strong>機体と攻撃を作る</strong><p>Ship、Projectile、Weapon、option、通常／低速shotを組み合わせ、自機ごとの操作感と火力を設計できます。</p></article>
+          <article><strong>敵と弾幕を組む</strong><p>motion path、attack timeline、emitter、難易度tagを使い、敵の移動と発射をデータとして制作できます。</p></article>
+          <article><strong>Stageとボスを構成する</strong><p>Wave、背景、BGM、warning、複数phase、timer、checkpoint、撃破条件をtimeline上で構成できます。</p></article>
+          <article><strong>ゲームルールを設計する</strong><p>Item、graze、gauge、cancel、multiplier、rank、extend、bomb、continueをRuleSetで組み合わせられます。</p></article>
+          <article><strong>アセットと手触りを整える</strong><p>sprite、animation、背景、effect、BGM／SE、日英文言、視認性設定を論理IDから差し替えられます。</p></article>
+          <article><strong>検証して配布する</strong><p>Definition、参照、描画、Replay、負荷、simulationを自動検証し、self-contained buildを生成できます。</p></article>
         </div>
 
+        <aside class="callout info"><strong>サンプルの位置づけ</strong><span><code>sample</code>、<code>gauntlet</code>、<code>sync-drive</code>は完成品を遊ぶことが目的ではなく、最小構成、画面構成の差、製品規模のRuleSetをそれぞれ確認して、自分のコンテンツへ応用するための制作例です。</span></aside>
         <aside class="callout warning"><strong>現在の対象外</strong><span>オンラインランキング、クラウドセーブ、実績、ネットワーク対戦、独自スクリプト言語、3Dは含みません。profile・設定・Replay・ローカルランキングは端末へ保存されます。</span></aside>
 
         <h3>詳しく知りたいことから選ぶ</h3>
         <div class="detail-index">
-          <a href="#setup"><strong>まず動かす</strong><span>セットアップと起動方法</span></a>
-          <a href="#sync-drive"><strong>製品版を遊ぶ</strong><span>SYNCゲージとスコアリング</span></a>
-          <a href="#modes"><strong>練習・記録する</strong><span>Training、Replay、ランキング</span></a>
-          <a href="#workflow"><strong>ゲームを作る</strong><span>Definition制作の基本手順</span></a>
+          <a href="#first-game"><strong>最初の1体を作る</strong><span>変更、検証、試遊の最短ループ</span></a>
+          <a href="#workflow"><strong>制作順を決める</strong><span>ProjectileからStageまでの組み立て方</span></a>
           <a href="#definition-map"><strong>項目を調べる</strong><span>各JSONの仕様とつながり</span></a>
           <a href="#editor"><strong>画面で編集する</strong><span>Editorとホットリロード</span></a>
+          <a href="#quality"><strong>壊れていないか確かめる</strong><span>Definition、描画、Simulationの検証</span></a>
+          <a href="#release"><strong>作品を配布する</strong><span>製品buildと公開前QA</span></a>
+          <a href="#sync-drive"><strong>製品規模の例を見る</strong><span>独自RuleSetの組み立て例</span></a>
           <a href="#architecture"><strong>コードを拡張する</strong><span>責務と実装の追加方法</span></a>
-          <a href="#troubleshooting"><strong>問題を解決する</strong><span>よくあるエラーと対処</span></a>
         </div>
       </section>
 
+      <section class="searchable" id="download">
+        <div class="section-kicker">DOWNLOAD / PLAYABLE REFERENCE BUILD</div>
+        <h2>制作例をダウンロードして触ってみる</h2>
+        <p class="lead">ソースコードや.NET SDKを準備せず、Windowsですぐに起動できる参照buildです。最小構成のsample、縦長構成のgauntlet、独自RuleSetを組んだSYNC DRIVEを同じアプリで比較できます。</p>
+        <div class="hero-actions">
+          <a class="button primary" href="https://github.com/Atoyr/goat-shooooting/releases/latest/download/goat-shooooting-samples-win-x64.zip">Windows x64版をダウンロード</a>
+          <a class="button secondary" href="https://github.com/Atoyr/goat-shooooting/releases/latest/download/goat-shooooting-samples-win-x64.zip.sha256">SHA-256を確認</a>
+          <a class="button secondary" href="https://github.com/Atoyr/goat-shooooting/releases/latest">Release情報</a>
+        </div>
+        <div class="step-list">
+          <article class="step-card"><span class="step-number">1</span><div><h3>ZIPを展開</h3><p>ダウンロードした<code>goat-shooooting-samples-win-x64.zip</code>を任意のフォルダーへ展開します。ZIP内から直接起動せず、先にすべて展開してください。</p></div></article>
+          <article class="step-card"><span class="step-number">2</span><div><h3>ゲームを起動</h3><p><code>GoatShooooting.exe</code>を実行します。self-contained buildのため、.NET Runtimeを別途インストールする必要はありません。</p></div></article>
+          <article class="step-card"><span class="step-number">3</span><div><h3>構成の違いを確認</h3><p>タイトル画面でcontent packを切り替え、画面比率、敵の動き、弾幕、得点ルール、TrainingやReplayなど、Definitionから作られた違いを確認します。</p></div></article>
+        </div>
+        <aside class="callout info"><strong>対応環境</strong><span>配布buildはWindows 10／11の64-bit向けです。最新の正式タグから作られたGitHub Releaseを指すため、マニュアル側のURLはversion更新時も変わりません。</span></aside>
+      </section>
+
       <section class="searchable" id="setup">
-        <div class="section-kicker">01 / SETUP</div>
-        <h2>セットアップ</h2>
-        <p class="lead">ソースから実行する場合に必要なのは.NET 8 SDKです。配布版はSDK不要のself-contained buildとして作成できます。</p>
+        <div class="section-kicker">01 / CREATOR SETUP</div>
+        <h2>制作環境を準備する</h2>
+        <p class="lead">ソースから制作する場合に必要なのは.NET 8 SDKです。まずDefinitionを読み込めることと、画面なしでもproduction Runtimeが動くことを確認します。</p>
 
         <div class="step-list">
           <article class="step-card">
@@ -151,9 +170,9 @@ dotnet build goat-shooooting.sln</code></pre>
           <article class="step-card">
             <span class="step-number">3</span>
             <div>
-              <h3>画面を開かず動作確認</h3>
+              <h3>制作の土台を動作確認</h3>
               <pre><code>dotnet run --project src/goat-shooooting.SampleGame -- --smoke-test</code></pre>
-              <p>既定のsample packで、敵の出現、射撃、移動、衝突、撃破、Stage Clear、リトライまでを自動で確認します。</p>
+              <p>既定のsample packを使い、Definition読込から敵の出現、射撃、衝突、撃破、Stage遷移までの制作基盤を自動で確認します。</p>
             </div>
           </article>
         </div>
@@ -161,9 +180,133 @@ dotnet build goat-shooooting.sln</code></pre>
         <aside class="callout info"><strong>対応環境</strong><span>通常ゲームにはOpenGL 2.0以上を利用できるデスクトップ環境が必要です。headlessテストとDefinition検証はウィンドウを開きません。</span></aside>
       </section>
 
+      <section class="searchable" id="first-game">
+        <div class="section-kicker">02 / FIRST CREATION LOOP</div>
+        <h2>最初の敵を作って、画面で確かめる</h2>
+        <p class="lead">最初から大規模な作品を組む必要はありません。<code>games/sample</code>を制作練習用の雛形にし、敵の性能を一つ変えて「編集 → 検証 → 試遊」の流れを通します。</p>
+
+        <div class="step-list">
+          <article class="step-card">
+            <span class="step-number">1</span>
+            <div>
+              <h3>変更する敵を選ぶ</h3>
+              <p><code>games/sample/enemies/fighter-a.json</code>を開きます。まずは<code>hp</code>、<code>speed</code>、<code>score</code>のように結果を見分けやすい値を一つだけ変更します。</p>
+              <pre><code class="language-json">{
+  "id": "fighter-a",
+  "hp": 45,
+  "speed": 110,
+  "weaponId": "enemy-homing",
+  "radius": 16,
+  "score": 250,
+  "movementPattern": "zigzag",
+  "movementAmplitude": 80,
+  "movementFrequency": 0.15
+}</code></pre>
+            </div>
+          </article>
+          <article class="step-card">
+            <span class="step-number">2</span>
+            <div>
+              <h3>Definitionを検証する</h3>
+              <pre><code>dotnet run --project src/goat-shooooting.Tooling -- validate games/sample</code></pre>
+              <p>値の範囲、重複ID、参照先、未知のプロパティを起動前に確認します。失敗時はファイルとJSON Pathを手掛かりに直します。</p>
+            </div>
+          </article>
+          <article class="step-card">
+            <span class="step-number">3</span>
+            <div>
+              <h3>実際のゲームで手触りを見る</h3>
+              <pre><code>dotnet run --project src/goat-shooooting.SampleGame</code></pre>
+              <p>敵の硬さ、侵入速度、弾の読みやすさを操作して確認します。起動中に正常なJSONを保存すれば、Worldが再構築されて変更が反映されます。</p>
+            </div>
+          </article>
+          <article class="step-card">
+            <span class="step-number">4</span>
+            <div>
+              <h3>一つの変更をゲームへ広げる</h3>
+              <p>次はProjectileの速度、Weaponの発射間隔、Stageの出現時刻を順に変更します。各変更の間に検証と試遊を挟むと、意図しない難易度変化の原因を追いやすくなります。</p>
+            </div>
+          </article>
+        </div>
+
+        <h3>目的に合う雛形を選ぶ</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>コンテンツパック</th><th>制作時の用途</th><th>確認できる設計</th></tr></thead>
+          <tbody>
+            <tr><td><code>games/sample</code></td><td>最初の変更とv1互換形式の理解</td><td>Player、Bullet、Weapon、Enemy、2 Stageの最小ループ</td></tr>
+            <tr><td><code>games/editor-v2</code></td><td>schema v2とEditor操作の学習</td><td>Ship、Projectile、Pattern、Boss、RuleSet、Difficulty</td></tr>
+            <tr><td><code>games/gauntlet</code></td><td>別の画面比率・テンポの比較</td><td>縦長playfield、3分割HUD、高速なWave</td></tr>
+            <tr><td><code>games/sync-drive</code></td><td>製品規模の参照実装</td><td>独自RuleSet、3自機、3難易度、5 Stage、ReplayとTraining</td></tr>
+          </tbody>
+        </table></div>
+        <aside class="callout tip"><strong>自分の作品として分けるとき</strong><span>学習中はsampleを直接編集するのが最短です。独立したpackにする段階でディレクトリを複製し、<code>game.json</code>のIDを変更して、SampleGameの<code>.csproj</code>へJSON・画像・音声のContent指定を追加します。</span></aside>
+      </section>
+
+      <section class="searchable" id="workflow">
+        <div class="section-kicker">03 / PRODUCTION WORKFLOW</div>
+        <h2>一本のシューティングへ育てる基本手順</h2>
+        <p class="lead">操作感から作り始め、攻撃、敵、Stage、作品固有のルールへ外側に広げます。参照される側を先に作ると、DefinitionのID関係を追いやすくなります。</p>
+        <div class="flow" aria-label="Definition制作フロー">
+          <div><span>01</span><strong>Ship / Projectile</strong><small>移動・当たり判定・弾</small></div>
+          <i>→</i>
+          <div><span>02</span><strong>Weapon / Pattern</strong><small>発射・軌道・時間変化</small></div>
+          <i>→</i>
+          <div><span>03</span><strong>Enemy / Boss</strong><small>耐久・移動・Phase</small></div>
+          <i>→</i>
+          <div><span>04</span><strong>Stage / RuleSet</strong><small>Wave・得点・進行</small></div>
+        </div>
+        <ol class="check-list">
+          <li><strong>核を決める</strong>：低速移動、graze、弾消しなど、プレイヤーが繰り返す判断を一つ決める。</li>
+          <li><strong>最小戦闘を作る</strong>：Ship、Projectile、WeaponとEnemy 1体だけで操作感を確認する。</li>
+          <li><strong>攻撃を時間で組む</strong>：motion／attack Patternとemitterから、予告、攻撃、隙を設計する。</li>
+          <li><strong>Stageへ配置する</strong>：出現時刻、位置、編隊、Boss phase、背景とBGMをtimelineへ並べる。</li>
+          <li><strong>ルールを接続する</strong>：Item、score、gauge、rank、extend、continueをRuleSetで作品の核へ結ぶ。</li>
+          <li><strong>短く反復する</strong>：Editor preview、<code>validate</code>、ホットリロード、Training checkpointで調整する。</li>
+          <li><strong>作品として仕上げる</strong>：Visual、Audio、locale、アクセシビリティ、Replay、負荷と配布buildを確認する。</li>
+        </ol>
+        <aside class="callout info"><strong>コードを書く境界</strong><span>既存のDefinition type、behavior、score ruleの組み合わせで表せる内容はJSONだけで制作します。新しい軌道や得点規則そのものが必要になったときだけ、Definitions → Runtime System → test → Editorの順に拡張します。</span></aside>
+      </section>
+
+      <section class="searchable" id="definition-map">
+        <div class="section-kicker">04 / DEFINITION MAP</div>
+        <h2>Definition全体のつながり</h2>
+        <div class="relationship-map">
+          <div class="map-node game-node"><strong>game.json</strong><span>Ship / RuleSet / Difficulty / Layout</span></div>
+          <div class="map-row">
+            <div class="map-node"><strong>Ship</strong><span>weaponIds / visualId</span></div>
+            <div class="map-node"><strong>RuleSet</strong><span>stageIds / scoreRules</span></div>
+          </div>
+          <div class="map-row">
+            <div class="map-node"><strong>Weapon</strong><span>projectileId / emitters</span></div>
+            <div class="map-node"><strong>Stage</strong><span>enemyId / bossId</span></div>
+          </div>
+          <div class="map-node accent-node"><strong>Projectile / Pattern / Enemy / Boss</strong><span>弾・移動・攻撃・Phase</span></div>
+        </div>
+        <p>Runtimeはファイルを直接読みません。<code>IDefinitionRepository</code> がJSONを読み込み、<code>DefinitionCatalog</code> が全ID参照と値を検証してから、FactoryがEntityとComponentを生成します。</p>
+        <div class="file-tree" aria-label="ゲームDefinitionの配置">
+          <code>games/my-game/</code>
+          <span>├─ game.json</span>
+          <span>├─ ships/　projectiles/　items/</span>
+          <span>├─ patterns/　bosses/　rulesets/</span>
+          <span>├─ difficulties/　stages/</span>
+          <span>├─ visuals/　audio/　strings/</span>
+          <span>├─ assets.json　assets/</span>
+          <span>└─ weapons/　enemies/</span>
+        </div>
+        <h3>schema v2の主要Definition</h3>
+        <div class="capability-grid">
+          <article><code>Ship / Projectile / Item</code><p>自機の速度・武器・option、弾の軌道とcancel属性、drop／回収効果を定義します。</p></article>
+          <article><code>Pattern / Enemy / Boss</code><p>motion path、attack timeline、emitterと、boss phaseのHP・timer・checkpoint・bonusを組みます。</p></article>
+          <article><code>RuleSet / Difficulty</code><p>得点、gauge、multiplier、rank、continue、autobombと難易度倍率をcontent側で選択します。</p></article>
+          <article><code>Visual / Audio / assets</code><p>sprite／animation、背景、effect、BGM／SE／Voice cueを論理IDから参照します。未指定packは従来のprimitive描画へfallbackします。</p></article>
+        </div>
+        <aside class="callout info"><strong>v1互換</strong><span><code>player.json</code>、<code>bullets/</code>、既存weapon／enemy／stageはschema v1として読み続け、memory上だけ最新モデルへ移行します。以下の個別章はsample／gauntletとv1 packを保守するためのリファレンスです。v2専用directoryでは各JSONに<code>"schemaVersion": 2</code>が必要です。</span></aside>
+      </section>
+
       <section class="searchable" id="play">
-        <div class="section-kicker">02 / PLAY</div>
-        <h2>起動と操作</h2>
+        <div class="section-kicker">REFERENCE PACKS / RUN &amp; COMPARE</div>
+        <h2>制作例を起動して比較する</h2>
+        <p class="lead">三つのpackは、同じRuntimeから異なるゲーム性と画面構成を作れることを確かめる参照実装です。制作したDefinitionの見え方や操作感を比べるときに使います。</p>
         <div class="two-column">
           <div>
             <h3>Sampleを起動</h3>
@@ -209,9 +352,9 @@ dotnet build goat-shooooting.sln</code></pre>
       </section>
 
       <section class="searchable" id="sync-drive">
-        <div class="section-kicker">PLAYER GUIDE / SIGNATURE RULE</div>
-        <h2>SYNC DRIVEの遊び方</h2>
-        <p class="lead">かすりと接近攻撃でゲージを作り、危険な弾幕を得点源へ変える、continueなし・全5ステージの製品vertical sliceです。</p>
+        <div class="section-kicker">REFERENCE DESIGN / SIGNATURE RULE</div>
+        <h2>実装例：独自RuleSetをゲームの軸にする</h2>
+        <p class="lead">SYNC DRIVEは、かすり、接近攻撃、弾消し、Item回収、倍率を一つの得点ループへまとめた製品vertical sliceです。各機能を専用コードへ直結せず、Definitionから作品固有のルールを作る例として利用できます。</p>
 
         <figure class="gameplay-demo">
           <a href="./marketing/sync-drive-gameplay.png" aria-label="SYNC DRIVEのゲーム画面を原寸で開く">
@@ -247,8 +390,8 @@ dotnet build goat-shooooting.sln</code></pre>
       </section>
 
       <section class="searchable" id="modes">
-        <div class="section-kicker">PLAYER GUIDE / MODES &amp; RECORDS</div>
-        <h2>モード、Training、Replay</h2>
+        <div class="section-kicker">REFERENCE DESIGN / MODES &amp; RECORDS</div>
+        <h2>実装例：練習・Replay・記録を作品へ組み込む</h2>
         <div class="capability-grid">
           <article><strong>SYNC DRIVE</strong><p>5ステージを通して攻略する通常runです。終了時に条件を満たした記録とReplayを保存します。</p></article>
           <article><strong>Score Attack</strong><p>専用RuleSetで得点を競います。通常runとは別categoryとして記録されます。</p></article>
@@ -261,9 +404,9 @@ dotnet build goat-shooooting.sln</code></pre>
       </section>
 
       <section class="searchable" id="settings">
-        <div class="section-kicker">PLAYER GUIDE / OPTIONS</div>
-        <h2>設定とアクセシビリティ</h2>
-        <p class="lead">タイトル／ポーズのOPTIONSで変更し、閉じたときにschema v3設定へ保存します。選択中の音量と視認性はその場でpreviewされます。</p>
+        <div class="section-kicker">REFERENCE DESIGN / PRODUCT OPTIONS</div>
+        <h2>実装例：設定とアクセシビリティを用意する</h2>
+        <p class="lead">作品側で利用できる製品設定の実装例です。タイトル／ポーズのOPTIONSで変更し、閉じたときにschema v3設定へ保存します。選択中の音量と視認性はその場でpreviewされます。</p>
         <div class="capability-grid">
           <article><code>Display</code><p>windowed／borderless、window scale、VSyncを設定します。</p></article>
           <article><code>Language</code><p>日本語／Englishを切り替えます。INFORMATION、HUD、メニューも同じlocaleを使います。</p></article>
@@ -273,65 +416,6 @@ dotnet build goat-shooooting.sln</code></pre>
           <article><code>Preset</code><p>低モーション、高コントラスト、大きなHUDなど、複数設定をまとめたアクセシビリティpresetを適用できます。</p></article>
         </div>
         <aside class="callout info"><strong>入力競合の保護</strong><span>必須操作を未割当にはできず、同じキーが競合する変更は確定前に検出されます。controller切断時もkeyboardで操作を継続できます。</span></aside>
-      </section>
-
-      <section class="searchable" id="workflow">
-        <div class="section-kicker">03 / WORKFLOW</div>
-        <h2>制作の基本手順</h2>
-        <p class="lead">「弾を作る → 武器へ載せる → 敵へ持たせる → Stageへ出す」の順番を守ると、参照関係で迷いません。</p>
-        <div class="flow" aria-label="Definition制作フロー">
-          <div><span>01</span><strong>Bullet</strong><small>速度・威力・軌道</small></div>
-          <i>→</i>
-          <div><span>02</span><strong>Weapon</strong><small>弾幕・発射間隔</small></div>
-          <i>→</i>
-          <div><span>03</span><strong>Enemy</strong><small>HP・武器・移動</small></div>
-          <i>→</i>
-          <div><span>04</span><strong>Stage</strong><small>時刻・位置・編隊</small></div>
-        </div>
-        <ol class="check-list">
-          <li><code>games/sample</code> をコピーして新しいコンテンツパックを作る。</li>
-          <li>各Definitionの <code>id</code> を重複しない名前に変える。</li>
-          <li>Definition EditorまたはJSONで値を調整する。</li>
-          <li><code>validate</code> で参照と値を検証する。</li>
-          <li>ゲームを起動したまま保存し、ホットリロードで手触りを確かめる。</li>
-          <li>全テストとsmoke testを通してからコミットする。</li>
-        </ol>
-      </section>
-
-      <section class="searchable" id="definition-map">
-        <div class="section-kicker">04 / DEFINITION MAP</div>
-        <h2>Definition全体のつながり</h2>
-        <div class="relationship-map">
-          <div class="map-node game-node"><strong>game.json</strong><span>Player / Stage / Layout</span></div>
-          <div class="map-row">
-            <div class="map-node"><strong>Player</strong><span>weaponId</span></div>
-            <div class="map-node"><strong>Stage</strong><span>enemyId</span></div>
-          </div>
-          <div class="map-row">
-            <div class="map-node"><strong>Weapon</strong><span>bulletId</span></div>
-            <div class="map-node"><strong>Enemy</strong><span>weaponId</span></div>
-          </div>
-          <div class="map-node accent-node"><strong>Bullet</strong><span>速度 / Damage / 軌道</span></div>
-        </div>
-        <p>Runtimeはファイルを直接読みません。<code>IDefinitionRepository</code> がJSONを読み込み、<code>DefinitionCatalog</code> が全ID参照と値を検証してから、FactoryがEntityとComponentを生成します。</p>
-        <div class="file-tree" aria-label="ゲームDefinitionの配置">
-          <code>games/my-game/</code>
-          <span>├─ game.json</span>
-          <span>├─ ships/　projectiles/　items/</span>
-          <span>├─ patterns/　bosses/　rulesets/</span>
-          <span>├─ difficulties/　stages/</span>
-          <span>├─ visuals/　audio/　strings/</span>
-          <span>├─ assets.json　assets/</span>
-          <span>└─ weapons/　enemies/</span>
-        </div>
-        <h3>schema v2の主要Definition</h3>
-        <div class="capability-grid">
-          <article><code>Ship / Projectile / Item</code><p>自機の速度・武器・option、弾の軌道とcancel属性、drop／回収効果を定義します。</p></article>
-          <article><code>Pattern / Enemy / Boss</code><p>motion path、attack timeline、emitterと、boss phaseのHP・timer・checkpoint・bonusを組みます。</p></article>
-          <article><code>RuleSet / Difficulty</code><p>得点、gauge、multiplier、rank、continue、autobombと難易度倍率をcontent側で選択します。</p></article>
-          <article><code>Visual / Audio / assets</code><p>sprite／animation、背景、effect、BGM／SE／Voice cueを論理IDから参照します。未指定packは従来のprimitive描画へfallbackします。</p></article>
-        </div>
-        <aside class="callout info"><strong>v1互換</strong><span><code>player.json</code>、<code>bullets/</code>、既存weapon／enemy／stageはschema v1として読み続け、memory上だけ最新モデルへ移行します。以下の個別章はsample／gauntletとv1 packを保守するためのリファレンスです。v2専用directoryでは各JSONに<code>"schemaVersion": 2</code>が必要です。</span></aside>
       </section>
 
       <section class="searchable" id="game-definition">
@@ -735,6 +819,10 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game sync-drive --smoke
           <article><code>BUILD-ID.txt</code><p>ユーザー報告と配布package versionを結び付けます。</p></article>
           <article><code>docs/release</code><p>実GPU、長時間play、controller hot-plug、複数環境など、人が完了させるrelease checklistを管理します。</p></article>
         </div>
+        <h3>GitHub Releaseで配布する</h3>
+        <p><code>v1.2.3</code>のようなタグをpushすると、GitHub Actionsが同じpublish scriptを実行し、検証済みのWindows ZIPとSHA-256をGitHub Releaseへ添付します。正式versionのReleaseには固定名<code>goat-shooooting-samples-win-x64.zip</code>も添付され、上のダウンロードボタンが自動的に最新版を指します。<code>-rc.1</code>などハイフンを含むタグはpre-releaseとして公開されます。</p>
+        <pre><code>git tag v1.2.3
+git push origin v1.2.3</code></pre>
         <aside class="callout warning"><strong>公開前の最終確認</strong><span>自動QAは人間のsurvival balance、演出の読みやすさ、実機互換性を代替しません。<code>docs/release/P16-RELEASE-CHECKLIST.md</code>の手動項目と外部ストア審査を完了してから公開してください。</span></aside>
       </section>
 
