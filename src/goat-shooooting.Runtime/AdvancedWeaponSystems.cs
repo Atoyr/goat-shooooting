@@ -390,6 +390,7 @@ public sealed class AdvancedWeaponSystem
                     settings.VisualId,
                     settings.ProjectileInteraction));
             state.ActiveLaserEntityId = existing.Id;
+            Events?.Publish((frame, sequence) => new AudioCueEvent(frame, sequence, "se-laser", owner.Id));
         }
 
         existing.Get<TransformComponent>().Position = owner.Get<TransformComponent>().Position;

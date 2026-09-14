@@ -167,7 +167,7 @@ public sealed class PresentationEffectSystemTests
         "stage",
         3,
         2,
-        new BossHudSnapshot(2, "BOSS", "PHASE", 0.5f, 20, false));
+        new BossHudSnapshot(2, "boss", "BOSS", "PHASE", 0.5f, 20, false));
 
     private static DefinitionCatalog CreateDefinitions() => new(
         new GameDefinition { PlayerId = "player", StageId = "stage", Width = 640, Height = 720 },

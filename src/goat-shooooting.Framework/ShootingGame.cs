@@ -18,6 +18,7 @@ public sealed class ShootingGame : Game
     private readonly ILeaderboardService? _leaderboardService;
     private readonly IReplayStore? _replayStore;
     private readonly IReadOnlyDictionary<string, IVisualAssetCatalog> _visualAssetCatalogs;
+    private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, ResolvedAudioAsset>> _audioAssetCatalogs;
     private readonly IReadOnlyDictionary<string, IDefinitionRepository> _definitionRepositories;
     private readonly PlayerProfileService _profileService = new();
     private readonly RunCompletionTracker _runCompletionTracker = new();
@@ -50,6 +51,7 @@ public sealed class ShootingGame : Game
     private IVisualAssetCatalog? _visualAssets;
     private int _assetDefinitionReloadCount;
     private readonly string? _renderScreenshotPath;
+    private readonly IStringCatalog _strings;
     private bool _renderScreenshotSaved;
 
     public ShootingGame(IDefinitionRepository definitionRepository)
@@ -73,6 +75,8 @@ public sealed class ShootingGame : Game
             leaderboardService: null,
             replayStore: null,
             visualAssetCatalogs: null,
+            audioAssetCatalogs: null,
+            stringCatalogs: null,
             renderScreenshotPath: null)
     {
     }
@@ -86,6 +90,8 @@ public sealed class ShootingGame : Game
         ILeaderboardService? leaderboardService = null,
         IReplayStore? replayStore = null,
         IReadOnlyDictionary<string, IVisualAssetCatalog>? visualAssetCatalogs = null,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, ResolvedAudioAsset>>? audioAssetCatalogs = null,
+        IReadOnlyDictionary<string, IStringCatalog>? stringCatalogs = null,
         string? renderScreenshotPath = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -100,17 +106,22 @@ public sealed class ShootingGame : Game
         _gameId = gameId;
         _profile = profile;
         _input = new GameInputState(settings.Input);
+        _strings = stringCatalogs?.GetValueOrDefault(gameId) ??
+            LocalizedStringCatalog.CreateBuiltIn(settings.Locale);
         _shell = new GameShell(
             settings,
             definitionRepositories.Select(pair => CreateRunOptions(pair.Key, pair.Value)),
             gameId,
-            profile);
+            profile,
+            _strings);
         _appliedSettings = settings;
         _userDataStore = userDataStore;
         _leaderboardService = leaderboardService;
         _replayStore = replayStore;
         _visualAssetCatalogs = visualAssetCatalogs ??
             new Dictionary<string, IVisualAssetCatalog>(StringComparer.Ordinal);
+        _audioAssetCatalogs = audioAssetCatalogs ??
+            new Dictionary<string, IReadOnlyDictionary<string, ResolvedAudioAsset>>(StringComparer.Ordinal);
         _renderScreenshotPath = string.IsNullOrWhiteSpace(renderScreenshotPath)
             ? null
             : Path.GetFullPath(renderScreenshotPath);
@@ -151,6 +162,9 @@ public sealed class ShootingGame : Game
         _pixel.SetData(new[] { Color.White });
         _logicalCanvas = CreateLogicalCanvas();
         _audio = new GameAudio(_appliedSettings.Audio);
+        _audio.Load(_audioAssetCatalogs.GetValueOrDefault(_gameId) ??
+            new Dictionary<string, ResolvedAudioAsset>(StringComparer.Ordinal));
+        ApplyPresentationSettings(_appliedSettings.Gameplay);
         SelectVisualAssets();
         if (_renderScreenshotPath is not null) HandleShellCommand(_shell.StartAutomatedRun());
     }
@@ -183,7 +197,11 @@ public sealed class ShootingGame : Game
                 return;
             }
 
-            HandleShellCommand(_shell.Update(_input));
+            var command = _shell.Update(_input);
+            if (_input.UpPressed || _input.DownPressed || _input.LeftPressed || _input.RightPressed ||
+                _input.ConfirmPressed || _input.CancelPressed)
+                _audio?.Process([new AudioCueEvent(_simulation.RunState.Frame, 0, "se-menu")]);
+            HandleShellCommand(command);
             UpdateWindowTitle();
             base.Update(gameTime);
             return;
@@ -260,6 +278,7 @@ public sealed class ShootingGame : Game
                     frameFeedback += _simulation.Feedback;
                     _frameSnapshot = _simulation.CaptureFrame(_renderSystem);
                     _presentation.ObserveTick(_frameSnapshot, _simulation.Events.Events);
+                    _audio?.Process(_simulation.Events.Events);
                 });
         }
         catch (ReplayException exception)
@@ -274,7 +293,8 @@ public sealed class ShootingGame : Game
         }
         ApplyLayoutChanges();
         UpdateVisualAssets();
-        _audio?.Play(frameFeedback);
+        UpdateMusic();
+        _audio?.Update(deltaTime);
         UpdateVibration(deltaTime, frameFeedback);
         _shakeRemaining = Math.Max(0, _shakeRemaining - deltaTime);
         if (frameFeedback.BombsUsed > 0)
@@ -321,6 +341,8 @@ public sealed class ShootingGame : Game
             ? $"goat-shooooting — REPLAY ERROR — {_replayError}"
             : _visualAssets?.LastReloadError is { } assetError
             ? $"goat-shooooting — ASSET ERROR — {assetError}"
+            : _audio?.LastError is { } audioError
+            ? $"goat-shooooting — AUDIO FALLBACK — {audioError}"
             : _shell.State == GameShellState.Title
             ? $"goat-shooooting — TITLE — {_gameId}"
             : _shell.State is GameShellState.ModeSelect or GameShellState.DifficultySelect or
@@ -440,6 +462,8 @@ public sealed class ShootingGame : Game
         _userDataStore?.SaveProfile(_profile);
         ApplyLayoutChanges();
         SelectVisualAssets();
+        _audio?.Load(_audioAssetCatalogs.GetValueOrDefault(_gameId) ??
+            new Dictionary<string, ResolvedAudioAsset>(StringComparer.Ordinal));
         ResetPresentation();
     }
 
@@ -663,12 +687,37 @@ public sealed class ShootingGame : Game
         _appliedSettings = normalized;
         _shell.ReplaceSettings(normalized);
         _audio?.Apply(normalized.Audio);
+        ApplyPresentationSettings(normalized.Gameplay);
+        if (normalized.Audio.MusicVolume != previous.Audio.MusicVolume)
+            _audio?.Preview("music", _simulation.RunState.Frame);
+        else if (normalized.Audio.EffectsVolume != previous.Audio.EffectsVolume)
+            _audio?.Preview("effect", _simulation.RunState.Frame);
+        else if (normalized.Audio.VoiceVolume != previous.Audio.VoiceVolume)
+            _audio?.Preview("voice", _simulation.RunState.Frame);
         if (!normalized.Gameplay.ControllerVibration)
         {
             StopVibration();
         }
 
         return true;
+    }
+
+    private void ApplyPresentationSettings(GameplaySettings settings) =>
+        _presentation.Apply(new PresentationSettings
+        {
+            ParticleDensity = settings.ParticleDensity,
+            FlashIntensity = settings.FlashIntensity,
+            ShakeIntensity = 1,
+            MaximumEffects = _presentation.Capacity
+        });
+
+    private void UpdateMusic()
+    {
+        var cueId = _frameSnapshot.Boss is { DefinitionId.Length: > 0 } boss &&
+            _simulation.Definitions.Bosses.TryGetValue(boss.DefinitionId, out var definition)
+            ? definition.BgmAudioId ?? _simulation.CurrentStage.BgmAudioId
+            : _simulation.CurrentStage.BgmAudioId;
+        _audio?.SetMusic(cueId, _simulation.RunState.Frame);
     }
 
     private void ToggleFullscreen()
@@ -723,7 +772,7 @@ public sealed class ShootingGame : Game
         GraphicsDevice.SetRenderTarget(logicalCanvas);
         if (_shell.State is GameShellState.Title or GameShellState.ModeSelect or
             GameShellState.DifficultySelect or GameShellState.ShipSelect or GameShellState.Leaderboard or
-            GameShellState.TrainingSetup)
+            GameShellState.TrainingSetup or GameShellState.Information)
         {
             DrawShellMenu(clearBackground: true);
             PresentLogicalCanvas(logicalCanvas);
@@ -785,7 +834,7 @@ public sealed class ShootingGame : Game
                 RenderKind.Player => new Color(68, 210, 255),
                 RenderKind.Enemy => new Color(255, 92, 92),
                 RenderKind.PlayerBullet => new Color(255, 235, 84),
-                RenderKind.EnemyBullet => new Color(255, 140, 60),
+                RenderKind.EnemyBullet => GetEnemyBulletColor(),
                 RenderKind.Explosion => new Color(255, 180, 50, (int)(255 * (1 - item.EffectProgress))),
                 RenderKind.Option => new Color(120, 235, 255),
                 RenderKind.Laser => new Color(100, 245, 255, 190),
@@ -798,7 +847,7 @@ public sealed class ShootingGame : Game
             color = ApplyTint(color, item.Tint);
             var interpolated = PrimitiveRenderLayout.Interpolate(item, presentationAlpha);
             var bounds = PrimitiveRenderLayout.ToInterpolatedRectangle(item, presentationAlpha);
-            if (item.Kind == RenderKind.EnemyBullet)
+            if (item.Kind == RenderKind.EnemyBullet && _appliedSettings.Gameplay.BulletOutline)
                 DrawCircleOutline(spriteBatch, pixel, interpolated, item.Radius + 2, new Color(5, 8, 18, 245));
             if (item.Kind is RenderKind.PlayerHitbox or RenderKind.GrazeRing)
             {
@@ -810,6 +859,8 @@ public sealed class ShootingGame : Game
                 DrawLockMarker(spriteBatch, pixel, bounds, color);
                 continue;
             }
+            if (item.Kind == RenderKind.Item)
+                DrawDiamondMarker(spriteBatch, pixel, interpolated, item.Radius + 4, Color.White);
             if (TryResolveVisual(item, animationSeconds, out var frame))
             {
                 var width = item.Size.X > 0 ? item.Size.X : item.Radius * 2;
@@ -909,7 +960,7 @@ public sealed class ShootingGame : Game
             var tileHeight = Math.Max(1, (int)MathF.Ceiling(frame.Source.Height * scale));
             var offsetX = PositiveModulo((float)(elapsedSeconds * layer.ScrollX * layer.Parallax), tileWidth);
             var offsetY = PositiveModulo((float)(elapsedSeconds * layer.ScrollY * layer.Parallax), tileHeight);
-            var tint = Color.White * layer.Opacity;
+            var tint = Color.White * (layer.Opacity * _appliedSettings.Gameplay.BackgroundBrightness);
             for (var x = (int)offsetX - tileWidth; x < _layout.Playfield.Width; x += tileWidth)
             {
                 for (var y = (int)offsetY - tileHeight; y < _layout.Playfield.Height; y += tileHeight)
@@ -939,6 +990,13 @@ public sealed class ShootingGame : Game
         color.G * ((tint >> 16) & 0xff) / 255,
         color.B * ((tint >> 8) & 0xff) / 255,
         color.A * (tint & 0xff) / 255);
+
+    private Color GetEnemyBulletColor() => _appliedSettings.Gameplay.BulletPalette switch
+    {
+        "deuteranopia" => new Color(250, 205, 45),
+        "high-contrast" => Color.White,
+        _ => new Color(255, 140, 60)
+    };
 
     private static float PositiveModulo(float value, int divisor)
     {
@@ -981,22 +1039,29 @@ public sealed class ShootingGame : Game
             _frameSnapshot.Score,
             _profile.GetStats(_shell.SelectedCategory)?.BestScore ??
             _profile.HighScores.GetValueOrDefault(_gameId));
+        var hudScale = _appliedSettings.Gameplay.HudScale < 1 ? 1 : 2;
+        var lineSpacing = hudScale == 1 ? 11 : 16;
         var lines = new[]
         {
-            ($"HIGH {highScore:D8}", new Color(190, 205, 225)),
-            ($"SCORE {_frameSnapshot.Score:D8}", new Color(255, 235, 84)),
-            ($"CHAIN {_frameSnapshot.Chain:D4}", Color.White),
-            ($"MULTI {_frameSnapshot.Multiplier:F2}", new Color(255, 190, 90)),
-            ($"POWER {_frameSnapshot.Power:D3}/{_frameSnapshot.MaximumPower:D3}", new Color(110, 255, 130)),
-            ($"GAUGE {_frameSnapshot.Gauge:D3}/{_frameSnapshot.MaximumGauge:D3}", new Color(180, 110, 255)),
-            ($"RANK {_frameSnapshot.Rank:F3}", new Color(255, 135, 135)),
-            ($"STAGE {_frameSnapshot.StageNumber:D2}", new Color(160, 185, 210)),
-            ($"LIVES {_frameSnapshot.Lives:D2}", new Color(68, 210, 255)),
-            ($"BOMBS {_frameSnapshot.Bombs:D2}", new Color(255, 180, 50))
+            ($"{_strings.Get("hud.high")} {highScore:D8}", new Color(190, 205, 225)),
+            ($"{_strings.Get("hud.score")} {_frameSnapshot.Score:D8}", new Color(255, 235, 84)),
+            ($"{_strings.Get("hud.chain")} {_frameSnapshot.Chain:D4}", Color.White),
+            ($"{_strings.Get("hud.multiplier")} {_frameSnapshot.Multiplier:F2}", new Color(255, 190, 90)),
+            ($"{_strings.Get("hud.power")} {_frameSnapshot.Power:D3}/{_frameSnapshot.MaximumPower:D3}", new Color(110, 255, 130)),
+            ($"{_strings.Get("hud.gauge")} {_frameSnapshot.Gauge:D3}/{_frameSnapshot.MaximumGauge:D3}", new Color(180, 110, 255)),
+            ($"{_strings.Get("hud.rank")} {_frameSnapshot.Rank:F3}", new Color(255, 135, 135)),
+            ($"{_strings.Get("hud.stage")} {_frameSnapshot.StageNumber:D2}", new Color(160, 185, 210)),
+            ($"{_strings.Get("hud.lives")} {_frameSnapshot.Lives:D2}", new Color(68, 210, 255)),
+            ($"{_strings.Get("hud.bombs")} {_frameSnapshot.Bombs:D2}", new Color(255, 180, 50))
         };
         for (var index = 0; index < lines.Length; index++)
             DrawHudText(spriteBatch, pixel, lines[index].Item1, hud.Statistics.Left + 12,
-                hud.Statistics.Top + 12 + (index * 16), lines[index].Item2);
+                hud.Statistics.Top + 12 + (index * lineSpacing), lines[index].Item2, hudScale);
+        var deviceText = _input.ActiveDevice == ActiveInputDevice.GamePad
+            ? $"{_strings.Get("glyph.gamepad")} A/B"
+            : $"{_strings.Get("glyph.keyboard")} {_appliedSettings.Input.Confirm}/{_appliedSettings.Input.Cancel}";
+        DrawHudText(spriteBatch, pixel, deviceText, hud.Statistics.Left + 12,
+            hud.Statistics.Top + 18 + (lines.Length * lineSpacing), new Color(130, 155, 185), 1);
 
         if (_frameSnapshot.Boss is not { } boss) return;
         spriteBatch.Draw(pixel, hud.Boss, new Color(4, 8, 18, 225));
@@ -1018,7 +1083,8 @@ public sealed class ShootingGame : Game
                 new Color(255, 70, 45));
             spriteBatch.Draw(pixel, new Rectangle(hud.Warning.Left, hud.Warning.Bottom - 3, hud.Warning.Width, 3),
                 new Color(255, 70, 45));
-            DrawCenteredPixelText(spriteBatch, pixel, "WARNING", hud.Warning.Center.X, hud.Warning.Center.Y - 7, 2,
+            DrawCenteredPixelText(spriteBatch, pixel, _strings.Get("hud.warning"), hud.Warning.Center.X,
+                hud.Warning.Center.Y - 7, 2,
                 Color.White);
         }
     }
@@ -1056,6 +1122,30 @@ public sealed class ShootingGame : Game
         spriteBatch.Draw(pixel, new Rectangle(bounds.Right - thickness, bounds.Bottom - arm, thickness, arm), color);
     }
 
+    private static void DrawDiamondMarker(
+        SpriteBatch spriteBatch,
+        Texture2D pixel,
+        Vector2 center,
+        float radius,
+        Color color)
+    {
+        var extent = Math.Max(2, (int)MathF.Round(radius));
+        for (var offset = -extent; offset <= extent; offset++)
+        {
+            var inset = Math.Abs(offset);
+            spriteBatch.Draw(pixel, new Rectangle(
+                (int)MathF.Round(center.X) + offset,
+                (int)MathF.Round(center.Y) - extent + inset,
+                2,
+                2), color);
+            spriteBatch.Draw(pixel, new Rectangle(
+                (int)MathF.Round(center.X) + offset,
+                (int)MathF.Round(center.Y) + extent - inset,
+                2,
+                2), color);
+        }
+    }
+
     private void DrawShellMenu(bool clearBackground)
     {
         if (clearBackground)
@@ -1070,7 +1160,8 @@ public sealed class ShootingGame : Game
         var centerY = window.Center.Y;
         var isOptions = _shell.State == GameShellState.Options;
         var isTraining = _shell.State == GameShellState.TrainingSetup;
-        var isDetailed = _shell.State is GameShellState.Result or GameShellState.Leaderboard;
+        var isDetailed = _shell.State is GameShellState.Result or GameShellState.Leaderboard or
+            GameShellState.Information;
         var panelWidth = isOptions || isDetailed || isTraining ? Math.Min(window.Width - 48, 680) : 420;
         var panelHeight = isOptions || isDetailed || isTraining ? Math.Min(window.Height - 48, 560) : 300;
         var panelTop = centerY - (panelHeight / 2);
@@ -1085,6 +1176,7 @@ public sealed class ShootingGame : Game
             GameShellState.Result => "GAME OVER",
             GameShellState.Leaderboard => "LOCAL LEADERBOARD",
             GameShellState.TrainingSetup => "TRAINING SETUP",
+            GameShellState.Information => _shell.InformationTitle,
             _ => "OPTIONS"
         };
 
@@ -1156,8 +1248,18 @@ public sealed class ShootingGame : Game
             }
         }
 
+        if (_shell.State == GameShellState.Information)
+        {
+            var lines = WrapPixelText(_shell.InformationBody, panelWidth - 64, 1);
+            for (var index = 0; index < lines.Count; index++)
+                DrawCenteredPixelText(spriteBatch, pixel, lines[index], centerX, panelTop + 86 + (index * 20), 1,
+                    new Color(210, 222, 238));
+            DrawCenteredPixelText(spriteBatch, pixel, "LEFT RIGHT PAGE", centerX, panelTop + panelHeight - 64, 1,
+                new Color(68, 210, 255));
+        }
+
         var items = _shell.State == GameShellState.Leaderboard
-            ? new[] { "BACK" }
+            ? new[] { _strings.Get("menu.back") }
             : _shell.MenuItems;
         var itemSpacing = isOptions || isTraining ? 23 : 46;
         var itemsTop = isOptions || isTraining
@@ -1166,10 +1268,18 @@ public sealed class ShootingGame : Game
             ? panelTop + 210
             : _shell.State == GameShellState.Leaderboard
             ? panelTop + panelHeight - 80
+            : _shell.State == GameShellState.Information
+            ? panelTop + panelHeight - 42
             : _shell.State == GameShellState.Title
             ? centerY - 24
             : centerY - ((items.Count - 1) * itemSpacing / 2);
-        for (var index = 0; index < items.Count; index++)
+        const int maximumVisibleOptions = 19;
+        var firstIndex = isOptions
+            ? Math.Clamp(_shell.SelectionIndex - (maximumVisibleOptions / 2), 0,
+                Math.Max(0, items.Count - maximumVisibleOptions))
+            : 0;
+        var lastIndex = isOptions ? Math.Min(items.Count, firstIndex + maximumVisibleOptions) : items.Count;
+        for (var index = firstIndex; index < lastIndex; index++)
         {
             var value = isOptions
                 ? index == _shell.SelectionIndex
@@ -1184,7 +1294,7 @@ public sealed class ShootingGame : Game
                 pixel,
                 text,
                 centerX,
-                itemsTop + (index * itemSpacing),
+                itemsTop + ((index - firstIndex) * itemSpacing),
                 _shell.State == GameShellState.Leaderboard
                     ? _shell.SelectionIndex == _shell.MenuItems.Count - 1
                     : index == _shell.SelectionIndex,
@@ -1198,13 +1308,33 @@ public sealed class ShootingGame : Game
             _shell.IsAwaitingKeyBinding
                 ? "PRESS A KEY  ESC OR B CANCEL"
                 : _input.ActiveDevice == ActiveInputDevice.GamePad
-                ? "D PAD SELECT  A CONFIRM  B BACK"
-                : "ARROWS SELECT  ENTER CONFIRM  ESC BACK",
+                ? $"{_strings.Get("glyph.gamepad")}  D PAD SELECT  A CONFIRM  B BACK"
+                : $"{_strings.Get("glyph.keyboard")}  {_appliedSettings.Input.Confirm} CONFIRM  " +
+                    $"{_appliedSettings.Input.Cancel} BACK",
             centerX,
             panelTop + panelHeight - 30,
             1,
             new Color(160, 185, 210));
         spriteBatch.End();
+    }
+
+    private static IReadOnlyList<string> WrapPixelText(string text, int width, int scale)
+    {
+        var lines = new List<string>();
+        var current = string.Empty;
+        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = current.Length == 0 ? word : $"{current} {word}";
+            if (PrimitiveRenderLayout.MeasurePixelText(candidate, scale).X <= width)
+            {
+                current = candidate;
+                continue;
+            }
+            if (current.Length > 0) lines.Add(current);
+            current = word;
+        }
+        if (current.Length > 0) lines.Add(current);
+        return lines;
     }
 
     private static void DrawMenuOption(
@@ -1304,10 +1434,11 @@ public sealed class ShootingGame : Game
         string text,
         int left,
         int top,
-        Color color)
+        Color color,
+        int scale = 2)
     {
-        var right = left + PrimitiveRenderLayout.MeasurePixelText(text).X;
-        foreach (var rectangle in PrimitiveRenderLayout.ToPixelTextRectangles(text, right, top))
+        var right = left + PrimitiveRenderLayout.MeasurePixelText(text, scale).X;
+        foreach (var rectangle in PrimitiveRenderLayout.ToPixelTextRectangles(text, right, top, scale))
         {
             spriteBatch.Draw(pixel, rectangle, color);
         }

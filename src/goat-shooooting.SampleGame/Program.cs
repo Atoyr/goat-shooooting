@@ -29,6 +29,8 @@ public static class Program
             var profile = userDataStore.LoadProfile().Value;
             var definitions = GetAvailableGames();
             var visualAssets = GetVisualAssetCatalogs(definitions.Keys);
+            var audioAssets = GetAudioAssetCatalogs(definitions);
+            var stringCatalogs = GetStringCatalogs(definitions.Keys, settings.Locale);
             var gameId = requestedGameId ?? profile.LastGameId;
             if (!definitions.ContainsKey(gameId))
             {
@@ -46,6 +48,8 @@ public static class Program
                     leaderboardService: null,
                     replayStore: null,
                     visualAssetCatalogs: visualAssets,
+                    audioAssetCatalogs: audioAssets,
+                    stringCatalogs: stringCatalogs,
                     renderScreenshotPath: renderScreenshotPath);
                 screenshotGame.Run();
                 Console.WriteLine($"RENDER SCREENSHOT PASSED: {Path.GetFullPath(renderScreenshotPath)}");
@@ -66,7 +70,9 @@ public static class Program
                 profile,
                 leaderboard,
                 replayStore,
-                visualAssets);
+                visualAssets,
+                audioAssets,
+                stringCatalogs);
             game.Run();
             return 0;
         }
@@ -233,6 +239,27 @@ public static class Program
             static gameId => gameId,
             gameId => (IVisualAssetCatalog)new MonoGameVisualAssetCatalog(
                 Path.Combine(gamesDirectory, gameId)),
+            StringComparer.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, IReadOnlyDictionary<string, ResolvedAudioAsset>>
+        GetAudioAssetCatalogs(IReadOnlyDictionary<string, IDefinitionRepository> repositories)
+    {
+        var gamesDirectory = Path.Combine(AppContext.BaseDirectory, "games");
+        return repositories.ToDictionary(
+            static pair => pair.Key,
+            pair => AudioAssetResolver.Resolve(Path.Combine(gamesDirectory, pair.Key), pair.Value.Load()),
+            StringComparer.Ordinal);
+    }
+
+    private static IReadOnlyDictionary<string, IStringCatalog> GetStringCatalogs(
+        IEnumerable<string> gameIds,
+        string locale)
+    {
+        var gamesDirectory = Path.Combine(AppContext.BaseDirectory, "games");
+        return gameIds.ToDictionary(
+            static gameId => gameId,
+            gameId => (IStringCatalog)JsonStringCatalogLoader.Load(Path.Combine(gamesDirectory, gameId), locale),
             StringComparer.Ordinal);
     }
 

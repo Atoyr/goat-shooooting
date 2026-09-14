@@ -3,6 +3,7 @@
   "title": "REFLECTION",
   "subtitle": "TRIAL OF RESOLVE",
   "backgroundId": "space-main",
+  "bgmAudioId": "bgm-stage",
   "openingDuration": 3,
   "resultsDuration": 4,
   "events": [

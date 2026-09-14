@@ -20,6 +20,7 @@ public sealed record FrameSnapshot(
 
 public sealed record BossHudSnapshot(
     int EntityId,
+    string DefinitionId,
     string Name,
     string PhaseName,
     float HealthFraction,

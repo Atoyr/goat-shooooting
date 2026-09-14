@@ -7,6 +7,17 @@
   "properties": {
     "schemaVersion": { "const": 2 },
     "id": { "type": "string", "minLength": 1 },
-    "assetId": { "type": "string", "minLength": 1 }
+    "assetId": { "type": "string", "minLength": 1 },
+    "category": { "enum": ["music", "effect", "voice"], "default": "effect" },
+    "baseVolume": { "type": "number", "minimum": 0, "maximum": 1, "default": 1 },
+    "loop": { "type": "boolean", "default": false },
+    "loopStartSeconds": { "type": ["number", "null"], "minimum": 0 },
+    "loopEndSeconds": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+    "crossfadeSeconds": { "type": "number", "minimum": 0, "default": 0.5 },
+    "ducking": { "type": "number", "minimum": 0, "maximum": 1, "default": 0 },
+    "maximumInstances": { "type": "integer", "minimum": 1, "maximum": 32, "default": 4 },
+    "priority": { "type": "integer", "minimum": 0, "maximum": 100, "default": 50 },
+    "cooldownSeconds": { "type": "number", "minimum": 0, "default": 0 },
+    "pitchVariation": { "type": "number", "minimum": 0, "maximum": 1, "default": 0 }
   }
 }

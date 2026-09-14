@@ -182,6 +182,10 @@ public sealed class JsonUserDataStore : IUserDataStore
             {
                 SchemaVersion = GameSettings.CurrentSchemaVersion
             },
+            2 => DeserializeRequired<GameSettings>(root, options) with
+            {
+                SchemaVersion = GameSettings.CurrentSchemaVersion
+            },
             GameSettings.CurrentSchemaVersion => DeserializeRequired<GameSettings>(root, options),
             _ => throw new InvalidOperationException($"No settings migration exists for schema version {schemaVersion}.")
         };

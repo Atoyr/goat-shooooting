@@ -3,6 +3,7 @@
   "title": "THE SILENT HORIZON",
   "subtitle": "IDEAL RELEASE",
   "backgroundId": "space-main",
+  "bgmAudioId": "bgm-stage",
   "openingDuration": 3,
   "resultsDuration": 4,
   "nextStageId": "stage-02",

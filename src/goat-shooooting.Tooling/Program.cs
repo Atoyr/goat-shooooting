@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using GoatShooooting.Definitions;
+using GoatShooooting.Framework;
 using GoatShooooting.Runtime;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -71,14 +72,19 @@ public static class Program
             var catalog = new JsonDefinitionRepository(rootDirectory).Load();
             new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
             var assets = VisualAssetManifestLoader.LoadOptional(rootDirectory, catalog);
+            var audio = AudioAssetResolver.Resolve(rootDirectory, catalog);
+            var japanese = JsonStringCatalogLoader.Load(rootDirectory, "ja");
+            if (japanese.MissingKeys.Count > 0)
+                throw new InvalidDataException($"Japanese string catalog is missing: {string.Join(", ", japanese.MissingKeys)}.");
             Console.WriteLine(
                 $"VALID: schema=2, game={catalog.Game.Id}, player={catalog.Game.PlayerId}, " +
                 $"stage={catalog.Game.StageId}, ships={catalog.Ships.Count}, " +
                 $"projectiles={catalog.Projectiles.Count}, enemies={catalog.Enemies.Count}, " +
-                $"weapons={catalog.Weapons.Count}, textures={assets.Textures.Count}, sprites={assets.Sprites.Count}");
+                $"weapons={catalog.Weapons.Count}, textures={assets.Textures.Count}, sprites={assets.Sprites.Count}, " +
+                $"audioCues={audio.Count}, locales=2");
             return 0;
         }
-        catch (Exception exception) when (exception is DefinitionValidationException or IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is DefinitionValidationException or IOException or UnauthorizedAccessException or ArgumentException)
         {
             Console.Error.WriteLine($"INVALID: {exception.Message}");
             return 1;

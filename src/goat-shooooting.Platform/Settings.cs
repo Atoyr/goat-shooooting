@@ -8,13 +8,14 @@ public enum WindowMode
 
 public sealed record GameSettings
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 3;
 
     public int SchemaVersion { get; init; } = CurrentSchemaVersion;
     public DisplaySettings Display { get; init; } = new();
     public AudioSettings Audio { get; init; } = new();
     public GameplaySettings Gameplay { get; init; } = new();
     public InputSettings Input { get; init; } = new();
+    public string Locale { get; init; } = "en";
 
     internal GameSettings Normalize()
     {
@@ -25,7 +26,8 @@ public sealed record GameSettings
             Display = (Display ?? defaults.Display).Normalize(),
             Audio = (Audio ?? defaults.Audio).Normalize(),
             Gameplay = (Gameplay ?? defaults.Gameplay).Normalize(),
-            Input = (Input ?? defaults.Input).Normalize()
+            Input = (Input ?? defaults.Input).Normalize(),
+            Locale = Locale is "en" or "ja" ? Locale : defaults.Locale
         };
     }
 }
@@ -48,13 +50,17 @@ public sealed record DisplaySettings
 public sealed record AudioSettings
 {
     public float MasterVolume { get; init; } = 1.0f;
+    public float MusicVolume { get; init; } = 0.8f;
     public float EffectsVolume { get; init; } = 1.0f;
+    public float VoiceVolume { get; init; } = 1.0f;
     public bool Muted { get; init; }
 
     internal AudioSettings Normalize() => this with
     {
         MasterVolume = NormalizeUnitValue(MasterVolume),
-        EffectsVolume = NormalizeUnitValue(EffectsVolume)
+        MusicVolume = NormalizeUnitValue(MusicVolume),
+        EffectsVolume = NormalizeUnitValue(EffectsVolume),
+        VoiceVolume = NormalizeUnitValue(VoiceVolume)
     };
 
     private static float NormalizeUnitValue(float value) =>
@@ -64,14 +70,30 @@ public sealed record AudioSettings
 public sealed record GameplaySettings
 {
     public float ScreenShakeStrength { get; init; } = 1.0f;
+    public float FlashIntensity { get; init; } = 1.0f;
+    public float ParticleDensity { get; init; } = 1.0f;
+    public float BackgroundBrightness { get; init; } = 1.0f;
+    public bool BulletOutline { get; init; } = true;
+    public string BulletPalette { get; init; } = "standard";
+    public float HudScale { get; init; } = 1.0f;
     public bool ControllerVibration { get; init; } = true;
 
     internal GameplaySettings Normalize() => this with
     {
         ScreenShakeStrength = float.IsFinite(ScreenShakeStrength)
             ? Math.Clamp(ScreenShakeStrength, 0.0f, 1.0f)
-            : 1.0f
+            : 1.0f,
+        FlashIntensity = NormalizeUnit(FlashIntensity),
+        ParticleDensity = NormalizeUnit(ParticleDensity),
+        BackgroundBrightness = NormalizeUnit(BackgroundBrightness),
+        BulletPalette = BulletPalette is "standard" or "deuteranopia" or "high-contrast"
+            ? BulletPalette
+            : "standard",
+        HudScale = float.IsFinite(HudScale) ? Math.Clamp(HudScale, 0.75f, 1.5f) : 1.0f
     };
+
+    private static float NormalizeUnit(float value) =>
+        float.IsFinite(value) ? Math.Clamp(value, 0.0f, 1.0f) : 1.0f;
 }
 
 public sealed record InputSettings

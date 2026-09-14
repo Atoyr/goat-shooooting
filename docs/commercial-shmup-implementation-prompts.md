@@ -22,7 +22,7 @@
 - [x] P11 ReplayとTraining
 - [x] P12 Asset catalog、Sprite、Background
 - [x] P13 Effect、HUD、視認性
-- [ ] P14 Audio、Localization、Accessibility
+- [x] P14 Audio、Localization、Accessibility
 - [ ] P15 Definition Editor v2
 - [ ] P16 製品vertical sliceとRelease QA
 

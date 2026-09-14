@@ -205,6 +205,7 @@ public sealed class ShootingSimulation
             ? null
             : new BossHudSnapshot(
                 bossItem.EntityId,
+                bossItem.BossDefinitionId ?? string.Empty,
                 bossItem.BossName,
                 bossItem.BossPhaseName ?? string.Empty,
                 bossItem.HealthFraction,

@@ -21,6 +21,7 @@
       "minLength": 1,
       "description": "assets.jsonに定義したstage background IDです。"
     },
+    "bgmAudioId": { "type": ["string", "null"], "minLength": 1 },
     "events": {
       "type": "array",
       "items": {

@@ -881,7 +881,8 @@ public readonly record struct RenderItem(
     uint Tint = uint.MaxValue,
     int Layer = 20,
     bool FlipX = false,
-    bool FlipY = false);
+    bool FlipY = false,
+    string? BossDefinitionId = null);
 
 public sealed class TransformHistorySystem
 {
@@ -952,6 +953,7 @@ public sealed class RenderSystem
                 (entity.TryGet<InvincibilityComponent>(out var invincibility) && invincibility.Remaining > 0),
                 VisualId: visualId,
                 BossName: boss?.IsManaged == true ? boss.DisplayName : null,
+                BossDefinitionId: boss?.IsManaged == true ? boss.DefinitionId : null,
                 BossPhaseName: boss?.IsManaged == true ? boss.PhaseDisplayName : null,
                 BossRemainingTime: boss?.IsManaged == true ? boss.RemainingTime : null,
                 BossWarning: boss?.IsWarning == true,

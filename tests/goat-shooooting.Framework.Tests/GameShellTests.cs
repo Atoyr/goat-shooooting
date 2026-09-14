@@ -63,6 +63,31 @@ public sealed class GameShellTests
     }
 
     [Fact]
+    public void OptionsExposeAudioLocaleAndAccessibilitySettings()
+    {
+        var shell = new GameShell(new GameSettings());
+        for (var index = 0; index < 3; index++) shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(confirm: true));
+
+        for (var index = 0; index < 3; index++) shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(right: true));
+        Assert.Equal("ja", shell.Settings.Locale);
+        shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(left: true));
+        Assert.Equal(0.7f, shell.Settings.Audio.MusicVolume);
+        for (var index = 0; index < 6; index++) shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(left: true));
+        Assert.Equal(0.9f, shell.Settings.Gameplay.ParticleDensity);
+        shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(left: true));
+        Assert.Equal(0.9f, shell.Settings.Gameplay.BackgroundBrightness);
+        shell.Update(new MenuInput(down: true));
+        shell.Update(new MenuInput(right: true));
+        Assert.False(shell.Settings.Gameplay.BulletOutline);
+    }
+
+    [Fact]
     public void TitleCyclesAvailableGamesFromTheStartItem()
     {
         var shell = new GameShell(new GameSettings(), ["sample", "gauntlet"], "sample");
@@ -199,7 +224,7 @@ public sealed class GameShellTests
     [Fact]
     public void ConfirmOnInputOptionCapturesTheNextKeyboardKey()
     {
-        var shell = OpenOptionsAtInputIndex(12);
+        var shell = OpenOptionsAtInputIndex(21);
 
         Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(confirm: true, newlyPressedKey: "Enter")));
         Assert.True(shell.IsAwaitingKeyBinding);
@@ -215,7 +240,7 @@ public sealed class GameShellTests
     [Fact]
     public void CancelLeavesAKeyBindingUnchanged()
     {
-        var shell = OpenOptionsAtInputIndex(12);
+        var shell = OpenOptionsAtInputIndex(21);
         shell.Update(new MenuInput(confirm: true));
 
         Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(cancel: true, newlyPressedKey: "Escape")));
@@ -228,7 +253,7 @@ public sealed class GameShellTests
     [Fact]
     public void ConflictingConfirmAndCancelBindingKeepsWaiting()
     {
-        var shell = OpenOptionsAtInputIndex(17);
+        var shell = OpenOptionsAtInputIndex(26);
         shell.Update(new MenuInput(confirm: true));
 
         Assert.Equal(GameShellCommand.None, shell.Update(new MenuInput(newlyPressedKey: "Escape")));

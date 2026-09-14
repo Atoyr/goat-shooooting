@@ -169,6 +169,7 @@ public sealed record BossDefinition
     public string DisplayName { get; init; } = string.Empty;
     public string EnemyId { get; init; } = string.Empty;
     public float WarningSeconds { get; init; } = 5;
+    public string? BgmAudioId { get; init; }
     public IReadOnlyList<BossPhaseDefinition> Phases { get; init; } = Array.Empty<BossPhaseDefinition>();
 }
 
@@ -251,4 +252,15 @@ public sealed record AudioDefinition
     public int SchemaVersion { get; init; } = 2;
     public string Id { get; init; } = string.Empty;
     public string AssetId { get; init; } = string.Empty;
+    public string Category { get; init; } = "effect";
+    public float BaseVolume { get; init; } = 1;
+    public bool Loop { get; init; }
+    public double? LoopStartSeconds { get; init; }
+    public double? LoopEndSeconds { get; init; }
+    public float CrossfadeSeconds { get; init; } = 0.5f;
+    public float Ducking { get; init; }
+    public int MaximumInstances { get; init; } = 4;
+    public int Priority { get; init; } = 50;
+    public float CooldownSeconds { get; init; }
+    public float PitchVariation { get; init; }
 }

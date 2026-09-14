@@ -5,6 +5,15 @@ This distribution includes the following third-party software. The packaging
 script also includes the .NET runtime LICENSE and ThirdPartyNotices files in
 self-contained builds.
 
+First-party content note
+------------------------
+
+The tone:// cue definitions under games/sample/audio and games/gauntlet/audio
+are original parameter sets created for this repository. They contain no
+sampled or third-party audio. The generated visual placeholders are documented
+in games/sample/assets/README.md. Production replacements must add their
+license and source to this notice or the content pack asset ledger.
+
 MonoGame.Framework.DesktopGL 3.8.5.1
 Copyright the MonoGame project contributors.
 Licensed under the Microsoft Public License (MS-PL).

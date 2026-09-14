@@ -1,0 +1,9 @@
+{
+  "menu.start":"START","menu.training":"TRAINING","menu.leaderboard":"LEADERBOARD","menu.options":"OPTIONS","menu.information":"INFORMATION","menu.quit":"QUIT","menu.resume":"RESUME","menu.retry":"RETRY","menu.title":"TITLE","menu.back":"BACK","menu.playReplay":"PLAY REPLAY",
+  "info.controls.title":"CONTROLS","info.controls.body":"MOVE ARROWS OR WASD  FIRE Z  FOCUS CTRL  BOMB X  SPECIAL C",
+  "info.scoring.title":"SCORING HELP","info.scoring.body":"CHAIN KILLS  GRAZE BULLETS  COLLECT ITEMS  KEEP MULTIPLIER",
+  "info.credits.title":"CREDITS","info.credits.body":"DESIGN CODE AND ORIGINAL ART  GOAT SHOOOOTING TEAM",
+  "info.licenses.title":"LICENSES","info.licenses.body":"SEE THIRD-PARTY-NOTICES.md  ORIGINAL ASSETS IN ASSET LEDGER",
+  "hud.high":"HIGH","hud.score":"SCORE","hud.chain":"CHAIN","hud.multiplier":"MULTI","hud.power":"POWER","hud.gauge":"GAUGE","hud.rank":"RANK","hud.stage":"STAGE","hud.lives":"LIVES","hud.bombs":"BOMBS","hud.warning":"WARNING","glyph.keyboard":"KEY","glyph.gamepad":"PAD",
+  "options.windowMode":"WINDOW MODE","options.windowScale":"WINDOW SCALE","options.vsync":"VSYNC","options.language":"LANGUAGE","options.masterVolume":"MASTER VOLUME","options.musicVolume":"BGM VOLUME","options.effectsVolume":"SE VOLUME","options.voiceVolume":"VOICE VOLUME","options.muted":"MUTED","options.screenShake":"SCREEN SHAKE","options.flash":"SCREEN FLASH","options.particles":"PARTICLES","options.background":"BACKGROUND","options.bulletOutline":"BULLET OUTLINE","options.bulletPalette":"BULLET PALETTE","options.hudScale":"HUD SCALE","options.vibration":"VIBRATION","options.moveUp":"MOVE UP","options.moveDown":"MOVE DOWN","options.moveLeft":"MOVE LEFT","options.moveRight":"MOVE RIGHT","options.fire":"FIRE","options.focus":"FOCUS","options.special":"SPECIAL","options.bomb":"BOMB","options.pause":"PAUSE KEY","options.confirm":"CONFIRM","options.cancel":"CANCEL","options.retry":"RETRY"
+}

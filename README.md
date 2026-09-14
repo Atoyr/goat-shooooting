@@ -16,7 +16,7 @@ Steam向けのゲームパッド、設定、セーブ、正式配布ビルドに
 - 通常ゲームの実行時のみ、OpenGL 2.0 以上を利用できるデスクトップ環境
 - NuGet の初回 restore 時に `MonoGame.Framework.DesktopGL` 3.8.5.1 と xUnit 関連パッケージを取得できること
 
-ゲーム画像などの外部 Asset は不要です。Player、Enemy、Bullet は実行時生成した 1 ピクセル Texture から単純な図形として描画します。
+同梱sample／gauntletは再配布可能な自前生成画像と手続きtoneを使用し、外部 Asset なしで実行できます。WAV、sprite atlas、backgroundへ差し替える場合もcontent pack内のDefinitionだけで指定できます。
 
 ## Build と Test
 
@@ -95,7 +95,9 @@ dotnet run --project src/goat-shooooting.SampleGame -- --game gauntlet
 - R / Enter: Game Over／Stage Clear後にリトライ
 - Esc: 終了
 
-タイトルまたはポーズメニューの `OPTIONS` ではキーボード割り当てを変更できます。変更したい項目で Enter／A を押してから新しいキーを押してください。Esc／B で入力待ちをキャンセルでき、左右キーで候補を順送りすることもできます。変更内容は `OPTIONS` を閉じたときに保存されます。
+タイトルまたはポーズメニューの `OPTIONS` では日英locale、BGM／SE／Voice音量、画面揺れ、flash、particle密度、背景輝度、敵弾outline／palette、HUD scale、振動、キーボード割り当てを変更できます。音量と視認性は選択中にpreviewされ、変更内容は `OPTIONS` を閉じたときにschema v3設定へ保存されます。変更したいbindingで Enter／A を押してから新しいキーを押してください。Esc／Bで入力待ちをキャンセルでき、左右キーで候補を順送りすることもできます。
+
+タイトルまたはポーズメニューの`INFORMATION`から操作説明、scoring help、credits、licensesを閲覧できます。footerは最後に操作したkeyboard／gamepadと現在の決定・取消bindingを表示します。音声deviceを利用できない環境やcue不足ではsilent／procedural fallbackへ切り替わり、ゲーム進行を止めません。
 
 タイトルの`TRAINING`ではstage／boss checkpoint、初期power／lives／bombs／rank／gauge、無敵、slow、hitbox表示を選べます。Trainingは通常runと同じSimulationを使いますがprofile bestとofficial leaderboardには登録されず、プレイ中のR／Enterで即時retryできます。
 
@@ -119,6 +121,10 @@ dotnet run --project src/goat-shooooting.SampleGame -- --render-screenshot docs/
 確認項目は、背景がplayfieldだけを覆ってscrollすること、player／enemy／projectile spriteがHUDより背面に出ること、敵弾outline、focus情報、effect、10項目HUDが欠けないこと、縦横比とoriginが崩れないことです。自動QA入力は発射、focus、bombを使い、presentation経路を再現します。現在の検証画像は次です。
 
 ![P13 effect, HUD, and visibility render smoke](docs/assets/p13-presentation.png)
+
+P14のaudio／localization／accessibility経路を有効にした代表sceneです。色に加えてoutlineとshapeで敵弾・itemを識別でき、HUDとactive-device footerも同じproduction rendererで確認します。
+
+![P14 audio, localization, and accessibility render smoke](docs/assets/p14-accessibility.png)
 
 ## Project 構成
 
@@ -179,6 +185,8 @@ Schemaは [`schemas`](schemas) にあります。通常のSampleGameはJSON内�
 - `stages/*.json`: タイトル、開始／リザルト表示時間、次Stage、時刻付き `spawn-enemy` event、ボス指定、出現位置と編隊
 
 `assets.json`はtextureのcontent pack相対path、sprite sheet rectangle／origin／flip／layer、animationのframe列とduration、backgroundのscroll／parallax layerを定義します。Stageの`backgroundId`で背景を切り替えます。path traversal、重複ID、file不足、PNG dimension、範囲外rectangle、0以下または非finiteなframe durationは起動前に拒否されます。開発中の正常な差替えはGPU textureを一括交換し、失敗時は最後の正常assetを維持します。manifestやvisual IDがない場合は従来の1px primitive描画へfallbackします。完全な形式は[`assets.schema.json`](schemas/assets.schema.json)と[`sample assets.json`](games/sample/assets.json)を参照してください。
+
+`audio/*.json`はWAVまたは`tone://` cueとcategory、volume、loop、crossfade、ducking、同時数、priority、cooldown、pitch幅を定義し、Stage／Bossの`bgmAudioId`からBGMを参照します。`strings/en.json`は必須UI keyの基準catalog、`strings/ja.json`は日本語catalogです。`validate`はaudio assetと日英catalogの欠落も検査します。収録assetの出典とlicenseは[`THIRD-PARTY-NOTICES.txt`](THIRD-PARTY-NOTICES.txt)に記録してください。
 
 新しい JSON を対象フォルダーへ追加し、一意な `id` で参照してください。Engine コードの変更は不要です。起動時に全参照と値を検証するため、不明な Player／Stage／Enemy／Weapon／Bullet ID、重複 ID、未対応 event、0 以下の HP などは `DefinitionValidationException` になります。
 

@@ -14,7 +14,8 @@ public enum GameShellState
     Options,
     Result,
     Leaderboard,
-    TrainingSetup
+    TrainingSetup,
+    Information
 }
 
 public enum GameShellCommand
@@ -113,10 +114,6 @@ public static class RunSelectionConfiguration
 /// <summary>Window-independent production menu state machine.</summary>
 public sealed class GameShell
 {
-    private static readonly string[] TitleItems = ["START", "TRAINING", "LEADERBOARD", "OPTIONS", "QUIT"];
-    private static readonly string[] PauseItems = ["RESUME", "OPTIONS", "RETRY", "TITLE"];
-    private static readonly string[] ResultItems = ["RETRY", "LEADERBOARD", "TITLE"];
-    private static readonly string[] ResultReplayItems = ["RETRY", "PLAY REPLAY", "LEADERBOARD", "TITLE"];
     private static readonly string[] TrainingItems =
         ["LOCATION", "POWER", "LIVES", "BOMBS", "RANK", "GAUGE", "INVINCIBLE", "SLOW", "HITBOX", "START", "BACK"];
     private readonly IReadOnlyDictionary<string, GameRunOptions> _runOptions;
@@ -125,6 +122,7 @@ public sealed class GameShell
     private readonly Dictionary<string, string> _lastModes;
     private readonly Dictionary<string, string> _lastDifficulties;
     private readonly Dictionary<string, string> _lastShips;
+    private readonly IStringCatalog _strings;
     private GameShellState _optionsReturnState;
     private int _selectionIndex;
     private bool _keyBindingRejected;
@@ -143,6 +141,7 @@ public sealed class GameShell
     private bool _trainingInvincible;
     private bool _trainingSlow;
     private bool _trainingHitboxes = true;
+    private int _informationPage;
 
     public GameShell(GameSettings settings)
         : this(settings, [LegacyOptions("sample")], "sample", new PlayerProfile())
@@ -162,11 +161,14 @@ public sealed class GameShell
         GameSettings settings,
         IEnumerable<GameRunOptions> runOptions,
         string selectedGameId,
-        PlayerProfile profile)
+        PlayerProfile profile,
+        IStringCatalog? strings = null)
     {
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
         ArgumentNullException.ThrowIfNull(runOptions);
         ArgumentNullException.ThrowIfNull(profile);
+        _strings = strings ?? LocalizedStringCatalog.CreateBuiltIn(settings.Locale);
+        _strings.SetLocale(settings.Locale);
         _unlocks = new HashSet<string>(profile.Unlocks, StringComparer.Ordinal);
         _lastModes = new Dictionary<string, string>(profile.LastRuleSetIds, StringComparer.Ordinal);
         _lastDifficulties = new Dictionary<string, string>(profile.LastDifficultyIds, StringComparer.Ordinal);
@@ -222,17 +224,29 @@ public sealed class GameShell
     }
     public IReadOnlyList<string> MenuItems => State switch
     {
-        GameShellState.Title => TitleItems,
+        GameShellState.Title =>
+        [Text("menu.start"),
+            Text("menu.training"),
+            Text("menu.leaderboard"),
+            Text("menu.options"),
+            Text("menu.information"),
+            Text("menu.quit")],
         GameShellState.ModeSelect => SelectionLabels(Current.Modes),
         GameShellState.DifficultySelect => SelectionLabels(Current.Difficulties),
         GameShellState.ShipSelect => SelectionLabels(Current.Ships),
-        GameShellState.Pause => PauseItems,
-        GameShellState.Result => _resultReplayPath is null ? ResultItems : ResultReplayItems,
+        GameShellState.Pause => [Text("menu.resume"), Text("menu.options"), Text("menu.retry"), Text("menu.title")],
+        GameShellState.Result => _resultReplayPath is null
+            ? [Text("menu.retry"), Text("menu.leaderboard"), Text("menu.title")]
+            : [Text("menu.retry"), Text("menu.playReplay"), Text("menu.leaderboard"), Text("menu.title")],
         GameShellState.Leaderboard => LeaderboardItems,
         GameShellState.TrainingSetup => TrainingItems,
-        GameShellState.Options => OptionsMenu.ItemLabels,
+        GameShellState.Options => OptionsMenu.GetLabels(_strings),
+        GameShellState.Information => [Text("menu.back")],
         _ => []
     };
+
+    public string InformationTitle => Text($"info.{InformationPageId}.title");
+    public string InformationBody => Text($"info.{InformationPageId}.body");
 
     public string SelectedValue => State switch
     {
@@ -249,6 +263,12 @@ public sealed class GameShell
         if (State == GameShellState.Playing) return GameShellCommand.None;
         if (State == GameShellState.Options && IsAwaitingKeyBinding) return UpdateKeyBinding(input);
         if (input.CancelPressed) return Cancel();
+        if (State == GameShellState.Information)
+        {
+            if (input.LeftPressed) _informationPage = Wrap(_informationPage - 1, 4);
+            if (input.RightPressed) _informationPage = Wrap(_informationPage + 1, 4);
+            return input.ConfirmPressed ? ReturnToTitle() : GameShellCommand.None;
+        }
 
         if (State == GameShellState.Title && _selectionIndex == 0 && (input.LeftPressed || input.RightPressed))
         {
@@ -295,8 +315,11 @@ public sealed class GameShell
         }
     }
 
-    public void ReplaceSettings(GameSettings settings) =>
+    public void ReplaceSettings(GameSettings settings)
+    {
         Settings = settings ?? throw new ArgumentNullException(nameof(settings));
+        _strings.SetLocale(settings.Locale);
+    }
 
     public void SetLeaderboardEntries(IReadOnlyList<CompletedRunRecord> entries) =>
         _leaderboardEntries = entries ?? throw new ArgumentNullException(nameof(entries));
@@ -367,6 +390,7 @@ public sealed class GameShell
         GameShellState.Leaderboard => CloseLeaderboard(),
         GameShellState.TrainingSetup => ReturnToTitle(),
         GameShellState.Options => CloseOptions(),
+        GameShellState.Information => ReturnToTitle(),
         _ => GameShellCommand.None
     };
 
@@ -403,7 +427,14 @@ public sealed class GameShell
             OpenOptions(GameShellState.Title);
             return GameShellCommand.None;
         }
-        if (_selectionIndex == 4) return GameShellCommand.Quit;
+        if (_selectionIndex == 4)
+        {
+            State = GameShellState.Information;
+            _selectionIndex = 0;
+            _informationPage = 0;
+            return GameShellCommand.None;
+        }
+        if (_selectionIndex == 5) return GameShellCommand.Quit;
         return OpenSelection(GameShellState.ModeSelect, Current.Modes, _selectedMode);
     }
 
@@ -552,10 +583,20 @@ public sealed class GameShell
             .Select((entry, index) => string.IsNullOrWhiteSpace(entry.ReplayPath)
                 ? $"{index + 1:D2}  {entry.Score:D8}"
                 : $"PLAY {index + 1:D2}  {entry.Score:D8}")
-            .Append("BACK")
+            .Append(Text("menu.back"))
             .ToArray();
 
     private static int Wrap(int value, int count) => (value + count) % count;
+
+    private string InformationPageId => _informationPage switch
+    {
+        0 => "controls",
+        1 => "scoring",
+        2 => "credits",
+        _ => "licenses"
+    };
+
+    private string Text(string key) => _strings.Get(key);
 
     private GameShellCommand ResumeFromMenu()
     {

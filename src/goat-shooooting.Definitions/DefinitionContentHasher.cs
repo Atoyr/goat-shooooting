@@ -46,9 +46,14 @@ public static class DefinitionContentHasher
         var resolver = new DefaultJsonTypeInfoResolver();
         resolver.Modifiers.Add(static typeInfo =>
         {
-            if (typeInfo.Type != typeof(StageDefinition)) return;
-            var background = typeInfo.Properties.First(static property => property.Name == nameof(StageDefinition.BackgroundId));
-            background.ShouldSerialize = static (_, _) => false;
+            if (typeInfo.Type == typeof(StageDefinition))
+            {
+                foreach (var name in new[] { nameof(StageDefinition.BackgroundId), nameof(StageDefinition.BgmAudioId) })
+                    typeInfo.Properties.First(property => property.Name == name).ShouldSerialize = static (_, _) => false;
+            }
+            if (typeInfo.Type == typeof(BossDefinition))
+                typeInfo.Properties.First(static property => property.Name == nameof(BossDefinition.BgmAudioId))
+                    .ShouldSerialize = static (_, _) => false;
         });
         return new JsonSerializerOptions { TypeInfoResolver = resolver };
     }

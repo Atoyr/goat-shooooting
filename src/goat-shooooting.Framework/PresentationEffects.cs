@@ -64,7 +64,7 @@ public struct PresentationEffect
 public sealed class PresentationEffectSystem
 {
     private readonly PresentationEffect[] _effects;
-    private readonly PresentationSettings _settings;
+    private PresentationSettings _settings;
     private int _activeCount;
 
     public PresentationEffectSystem(PresentationSettings? settings = null)
@@ -80,6 +80,15 @@ public sealed class PresentationEffectSystem
     public float ScreenFlash { get; private set; }
     public float CameraShake { get; private set; }
     public float HitStopRemaining { get; private set; }
+
+    public void Apply(PresentationSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        settings.Validate();
+        if (settings.MaximumEffects != _effects.Length)
+            throw new ArgumentException("MaximumEffects cannot change after pool creation.", nameof(settings));
+        _settings = settings;
+    }
 
     public PresentationEffect GetEffect(int index)
     {

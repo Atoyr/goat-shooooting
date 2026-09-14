@@ -41,9 +41,27 @@ public sealed class JsonUserDataStoreTests
                 WindowScale = 3,
                 VSync = false
             },
-            Audio = new AudioSettings { MasterVolume = 0.75f, EffectsVolume = 0.25f, Muted = true },
-            Gameplay = new GameplaySettings { ScreenShakeStrength = 0.4f, ControllerVibration = false },
-            Input = new InputSettings { Fire = "Space", Bomb = "LeftShift" }
+            Audio = new AudioSettings
+            {
+                MasterVolume = 0.75f,
+                MusicVolume = 0.6f,
+                EffectsVolume = 0.25f,
+                VoiceVolume = 0.5f,
+                Muted = true
+            },
+            Gameplay = new GameplaySettings
+            {
+                ScreenShakeStrength = 0.4f,
+                FlashIntensity = 0.3f,
+                ParticleDensity = 0.2f,
+                BackgroundBrightness = 0.7f,
+                BulletOutline = false,
+                BulletPalette = "deuteranopia",
+                HudScale = 1.25f,
+                ControllerVibration = false
+            },
+            Input = new InputSettings { Fire = "Space", Bomb = "LeftShift" },
+            Locale = "ja"
         };
         var profile = new PlayerProfile
         {
@@ -79,14 +97,23 @@ public sealed class JsonUserDataStoreTests
         Assert.Equal(3, loadedSettings.Value.Display.WindowScale);
         Assert.False(loadedSettings.Value.Display.VSync);
         Assert.Equal(0.75f, loadedSettings.Value.Audio.MasterVolume);
+        Assert.Equal(0.6f, loadedSettings.Value.Audio.MusicVolume);
         Assert.Equal(0.25f, loadedSettings.Value.Audio.EffectsVolume);
+        Assert.Equal(0.5f, loadedSettings.Value.Audio.VoiceVolume);
         Assert.True(loadedSettings.Value.Audio.Muted);
         Assert.Equal(0.4f, loadedSettings.Value.Gameplay.ScreenShakeStrength);
+        Assert.Equal(0.3f, loadedSettings.Value.Gameplay.FlashIntensity);
+        Assert.Equal(0.2f, loadedSettings.Value.Gameplay.ParticleDensity);
+        Assert.Equal(0.7f, loadedSettings.Value.Gameplay.BackgroundBrightness);
+        Assert.False(loadedSettings.Value.Gameplay.BulletOutline);
+        Assert.Equal("deuteranopia", loadedSettings.Value.Gameplay.BulletPalette);
+        Assert.Equal(1.25f, loadedSettings.Value.Gameplay.HudScale);
         Assert.False(loadedSettings.Value.Gameplay.ControllerVibration);
         Assert.Equal("Space", loadedSettings.Value.Input.Fire);
         Assert.Equal("LeftControl", loadedSettings.Value.Input.Focus);
         Assert.Equal("C", loadedSettings.Value.Input.Special);
         Assert.Equal("LeftShift", loadedSettings.Value.Input.Bomb);
+        Assert.Equal("ja", loadedSettings.Value.Locale);
         Assert.Equal(LoadStatus.Loaded, loadedProfile.Status);
         Assert.Equal("gauntlet", loadedProfile.Value.LastGameId);
         Assert.Equal(3400, loadedProfile.Value.HighScores["gauntlet"]);
@@ -152,7 +179,7 @@ public sealed class JsonUserDataStoreTests
 
         var result = new JsonUserDataStore(directory.Path, new RecordingLogger()).LoadSettings();
 
-        Assert.Equal(LoadStatus.Loaded, result.Status);
+        Assert.Equal(LoadStatus.Migrated, result.Status);
         Assert.Equal(2, result.Value.Display.WindowScale);
         Assert.Equal(0.5f, result.Value.Audio.MasterVolume);
     }
@@ -213,7 +240,7 @@ public sealed class JsonUserDataStoreTests
         Assert.Equal(2, result.Value.Display.WindowScale);
         Assert.Equal("LeftControl", result.Value.Input.Focus);
         Assert.Equal("C", result.Value.Input.Special);
-        Assert.Contains("\"schemaVersion\": 2", File.ReadAllText(settingsPath), StringComparison.Ordinal);
+        Assert.Contains("\"schemaVersion\": 3", File.ReadAllText(settingsPath), StringComparison.Ordinal);
     }
 
     [Fact]

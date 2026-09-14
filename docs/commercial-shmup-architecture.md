@@ -626,6 +626,14 @@ Profile schema v2はcategory別best score、clear count、best stage、play coun
 
 `ILeaderboardService`はPlatform境界であり、`LocalLeaderboardService`はcategoryごとにscore降順、同点は先に達成したtimestamp順、さらにrun ID順で安定化する。上限外の低score、重複runを保存せず、entryにはcategory、score breakdown、clear／continue、stage、chain、graze、miss、bomb、continue回数、play time、timestamp、将来のReplay pathを保持する。保存はtemporary fileからのatomic replaceを使い、破損JSONは`.invalid-{UTC timestamp}`へ隔離して空のboardから回復する。保存失敗時は既存fileを維持して`SaveFailed`を返す。
 
+### 8.5 P14実装契約
+
+- `AudioDefinition` v2はcontent pack相対のWAVまたは`tone://frequency/duration` fallback、music／effect／voice category、基準音量、whole-file loop metadata、crossfade、ducking、同時発音上限、priority、cooldown、pitch variationを宣言する。Stage／BossはBGM IDだけを参照し、音声deviceとMonoGame実装はFrameworkに閉じ込める。
+- `AudioCueEngine`はRuntimeの型付き`GameplayEvent`をcueへ変換し、同tickの同一cueを集約する。cue別上限と全体32 voiceのpriority evictionを適用し、missing cueまたはdevice初期化失敗時もsilent backendでSimulationを継続する。BGM、SE、Voiceは独立volumeを持ち、Options変更は即時previewされる。
+- `strings/{locale}.json`は英語catalogを必須fallbackとして読み、日本語／英語を切り替える。必須key欠落はvalidationで拒否し、実行時の未知keyは英語、それもなければkey自体へfallbackして欠落一覧へ記録する。
+- Settings schema v3はlocale、BGM／SE／Voice volume、shake、flash、particle density、background brightness、bullet outline／palette、HUD scaleを永続化する。schema v2以前は既存値を保ったまま安全な既定値を補う。
+- 敵弾outline、item shape、focus markerは色以外の識別情報を維持する。active keyboard／gamepadと現在のbindingをfooterへ表示し、controls、scoring、credits、licensesをタイトル／pause menuから同一入力経路で閲覧できる。
+
 ## 9. Tooling
 
 Definition Editorを段階的に次へ伸ばす。

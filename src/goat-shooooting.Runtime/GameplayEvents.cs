@@ -201,6 +201,12 @@ public sealed record ScoreAwardedEvent(
     string Source,
     string Category) : IGameplayEvent;
 
+public sealed record AudioCueEvent(
+    long Frame,
+    int Sequence,
+    string CueId,
+    int SourceEntityId = 0) : IGameplayEvent;
+
 /// <summary>Collects ordered gameplay facts for the current simulation tick only.</summary>
 public sealed class GameEventBuffer
 {

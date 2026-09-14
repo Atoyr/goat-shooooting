@@ -328,6 +328,7 @@ public sealed class DefinitionCatalog
             EnsureNonNegative(stage.OpeningDuration, $"Stage '{stage.Id}' opening duration");
             EnsureNonNegative(stage.ResultsDuration, $"Stage '{stage.Id}' results duration");
             if (!string.IsNullOrWhiteSpace(stage.NextStageId)) _ = GetStage(stage.NextStageId);
+            ValidateOptionalReference(stage.BgmAudioId, Audio, "audio", $"Stage '{stage.Id}'");
             foreach (var stageEvent in stage.Events)
             {
                 EnsureSchemaV2(stageEvent.SchemaVersion, "stage event", stage.Id);
@@ -504,6 +505,7 @@ public sealed class DefinitionCatalog
             EnsureNotEmpty(boss.DisplayName, $"Boss '{boss.Id}' display name");
             _ = GetEnemy(boss.EnemyId);
             EnsureNonNegative(boss.WarningSeconds, $"Boss '{boss.Id}' warning seconds");
+            ValidateOptionalReference(boss.BgmAudioId, Audio, "audio", $"Boss '{boss.Id}'");
             EnsureNonEmptyList(boss.Phases, $"Boss '{boss.Id}' phases");
             var phaseIds = new HashSet<string>(StringComparer.Ordinal);
             var checkpointIds = new HashSet<string>(StringComparer.Ordinal);
@@ -628,6 +630,22 @@ public sealed class DefinitionCatalog
         {
             EnsureSchemaV2(audio.SchemaVersion, "audio", audio.Id);
             EnsureNotEmpty(audio.AssetId, $"Audio '{audio.Id}' asset id");
+            EnsureKnownValue(audio.Category, new[] { "music", "effect", "voice" }, $"Audio '{audio.Id}' category");
+            EnsureRange(audio.BaseVolume, 0, 1, $"Audio '{audio.Id}' base volume");
+            EnsureNonNegative(audio.CrossfadeSeconds, $"Audio '{audio.Id}' crossfade seconds");
+            EnsureRange(audio.Ducking, 0, 1, $"Audio '{audio.Id}' ducking");
+            EnsureRange(audio.MaximumInstances, 1, 32, $"Audio '{audio.Id}' maximum instances");
+            EnsureRange(audio.Priority, 0, 100, $"Audio '{audio.Id}' priority");
+            EnsureNonNegative(audio.CooldownSeconds, $"Audio '{audio.Id}' cooldown seconds");
+            EnsureRange(audio.PitchVariation, 0, 1, $"Audio '{audio.Id}' pitch variation");
+            if (audio.LoopStartSeconds is { } loopStart)
+                EnsureNonNegative(loopStart, $"Audio '{audio.Id}' loop start");
+            if (audio.LoopEndSeconds is { } loopEnd)
+                EnsurePositive(loopEnd, $"Audio '{audio.Id}' loop end");
+            if (audio.LoopStartSeconds is { } start && audio.LoopEndSeconds is { } end && start >= end)
+                throw new DefinitionValidationException($"Audio '{audio.Id}' loop start must be before loop end.");
+            if (!audio.Loop && (audio.LoopStartSeconds is not null || audio.LoopEndSeconds is not null))
+                throw new DefinitionValidationException($"Audio '{audio.Id}' loop metadata requires loop=true.");
         }
     }
 
@@ -924,9 +942,19 @@ public sealed class DefinitionCatalog
         if (value <= 0 || !float.IsFinite(value)) throw new DefinitionValidationException($"{name} must be a finite value greater than zero.");
     }
 
+    private static void EnsurePositive(double value, string name)
+    {
+        if (value <= 0 || !double.IsFinite(value)) throw new DefinitionValidationException($"{name} must be a finite value greater than zero.");
+    }
+
     private static void EnsureNonNegative(float value, string name)
     {
         if (value < 0 || !float.IsFinite(value)) throw new DefinitionValidationException($"{name} must be a finite value greater than or equal to zero.");
+    }
+
+    private static void EnsureNonNegative(double value, string name)
+    {
+        if (value < 0 || !double.IsFinite(value)) throw new DefinitionValidationException($"{name} must be a finite value greater than or equal to zero.");
     }
 
     private static void EnsureFinite(float value, string name)
