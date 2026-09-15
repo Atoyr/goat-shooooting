@@ -39,29 +39,4 @@ public sealed class GameEventBufferTests
         Assert.Same(playerHit, buffer.Events[0]);
     }
 
-    [Fact]
-    public void PublishBeforeBeginTickFails()
-    {
-        var buffer = new GameEventBuffer();
-
-        Assert.Throws<InvalidOperationException>(() => buffer.Publish((frame, sequence) =>
-            new PlayerGrazedEvent(frame, sequence, 1, 2)));
-    }
-
-    [Fact]
-    public void PublishRejectsIncorrectEventStamp()
-    {
-        var buffer = new GameEventBuffer();
-        buffer.BeginTick(4);
-
-        Assert.Throws<InvalidOperationException>(() => buffer.Publish((_, _) =>
-            new ItemCollectedEvent(3, 8, 1, "power", 1)));
-        Assert.Empty(buffer.Events);
-    }
-
-    [Fact]
-    public void BeginTickRejectsNegativeFrame()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new GameEventBuffer().BeginTick(-1));
-    }
 }

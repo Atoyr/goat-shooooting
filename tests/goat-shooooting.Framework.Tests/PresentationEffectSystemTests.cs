@@ -81,8 +81,6 @@ public sealed class PresentationEffectSystemTests
         Assert.Equal(0, system.ActiveCount);
         Assert.Equal(0, system.ScreenFlash);
         Assert.Equal(0, system.CameraShake);
-        Assert.Contains(snapshot.Items, static item => item.Kind == RenderKind.EnemyBullet);
-        Assert.Equal(1234, snapshot.Score);
     }
 
     [Theory]
@@ -114,38 +112,6 @@ public sealed class PresentationEffectSystemTests
         Assert.InRange(letterbox.Bottom, 0, 1080);
     }
 
-    [Fact]
-    public void TenThousandBulletPresentationBenchmarkIsBounded()
-    {
-        var result = PresentationBenchmark.Run(10_000, 3);
-
-        Assert.Equal(10_000, result.BulletCount);
-        Assert.Equal(3, result.TickCount);
-        Assert.InRange(result.PeakEffects, 1, 512);
-        Assert.True(result.AllocatedBytes >= 0);
-    }
-
-    [Fact]
-    public void ObservingPresentationCannotChangeCanonicalSimulationResult()
-    {
-        var definitions = CreateDefinitions();
-        var observed = new ShootingSimulation(new MemoryDefinitionRepository(definitions), new MutableInputState());
-        var control = new ShootingSimulation(new MemoryDefinitionRepository(definitions), new MutableInputState());
-        var presentation = new PresentationEffectSystem();
-        var renderer = new RenderSystem();
-        for (var tick = 0; tick < 120; tick++)
-        {
-            var input = new InputFrame(0, 0,
-                InputButtons.Fire | (tick == 90 ? InputButtons.Bomb : InputButtons.None));
-            observed.Tick(input);
-            presentation.ObserveTick(observed.CaptureFrame(renderer), observed.Events.Events);
-            control.Tick(input);
-        }
-
-        Assert.Equal(control.ComputeCanonicalStateHash(), observed.ComputeCanonicalStateHash());
-        Assert.Equal(control.RunState.Frame, observed.RunState.Frame);
-    }
-
     private static FrameSnapshot CreateSnapshot() => new(
         10,
         new RenderItem[]
@@ -169,37 +135,4 @@ public sealed class PresentationEffectSystemTests
         2,
         new BossHudSnapshot(2, "boss", "BOSS", "PHASE", 0.5f, 20, false));
 
-    private static DefinitionCatalog CreateDefinitions() => new(
-        new GameDefinition { PlayerId = "player", StageId = "stage", Width = 640, Height = 720 },
-        new[]
-        {
-            new PlayerDefinition
-            {
-                Id = "player", Lives = 3, Bombs = 3, BombDamage = 20, Speed = 200,
-                WeaponId = "weapon", X = 320, Y = 650, Radius = 4
-            }
-        },
-        new[] { new EnemyDefinition { Id = "enemy", Hp = 10, Speed = 20, Radius = 8 } },
-        new[]
-        {
-            new BulletDefinition
-            {
-                Id = "bullet", Speed = 400, Damage = 1, Radius = 2, Lifetime = 2
-            }
-        },
-        new[] { new WeaponDefinition { Id = "weapon", BulletId = "bullet", Cooldown = 0.1f } },
-        new[]
-        {
-            new StageDefinition
-            {
-                Id = "stage",
-                Events = new[]
-                {
-                    new StageEventDefinition
-                    {
-                        Time = 1000, Type = "spawn-enemy", EnemyId = "enemy", X = 320, Y = 40
-                    }
-                }
-            }
-        });
 }

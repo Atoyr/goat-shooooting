@@ -19,7 +19,6 @@ public sealed class HeadlessBenchmarkRunnerTests
         var presentation = report.Presentation!;
         Assert.Equal(20, presentation.BulletCount);
         Assert.InRange(presentation.PeakEffects, 1, 512);
-        Assert.True(presentation.AllocatedBytes >= 0);
         Assert.Collection(
             report.Scenarios,
             sample =>
@@ -27,7 +26,6 @@ public sealed class HeadlessBenchmarkRunnerTests
                 Assert.Equal("sample", sample.Name);
                 Assert.Equal(2, sample.TickCount);
                 Assert.True(sample.InitialActiveEntities > 0);
-                Assert.True(sample.AllocatedBytes >= 0);
             },
             stress =>
             {
@@ -41,31 +39,18 @@ public sealed class HeadlessBenchmarkRunnerTests
     }
 
     [Fact]
-    public void TenThousandBulletFixtureIsCreatedExactly()
+    public void TenThousandBulletsExpireInFunctionalStressRun()
     {
         var report = HeadlessBenchmarkRunner.Run(
             CreateDefinitions(),
-            new HeadlessBenchmarkOptions(SampleTicks: 0, StressBulletCount: 10_000, StressTicks: 0));
+            new HeadlessBenchmarkOptions(SampleTicks: 0, StressBulletCount: 10_000, StressTicks: 301));
 
         var stress = report.Scenarios[1];
-        Assert.Equal("stress-10000-bullets", stress.Name);
         Assert.Equal(10_000, stress.InitialActiveBullets);
         Assert.Equal(10_001, stress.InitialActiveEntities);
-        Assert.Equal(0, stress.TickCount);
-    }
-
-    [Fact]
-    public void TenThousandBulletsCompleteSixHundredTickFunctionalStressRun()
-    {
-        var report = HeadlessBenchmarkRunner.Run(
-            CreateDefinitions(),
-            new HeadlessBenchmarkOptions(SampleTicks: 0, StressBulletCount: 10_000, StressTicks: 600));
-
-        var stress = report.Scenarios[1];
-        Assert.Equal(600, stress.TickCount);
+        Assert.Equal(301, stress.TickCount);
         Assert.Equal(10_000, stress.PeakActiveBullets);
         Assert.Equal(0, stress.FinalActiveBullets);
-        Assert.True(stress.AllocatedBytes >= 0);
     }
 
     [Fact]

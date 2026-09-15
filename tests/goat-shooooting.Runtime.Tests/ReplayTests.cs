@@ -73,15 +73,6 @@ public sealed class ReplayTests
         Assert.False(string.IsNullOrWhiteSpace(exception.Message));
     }
 
-    [Fact]
-    public void RunConfigurationRejectsInvalidTrainingOverrides()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new RunConfiguration("game", 0, isPractice: true, initialLives: 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new RunConfiguration("game", 0, isPractice: true, initialRank: double.NaN));
-    }
-
     private static ReplayDocument ValidReplay() => new()
     {
         Header = new ReplayHeader

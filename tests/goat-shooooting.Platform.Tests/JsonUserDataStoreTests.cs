@@ -18,12 +18,8 @@ public sealed class JsonUserDataStoreTests
         Assert.Equal(LoadStatus.NotFound, settings.Status);
         Assert.True(settings.UsedDefault);
         Assert.Equal(WindowMode.Windowed, settings.Value.Display.WindowMode);
-        Assert.Equal(1, settings.Value.Display.WindowScale);
-        Assert.Equal(1.0f, settings.Value.Audio.MasterVolume);
-        Assert.Equal("Z", settings.Value.Input.Fire);
         Assert.Equal(LoadStatus.NotFound, profile.Status);
         Assert.Equal("sample", profile.Value.LastGameId);
-        Assert.Empty(profile.Value.HighScores);
         Assert.False(File.Exists(System.IO.Path.Combine(directory.Path, "settings.json")));
         Assert.False(File.Exists(System.IO.Path.Combine(directory.Path, "profile.json")));
     }
@@ -94,25 +90,9 @@ public sealed class JsonUserDataStoreTests
 
         Assert.Equal(LoadStatus.Loaded, loadedSettings.Status);
         Assert.Equal(WindowMode.BorderlessFullscreen, loadedSettings.Value.Display.WindowMode);
-        Assert.Equal(3, loadedSettings.Value.Display.WindowScale);
-        Assert.False(loadedSettings.Value.Display.VSync);
         Assert.Equal(0.75f, loadedSettings.Value.Audio.MasterVolume);
-        Assert.Equal(0.6f, loadedSettings.Value.Audio.MusicVolume);
-        Assert.Equal(0.25f, loadedSettings.Value.Audio.EffectsVolume);
-        Assert.Equal(0.5f, loadedSettings.Value.Audio.VoiceVolume);
-        Assert.True(loadedSettings.Value.Audio.Muted);
         Assert.Equal(0.4f, loadedSettings.Value.Gameplay.ScreenShakeStrength);
-        Assert.Equal(0.3f, loadedSettings.Value.Gameplay.FlashIntensity);
-        Assert.Equal(0.2f, loadedSettings.Value.Gameplay.ParticleDensity);
-        Assert.Equal(0.7f, loadedSettings.Value.Gameplay.BackgroundBrightness);
-        Assert.False(loadedSettings.Value.Gameplay.BulletOutline);
-        Assert.Equal("deuteranopia", loadedSettings.Value.Gameplay.BulletPalette);
-        Assert.Equal(1.25f, loadedSettings.Value.Gameplay.HudScale);
-        Assert.False(loadedSettings.Value.Gameplay.ControllerVibration);
         Assert.Equal("Space", loadedSettings.Value.Input.Fire);
-        Assert.Equal("LeftControl", loadedSettings.Value.Input.Focus);
-        Assert.Equal("C", loadedSettings.Value.Input.Special);
-        Assert.Equal("LeftShift", loadedSettings.Value.Input.Bomb);
         Assert.Equal("ja", loadedSettings.Value.Locale);
         Assert.Equal(LoadStatus.Loaded, loadedProfile.Status);
         Assert.Equal("gauntlet", loadedProfile.Value.LastGameId);

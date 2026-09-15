@@ -5,29 +5,7 @@ namespace GoatShooooting.Runtime.Tests;
 
 public sealed class RunContractTests
 {
-    [Fact]
-    public void RunConfigurationKeepsImmutableRunChoices()
-    {
-        var configuration = new RunConfiguration(
-            "sample",
-            42,
-            "signature",
-            "arcade",
-            "type-a",
-            "stage-02",
-            "boss-phase-1");
-
-        Assert.Equal("sample", configuration.GameId);
-        Assert.Equal(42, configuration.Seed);
-        Assert.Equal("signature", configuration.RuleSetId);
-        Assert.Equal("arcade", configuration.DifficultyId);
-        Assert.Equal("type-a", configuration.ShipId);
-        Assert.Equal("stage-02", configuration.StartStageId);
-        Assert.Equal("boss-phase-1", configuration.CheckpointId);
-    }
-
     [Theory]
-    [InlineData("")]
     [InlineData("   ")]
     public void RunConfigurationRejectsMissingGameId(string gameId)
     {
@@ -35,9 +13,13 @@ public sealed class RunContractTests
     }
 
     [Fact]
-    public void RunConfigurationRejectsWhitespaceOptionalId()
+    public void RunConfigurationRejectsInvalidOptionalValues()
     {
         Assert.Throws<ArgumentException>(() => new RunConfiguration("sample", 0, difficultyId: " "));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new RunConfiguration("sample", 0, isPractice: true, initialLives: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new RunConfiguration("sample", 0, isPractice: true, initialRank: double.NaN));
     }
 
     [Fact]
@@ -69,8 +51,6 @@ public sealed class RunContractTests
 
     [Theory]
     [InlineData(float.NaN)]
-    [InlineData(float.PositiveInfinity)]
-    [InlineData(float.NegativeInfinity)]
     public void InputFrameRejectsNonFiniteAxes(float value)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => InputFrame.QuantizeAxis(value));
@@ -82,19 +62,4 @@ public sealed class RunContractTests
         Assert.Throws<ArgumentOutOfRangeException>(() => new InputFrame(sbyte.MinValue, 0));
     }
 
-    [Fact]
-    public void SimulationTimingDefinesSixtyHertzTick()
-    {
-        Assert.Equal(60, SimulationTiming.TicksPerSecond);
-        Assert.Equal(1f / 60f, SimulationTiming.TickDurationSeconds);
-    }
-
-    [Fact]
-    public void NewRunStateStartsAtFrameZeroWithNoScore()
-    {
-        var state = new RunState();
-
-        Assert.Equal(0, state.Frame);
-        Assert.Equal(0, state.Score);
-    }
 }

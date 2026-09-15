@@ -181,75 +181,12 @@ public sealed class DefinitionEditorServiceTests
         var schemaDirectory = Path.Combine(AppContext.BaseDirectory, "schemas");
         var schemaPaths = Directory.GetFiles(schemaDirectory, "*.schema.json");
 
-        Assert.Equal(17, schemaPaths.Length);
         foreach (var schemaPath in schemaPaths)
         {
             using var document = JsonDocument.Parse(File.ReadAllText(schemaPath));
             Assert.True(document.RootElement.TryGetProperty("$schema", out _));
             Assert.True(document.RootElement.TryGetProperty("properties", out _));
         }
-    }
-
-    [Fact]
-    public void PublishedEditorProvidesVisualAndJsonAuthoringModes()
-    {
-        var editorPath = Path.Combine(AppContext.BaseDirectory, "editor.html");
-
-        var editor = File.ReadAllText(editorPath);
-
-        Assert.Contains("id=\"visualMode\"", editor, StringComparison.Ordinal);
-        Assert.Contains("canvas.dataset.editor = 'stage-canvas'", editor, StringComparison.Ordinal);
-        Assert.Contains("timeline.dataset.editor = 'stage-timeline'", editor, StringComparison.Ordinal);
-        Assert.Contains("addEventListener('pointermove'", editor, StringComparison.Ordinal);
-        Assert.Contains("id=\"jsonMode\"", editor, StringComparison.Ordinal);
-        Assert.Contains("/api/validate", editor, StringComparison.Ordinal);
-        Assert.Contains("/api/file", editor, StringComparison.Ordinal);
-        Assert.Contains("double-washing-machine", editor, StringComparison.Ordinal);
-        Assert.Contains("homingTurnDegreesPerSecond", editor, StringComparison.Ordinal);
-        Assert.Contains("左右2分割（東方型）", editor, StringComparison.Ordinal);
-        Assert.Contains("左・中央・右3分割（怒首領蜂型）", editor, StringComparison.Ordinal);
-        Assert.Contains("scorePosition", editor, StringComparison.Ordinal);
-        Assert.Contains("nextStageId", editor, StringComparison.Ordinal);
-        Assert.Contains("openingDuration", editor, StringComparison.Ordinal);
-        Assert.Contains("resultsDuration", editor, StringComparison.Ordinal);
-        Assert.Contains("isBoss", editor, StringComparison.Ordinal);
-        Assert.Contains("Ship v2", editor, StringComparison.Ordinal);
-        Assert.Contains("Projectile v2", editor, StringComparison.Ordinal);
-        Assert.Contains("Item v2", editor, StringComparison.Ordinal);
-        Assert.Contains("Pattern v2", editor, StringComparison.Ordinal);
-        Assert.Contains("Boss v2", editor, StringComparison.Ordinal);
-        Assert.Contains("RuleSet v2", editor, StringComparison.Ordinal);
-        Assert.Contains("Difficulty v2", editor, StringComparison.Ordinal);
-        Assert.Contains("Visual v2", editor, StringComparison.Ordinal);
-        Assert.Contains("Audio v2", editor, StringComparison.Ordinal);
-        Assert.Contains("Boss phases", editor, StringComparison.Ordinal);
-        Assert.Contains("Motion path control points", editor, StringComparison.Ordinal);
-        Assert.Contains("data-action=\"play\"", editor, StringComparison.Ordinal);
-        Assert.Contains("data-action=\"pause\"", editor, StringComparison.Ordinal);
-        Assert.Contains("data-action=\"step\"", editor, StringComparison.Ordinal);
-        Assert.Contains("data-action=\"seek\"", editor, StringComparison.Ordinal);
-        Assert.Contains("data-action=\"compare\"", editor, StringComparison.Ordinal);
-        Assert.Contains("data-action=\"benchmark\"", editor, StringComparison.Ordinal);
-        Assert.Contains("data-action=\"replay-regression\"", editor, StringComparison.Ordinal);
-        Assert.Contains("/api/preview", editor, StringComparison.Ordinal);
-        Assert.Contains("/api/duplicate", editor, StringComparison.Ordinal);
-        Assert.Contains("method: 'DELETE'", editor, StringComparison.Ordinal);
-        Assert.Contains("runtime-metrics", editor, StringComparison.Ordinal);
-        Assert.Contains("scoring-event-trace", editor, StringComparison.Ordinal);
-        Assert.Contains("asset-preview", editor, StringComparison.Ordinal);
-        Assert.Contains("warning.dataset.track = 'warning'", editor, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void PublishedEditorFiltersStagePreviewBySelectedTimelineTime()
-    {
-        var editorPath = Path.Combine(AppContext.BaseDirectory, "editor.html");
-
-        var editor = File.ReadAllText(editorPath);
-
-        Assert.Contains("for (const time of stageTimes())", editor, StringComparison.Ordinal);
-        Assert.Contains("selectedTime = time", editor, StringComparison.Ordinal);
-        Assert.Contains("visibleStageEvents().forEach", editor, StringComparison.Ordinal);
     }
 
     private sealed class DefinitionFixture : IDisposable

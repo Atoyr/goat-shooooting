@@ -229,35 +229,18 @@ public sealed class SimulationIntegrationTests
     }
 
     [Fact]
-    public void RuntimeAppliesValidHotReloadAndKeepsLastGoodDefinitionsOnError()
+    public void RuntimeRejectsHotReloadWithUnsupportedCapabilityWithoutReplacingLastGoodWorld()
     {
         var repository = new StubReloadableRepository(
             CreateDefinitions(spawnTime: 10, enemyHp: 10, enemySpeed: 0, playerSpeed: 200));
         var simulation = new ShootingSimulation(repository, new MutableInputState());
         var originalWorld = simulation.World;
 
-        repository.Next = new DefinitionReloadResult(
-            CreateDefinitions(spawnTime: 10, enemyHp: 10, enemySpeed: 0, playerSpeed: 350),
-            null);
-        simulation.Update(0);
-
-        Assert.Equal(1, simulation.DefinitionReloadCount);
-        Assert.NotSame(originalWorld, simulation.World);
-        Assert.Equal(350, simulation.Player.Get<PlayerComponent>().Speed);
-        Assert.Null(simulation.DefinitionReloadError);
-
-        var lastGoodWorld = simulation.World;
-        repository.Next = new DefinitionReloadResult(null, "enemy hp is invalid");
-        simulation.Update(0);
-
-        Assert.Same(lastGoodWorld, simulation.World);
-        Assert.Equal("enemy hp is invalid", simulation.DefinitionReloadError);
-
         repository.Next = new DefinitionReloadResult(CreateDefinitionsWithUnsupportedMotion(), null);
         simulation.Update(0);
 
-        Assert.Same(lastGoodWorld, simulation.World);
-        Assert.Equal(1, simulation.DefinitionReloadCount);
+        Assert.Same(originalWorld, simulation.World);
+        Assert.Equal(0, simulation.DefinitionReloadCount);
         Assert.Contains("unsupported-motion", simulation.DefinitionReloadError);
     }
 

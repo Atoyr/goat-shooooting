@@ -31,23 +31,20 @@ public sealed class DefinitionV2Tests
         new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
 
         Assert.Equal("commercial", catalog.Game.Id);
-        Assert.Equal("ship-a", catalog.GetShip("ship-a").Id);
-        Assert.Equal("shot", catalog.GetProjectile("shot").Id);
-        Assert.Equal("power-small", catalog.GetItem("power-small").Id);
+        Assert.Single(catalog.Ships);
+        Assert.Single(catalog.Projectiles);
+        Assert.Single(catalog.Items);
+        Assert.Equal(2, catalog.Patterns.Count);
+        Assert.Single(catalog.Bosses);
+        Assert.Equal(2, catalog.RuleSets.Count);
+        Assert.Equal(3, catalog.Difficulties.Count);
+        Assert.Equal(3, catalog.Visuals.Count);
+        Assert.Single(catalog.Audio);
         Assert.Equal(2, catalog.GetEnemy("enemy").DropTable[0].Count);
-        Assert.Equal("motion-a", catalog.GetEnemy("enemy").MotionPatternId);
-        Assert.Equal(new[] { "attack-a" }, catalog.GetEnemy("enemy").AttackPatternIds);
         Assert.Equal(20, catalog.GetShip("ship-a").PowerLossOnDeath);
         Assert.Equal(new long[] { 100000, 300000 }, catalog.GetRuleSet("rules").ExtendScoreThresholds);
-        Assert.Equal("motion-a", catalog.GetPattern("motion-a").Id);
-        Assert.Equal("boss-a", catalog.GetBoss("boss-a").Id);
-        Assert.Equal("rules", catalog.GetRuleSet("rules").Id);
         Assert.Equal("time-attack", catalog.GetRuleSet("sprint").ClearCondition);
-        Assert.Equal(3, catalog.Difficulties.Count);
         Assert.Equal(new[] { "forgiving" }, catalog.GetDifficulty("novice").PatternTags);
-        Assert.Equal("arcade", catalog.GetDifficulty("arcade").Id);
-        Assert.Equal("ship-visual", catalog.GetVisual("ship-visual").Id);
-        Assert.Equal("shot-sound", catalog.GetAudio("shot-sound").Id);
     }
 
     [Fact]

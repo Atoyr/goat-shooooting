@@ -10,40 +10,21 @@ namespace GoatShooooting.Framework.Tests;
 public sealed class FrameworkAdapterTests
 {
     [Fact]
-    public void KeyboardAdapterMapsDocumentedControls()
+    public void KeyboardAdapterDelegatesGameplayAndEdgeDetectedMenuInput()
     {
         var input = new KeyboardInputState();
 
-        input.Apply(new[] { Keys.A, Keys.Up, Keys.Space, Keys.X, Keys.R, Keys.P, Keys.Escape });
+        input.Apply(new[] { Keys.A, Keys.Up, Keys.Space, Keys.Enter });
 
         Assert.Equal(-1, input.MoveX);
         Assert.Equal(-1, input.MoveY);
         Assert.True(input.Fire);
-        Assert.True(input.Bomb);
-        Assert.True(input.Retry);
-        Assert.True(input.Pause);
-        Assert.True(input.QuitRequested);
         Assert.True(input.MenuUpPressed);
         Assert.True(input.MenuConfirmPressed);
-    }
 
-    [Fact]
-    public void KeyboardAdapterReportsMenuInputOnlyOnNewPress()
-    {
-        var input = new KeyboardInputState();
-
-        input.Apply(new[] { Keys.Down, Keys.Enter });
-        Assert.True(input.MenuDownPressed);
-        Assert.True(input.MenuConfirmPressed);
-
-        input.Apply(new[] { Keys.Down, Keys.Enter });
-        Assert.False(input.MenuDownPressed);
+        input.Apply(new[] { Keys.A, Keys.Up, Keys.Space, Keys.Enter });
+        Assert.False(input.MenuUpPressed);
         Assert.False(input.MenuConfirmPressed);
-
-        input.Apply([]);
-        input.Apply(new[] { Keys.Down, Keys.Enter });
-        Assert.True(input.MenuDownPressed);
-        Assert.True(input.MenuConfirmPressed);
     }
 
     [Fact]

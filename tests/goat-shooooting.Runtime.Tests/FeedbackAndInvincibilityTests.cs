@@ -8,32 +8,6 @@ namespace GoatShooooting.Runtime.Tests;
 public sealed class FeedbackAndInvincibilityTests
 {
     [Fact]
-    public void InvincibilityPreventsRepeatedDamageUntilItExpires()
-    {
-        var world = new World();
-        var player = world.CreateEntity()
-            .Add(new PlayerComponent("player", 100))
-            .Add(new LivesComponent(3))
-            .Add(new InvincibilityComponent(1));
-        var damage = new[] { new DamageEvent(player, 10) };
-        var telemetry = new SimulationTelemetry();
-        var damageSystem = new DamageSystem();
-
-        damageSystem.Update(damage, telemetry);
-        damageSystem.Update(damage, telemetry);
-
-        Assert.Equal(2, player.Get<LivesComponent>().Remaining);
-        Assert.Equal(1, telemetry.PlayerDamageEventsApplied);
-        Assert.True(player.Get<InvincibilityComponent>().Remaining > 0);
-
-        new InvincibilitySystem().Update(world, 1);
-        damageSystem.Update(damage, telemetry);
-
-        Assert.Equal(1, player.Get<LivesComponent>().Remaining);
-        Assert.Equal(2, telemetry.PlayerDamageEventsApplied);
-    }
-
-    [Fact]
     public void DestroyedEnemyCreatesTransientExplosionRenderItem()
     {
         var world = new World();

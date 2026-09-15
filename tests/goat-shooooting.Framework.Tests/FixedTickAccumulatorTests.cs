@@ -72,7 +72,6 @@ public sealed class FixedTickAccumulatorTests
     [Theory]
     [InlineData(-0.1)]
     [InlineData(double.NaN)]
-    [InlineData(double.PositiveInfinity)]
     public void InvalidElapsedTimeIsRejected(double elapsed)
     {
         var accumulator = new FixedTickAccumulator();

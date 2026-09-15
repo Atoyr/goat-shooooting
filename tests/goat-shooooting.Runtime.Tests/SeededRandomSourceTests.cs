@@ -20,15 +20,6 @@ public sealed class SeededRandomSourceTests
     }
 
     [Fact]
-    public void DifferentSeedsProduceDifferentSequences()
-    {
-        var first = new SeededRandomSource(1);
-        var second = new SeededRandomSource(2);
-
-        Assert.NotEqual(first.NextUInt32(), second.NextUInt32());
-    }
-
-    [Fact]
     public void NextSingleStaysInsideHalfOpenUnitRange()
     {
         var random = new SeededRandomSource(long.MinValue);

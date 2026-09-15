@@ -88,6 +88,18 @@ public sealed class PlayerLifeCycleAndItemSystemTests
         Assert.Equal(2, player.Get<BombComponent>().Remaining);
         Assert.Single(events.Events.OfType<PlayerRespawnedEvent>());
         Assert.Single(new RenderSystem().Capture(world).Where(item => item.Kind == RenderKind.Player));
+        Assert.Empty(system.ResolveHits(
+            world,
+            new[] { new DamageEvent(player, 1, 43) },
+            projectiles,
+            Rules(),
+            autoBombEnabled: false,
+            bombEffectRadius: 100,
+            new BombSystem(),
+            runState,
+            telemetry,
+            events));
+        Assert.Equal(1, player.Get<LivesComponent>().Remaining);
         system.Advance(world, 0.3f, telemetry, events);
         Assert.Equal(PlayerLifeCycleState.Active, player.Get<PlayerLifeCycleComponent>().State);
     }
@@ -240,21 +252,6 @@ public sealed class PlayerLifeCycleAndItemSystemTests
         Assert.Single(events.Events.OfType<ExtendAwardedEvent>()
             .Where(award => award.Source == "score"));
         Assert.Single(runState.ClaimedExtendThresholds);
-    }
-
-    [Fact]
-    public void ManualBombWinsSameTickRaceWithProjectileHit()
-    {
-        var simulation = CreateSimulation(autoBomb: false, credits: 0);
-        simulation.Projectiles.QueueSpawn(EnemyProjectile(simulation.Player.Get<TransformComponent>().Position));
-        simulation.Projectiles.CommitSpawns();
-        var lives = simulation.Player.Get<LivesComponent>().Remaining;
-
-        simulation.Tick(new InputFrame(0, 0, InputButtons.Bomb));
-
-        Assert.Equal(lives, simulation.Player.Get<LivesComponent>().Remaining);
-        Assert.Equal(BombUsageKind.Manual, Assert.Single(simulation.Events.Events.OfType<BombUsedEvent>()).Kind);
-        Assert.Empty(simulation.Events.Events.OfType<PlayerHitEvent>());
     }
 
     [Fact]
