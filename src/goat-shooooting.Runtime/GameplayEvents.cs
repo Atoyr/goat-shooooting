@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace GoatShooooting.Runtime;
 
 public interface IGameplayEvent
@@ -115,7 +117,14 @@ public sealed record BombUsedEvent(
     long Frame,
     int Sequence,
     int PlayerEntityId,
-    BombUsageKind Kind = BombUsageKind.Manual) : IGameplayEvent;
+    BombUsageKind Kind = BombUsageKind.Manual,
+    float? EffectX = null,
+    float? EffectY = null) : IGameplayEvent
+{
+    public Vector2? EffectPosition => EffectX.HasValue && EffectY.HasValue
+        ? new Vector2(EffectX.Value, EffectY.Value)
+        : null;
+}
 
 public sealed record TargetsLockedEvent(
     long Frame,

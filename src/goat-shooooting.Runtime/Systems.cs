@@ -468,6 +468,7 @@ public sealed class BulletHitSystem
 public sealed class BombSystem
 {
     private const float EffectDuration = 0.45f;
+    private const float ForwardDropDistanceMultiplier = 1.25f;
     private bool _bombWasPressed;
 
     public IReadOnlyList<DamageEvent> Update(
@@ -477,8 +478,8 @@ public sealed class BombSystem
         SimulationTelemetry telemetry,
         GameEventBuffer? events = null)
     {
-        var player = TryUseBomb(world, input, telemetry, events);
-        if (player is null)
+        var activation = TryUseBomb(world, input, effectRadius, telemetry, events);
+        if (activation is null)
         {
             return Array.Empty<DamageEvent>();
         }
@@ -493,7 +494,7 @@ public sealed class BombSystem
             }
         }
 
-        return CreateEffectAndDamage(world, player, effectRadius);
+        return CreateEffectAndDamage(world, activation.Player, activation.EffectPosition, effectRadius);
     }
 
     public IReadOnlyList<DamageEvent> Update(
@@ -508,22 +509,23 @@ public sealed class BombSystem
     {
         ArgumentNullException.ThrowIfNull(projectiles);
         ArgumentNullException.ThrowIfNull(events);
-        var player = TryUseBomb(
+        var activation = TryUseBomb(
             world,
             input,
+            effectRadius,
             telemetry,
             events,
             bombCost,
             invincibilitySeconds,
             BombUsageKind.Manual);
-        if (player is null)
+        if (activation is null)
         {
             return Array.Empty<DamageEvent>();
         }
 
         ClearEnemyProjectiles(projectiles, telemetry, events);
 
-        return CreateEffectAndDamage(world, player, effectRadius);
+        return CreateEffectAndDamage(world, activation.Player, activation.EffectPosition, effectRadius);
     }
 
     public IReadOnlyList<DamageEvent> UseAutoBomb(
@@ -539,16 +541,18 @@ public sealed class BombSystem
         ArgumentNullException.ThrowIfNull(player);
         var bombs = player.Get<BombComponent>();
         if (bombCost <= 0 || bombs.Remaining < bombCost) return Array.Empty<DamageEvent>();
-        ConsumeBomb(player, bombCost, invincibilitySeconds, BombUsageKind.Auto, telemetry, events);
+        var effectPosition = player.Get<TransformComponent>().Position;
+        ConsumeBomb(player, effectPosition, bombCost, invincibilitySeconds, BombUsageKind.Auto, telemetry, events);
         ClearEnemyProjectiles(projectiles, telemetry, events);
-        return CreateEffectAndDamage(world, player, effectRadius);
+        return CreateEffectAndDamage(world, player, effectPosition, effectRadius);
     }
 
     public void Reset(bool bombPressed) => _bombWasPressed = bombPressed;
 
-    private Entity? TryUseBomb(
+    private BombActivation? TryUseBomb(
         World world,
         IInputState input,
+        float effectRadius,
         SimulationTelemetry telemetry,
         GameEventBuffer? events,
         int bombCost = 1,
@@ -585,12 +589,14 @@ public sealed class BombSystem
             return null;
         }
 
-        ConsumeBomb(player, bombCost, invincibilitySeconds, kind, telemetry, events);
-        return player;
+        var effectPosition = GetEffectPosition(player, effectRadius, kind);
+        ConsumeBomb(player, effectPosition, bombCost, invincibilitySeconds, kind, telemetry, events);
+        return new BombActivation(player, effectPosition);
     }
 
     private static void ConsumeBomb(
         Entity player,
+        Vector2 effectPosition,
         int bombCost,
         float invincibilitySeconds,
         BombUsageKind kind,
@@ -605,7 +611,13 @@ public sealed class BombSystem
             invincibility.Remaining = Math.Max(invincibility.Remaining, invincibilitySeconds);
         }
 
-        events?.Publish((frame, sequence) => new BombUsedEvent(frame, sequence, player.Id, kind));
+        events?.Publish((frame, sequence) => new BombUsedEvent(
+            frame,
+            sequence,
+            player.Id,
+            kind,
+            effectPosition.X,
+            effectPosition.Y));
     }
 
     internal static void ClearEnemyProjectiles(
@@ -628,12 +640,13 @@ public sealed class BombSystem
     private static IReadOnlyList<DamageEvent> CreateEffectAndDamage(
         World world,
         Entity player,
+        Vector2 effectPosition,
         float effectRadius)
     {
         var bombs = player.Get<BombComponent>();
 
         world.CreateEntity()
-            .Add(new TransformComponent(player.Get<TransformComponent>().Position))
+            .Add(new TransformComponent(effectPosition))
             .Add(new ExplosionComponent(effectRadius, EffectDuration));
 
         return world.Query<EnemyComponent, HealthComponent>()
@@ -641,6 +654,18 @@ public sealed class BombSystem
             .Select(enemy => new DamageEvent(enemy, bombs.Damage))
             .ToArray();
     }
+
+    private static Vector2 GetEffectPosition(Entity player, float effectRadius, BombUsageKind kind)
+    {
+        var playerPosition = player.Get<TransformComponent>().Position;
+        if (kind == BombUsageKind.Auto) return playerPosition;
+
+        return new Vector2(
+            playerPosition.X,
+            Math.Max(0, playerPosition.Y - (effectRadius * ForwardDropDistanceMultiplier)));
+    }
+
+    private sealed record BombActivation(Entity Player, Vector2 EffectPosition);
 }
 
 public sealed class DamageSystem

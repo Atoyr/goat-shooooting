@@ -182,7 +182,9 @@ public sealed class PresentationEffectSystem
             _ => default
         };
         if (count == 0) return;
-        var position = FindPosition(snapshot.Items, entityId);
+        var position = gameplayEvent is BombUsedEvent { EffectPosition: { } effectPosition }
+            ? effectPosition
+            : FindPosition(snapshot.Items, entityId);
         EmitBurst(kind, position, count, radius, lifetime, tint, blend, gameplayEvent.Frame, gameplayEvent.Sequence);
 
         switch (kind)

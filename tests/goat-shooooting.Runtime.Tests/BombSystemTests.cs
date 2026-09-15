@@ -8,6 +8,59 @@ namespace GoatShooooting.Runtime.Tests;
 public sealed class BombSystemTests
 {
     [Fact]
+    public void ManualBombDropsExplosionInFrontOfPlayer()
+    {
+        var definitions = TestDefinitions.Create();
+        var world = new World();
+        var player = new PlayerFactory().Create(world, definitions.GetPlayer("player"));
+        var telemetry = new SimulationTelemetry();
+        var events = new GameEventBuffer();
+        events.BeginTick(0);
+
+        _ = new BombSystem().Update(
+            world,
+            new ProjectileStore(),
+            new MutableInputState { Bomb = true },
+            200,
+            telemetry,
+            events);
+
+        var explosion = Assert.Single(world.Query<ExplosionComponent>());
+        Assert.Equal(new Vector2(0, 50), explosion.Get<TransformComponent>().Position);
+        var used = Assert.Single(events.Events.OfType<BombUsedEvent>());
+        Assert.Equal(BombUsageKind.Manual, used.Kind);
+        Assert.Equal(new Vector2(0, 50), used.EffectPosition);
+        Assert.Equal(1, player.Get<BombComponent>().Remaining);
+    }
+
+    [Fact]
+    public void AutoBombExplodesAtPlayerPosition()
+    {
+        var definitions = TestDefinitions.Create();
+        var world = new World();
+        var player = new PlayerFactory().Create(world, definitions.GetPlayer("player"));
+        var telemetry = new SimulationTelemetry();
+        var events = new GameEventBuffer();
+        events.BeginTick(0);
+
+        _ = new BombSystem().UseAutoBomb(
+            world,
+            new ProjectileStore(),
+            player,
+            200,
+            1,
+            0,
+            telemetry,
+            events);
+
+        var explosion = Assert.Single(world.Query<ExplosionComponent>());
+        Assert.Equal(player.Get<TransformComponent>().Position, explosion.Get<TransformComponent>().Position);
+        var used = Assert.Single(events.Events.OfType<BombUsedEvent>());
+        Assert.Equal(BombUsageKind.Auto, used.Kind);
+        Assert.Equal(player.Get<TransformComponent>().Position, used.EffectPosition);
+    }
+
+    [Fact]
     public void BombWithNoStockDoesNothing()
     {
         var definitions = TestDefinitions.Create(playerBombs: 0);

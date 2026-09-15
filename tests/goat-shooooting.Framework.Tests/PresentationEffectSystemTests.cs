@@ -65,6 +65,28 @@ public sealed class PresentationEffectSystemTests
     }
 
     [Fact]
+    public void BombEffectsUseForwardDropPositionFromEvent()
+    {
+        var system = new PresentationEffectSystem(new PresentationSettings
+        {
+            TrailsEnabled = false
+        });
+        var dropPosition = new Vector2(100, 50);
+
+        system.ObserveTick(CreateSnapshot(), new IGameplayEvent[]
+        {
+            new BombUsedEvent(1, 0, 1, EffectX: dropPosition.X, EffectY: dropPosition.Y)
+        });
+
+        var bombEffects = Enumerable.Range(0, system.ActiveCount)
+            .Select(system.GetEffect)
+            .Where(static effect => effect.Kind == PresentationEffectKind.Bomb)
+            .ToArray();
+        Assert.NotEmpty(bombEffects);
+        Assert.All(bombEffects, effect => Assert.Equal(dropPosition, effect.Position));
+    }
+
+    [Fact]
     public void ZeroPresentationSettingsKeepInformationFallbackAndEmitNoEffects()
     {
         var system = new PresentationEffectSystem(new PresentationSettings
