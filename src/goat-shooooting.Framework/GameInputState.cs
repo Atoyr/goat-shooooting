@@ -34,6 +34,7 @@ public sealed class GameInputState : IInputState, IMenuInput
     public bool RetryPressed { get; private set; }
     public bool Pause { get; private set; }
     public bool PausePressed { get; private set; }
+    public bool PauseMenuPressed { get; private set; }
     public bool ToggleFullscreenPressed { get; private set; }
     public bool QuitRequested { get; private set; }
     public bool UpPressed { get; private set; }
@@ -126,6 +127,7 @@ public sealed class GameInputState : IInputState, IMenuInput
             IsNewGamePadPress(gamePadState, isGamePadConnected, Buttons.A);
         CancelPressed = IsNewPress(keys, _bindings.Cancel) ||
             IsNewGamePadPress(gamePadState, isGamePadConnected, Buttons.B);
+        PauseMenuPressed = PausePressed || IsNewPress(keys, _bindings.Cancel, Keys.Escape);
 
         var gamePadInputDetected = HasGamePadInput(gamePadState, isGamePadConnected, stick);
         if (KeyboardInputDetected)

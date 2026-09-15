@@ -187,7 +187,7 @@ public sealed class ShootingGame : Game
                 return;
             }
 
-            if (_shell.State == GameShellState.Pause && _input.PausePressed)
+            if (_shell.State == GameShellState.Pause && _input.PauseMenuPressed)
             {
                 _simulation.SetPaused(false);
                 _simulationClock.Reset();
@@ -204,12 +204,6 @@ public sealed class ShootingGame : Game
             HandleShellCommand(command);
             UpdateWindowTitle();
             base.Update(gameTime);
-            return;
-        }
-
-        if (_input.QuitRequested)
-        {
-            Exit();
             return;
         }
 
@@ -244,13 +238,19 @@ public sealed class ShootingGame : Game
             _showControllerDisconnectedMessage = false;
         }
 
-        if (!_isReplayPlayback && _input.PausePressed)
+        if (!_isReplayPlayback && _input.PauseMenuPressed)
         {
             _simulation.SetPaused(true);
             _simulationClock.Reset();
             _shell.Pause();
             UpdateWindowTitle();
             base.Update(gameTime);
+            return;
+        }
+
+        if (_input.QuitRequested)
+        {
+            Exit();
             return;
         }
 
@@ -359,7 +359,7 @@ public sealed class ShootingGame : Game
             : _isReplayPlayback && _replayController is { } viewer
             ? $"goat-shooooting — REPLAY {viewer.Speed:F2}X{(viewer.IsPaused ? " — PAUSED" : string.Empty)}"
             : _simulation.IsPaused
-            ? $"goat-shooooting — PAUSED — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — P/START to resume"
+            ? $"goat-shooooting — PAUSED — LIVES {_simulation.Player.Get<LivesComponent>().Remaining} — BOMBS {_simulation.Player.Get<BombComponent>().Remaining} — {_appliedSettings.Input.Pause}/ESC/START to resume"
             : _simulation.Status switch
             {
                 SimulationStatus.GameOver => $"goat-shooooting — GAME OVER — SCORE {_simulation.Telemetry.Score} — R/ENTER/A to retry",
@@ -1214,6 +1214,21 @@ public sealed class ShootingGame : Game
                 new Color(255, 235, 84));
         }
 
+        if (_shell.State == GameShellState.Pause)
+        {
+            DrawCenteredPixelText(
+                spriteBatch,
+                pixel,
+                $"{_strings.Get("hud.stage")} {_frameSnapshot.StageNumber:D2}  " +
+                $"{_strings.Get("hud.score")} {_frameSnapshot.Score:D8}  " +
+                $"{_strings.Get("hud.lives")} {_frameSnapshot.Lives:D2}  " +
+                $"{_strings.Get("hud.bombs")} {_frameSnapshot.Bombs:D2}",
+                centerX,
+                panelTop + 68,
+                1,
+                new Color(190, 205, 225));
+        }
+
         if (_shell.State == GameShellState.Result && _lastRun is { } result)
         {
             var resultLines = new[]
@@ -1297,8 +1312,11 @@ public sealed class ShootingGame : Game
                 ? "PRESS A KEY  ESC OR B CANCEL"
                 : _input.ActiveDevice == ActiveInputDevice.GamePad
                 ? $"{_strings.Get("glyph.gamepad")}  D PAD SELECT  A CONFIRM  B BACK"
-                : $"{_strings.Get("glyph.keyboard")}  {_appliedSettings.Input.Confirm} CONFIRM  " +
-                    $"{_appliedSettings.Input.Cancel} BACK",
+                : _shell.State == GameShellState.Pause
+                    ? $"{_strings.Get("glyph.keyboard")}  ARROWS SELECT  " +
+                        $"{_appliedSettings.Input.Confirm} CONFIRM  {_appliedSettings.Input.Pause}/ESC RESUME"
+                    : $"{_strings.Get("glyph.keyboard")}  {_appliedSettings.Input.Confirm} CONFIRM  " +
+                        $"{_appliedSettings.Input.Cancel} BACK",
             centerX,
             menuLayout.FooterTop,
             1,

@@ -89,6 +89,32 @@ public sealed class GameInputStateTests
     }
 
     [Fact]
+    public void PauseMenuAcceptsPauseOrCancelWithoutRepeatingHeldKeys()
+    {
+        var input = new GameInputState();
+
+        input.Apply(new[] { Keys.Escape }, default, isGamePadConnected: false);
+        Assert.True(input.PauseMenuPressed);
+
+        input.Apply(new[] { Keys.Escape }, default, isGamePadConnected: false);
+        Assert.False(input.PauseMenuPressed);
+
+        input.Apply([], default, isGamePadConnected: false);
+        input.Apply(new[] { Keys.P }, default, isGamePadConnected: false);
+        Assert.True(input.PauseMenuPressed);
+
+        input = new GameInputState();
+        input.Apply([], CreateGamePadState(Buttons.B), isGamePadConnected: true);
+        Assert.True(input.Bomb);
+        Assert.False(input.PauseMenuPressed);
+
+        input = new GameInputState(new InputSettings { Cancel = "Q" });
+        input.Apply(new[] { Keys.Escape }, default, isGamePadConnected: false);
+        Assert.False(input.CancelPressed);
+        Assert.True(input.PauseMenuPressed);
+    }
+
+    [Fact]
     public void LastDeviceChangesOnlyWhenThatDeviceHasInput()
     {
         var input = new GameInputState();

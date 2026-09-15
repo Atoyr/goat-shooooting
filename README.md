@@ -147,9 +147,9 @@ dotnet run --project src/goat-shooooting.Tooling -- release-qa games/sync-drive
 - Left Ctrl: 低速移動／focus shot
 - C: special attack
 - X / Shift: ボム
-- P: ポーズ／再開
+- P／Esc: ポーズメニューを開く（P／Escでも再開）
 - R / Enter: Game Over／Stage Clear後にリトライ
-- Esc: 終了
+- タイトル画面の Esc: 終了
 
 タイトルまたはポーズメニューの `OPTIONS` では日英locale、BGM／SE／Voice音量、画面揺れ、flash、particle密度、背景輝度、敵弾outline／palette、HUD scale、振動、キーボード割り当てを変更できます。音量と視認性は選択中にpreviewされ、変更内容は `OPTIONS` を閉じたときにschema v3設定へ保存されます。変更したいbindingで Enter／A を押してから新しいキーを押してください。Esc／Bで入力待ちをキャンセルでき、左右キーで候補を順送りすることもできます。
 

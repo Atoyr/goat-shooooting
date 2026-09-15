@@ -7,6 +7,35 @@ namespace GoatShooooting.Framework.Tests;
 public sealed class GameShellTests
 {
     [Fact]
+    public void PauseMenuOffersResumeOptionsRetryAndReturnToTitle()
+    {
+        var resumeShell = StartRun(new GameShell(new GameSettings()));
+        resumeShell.Pause();
+        Assert.Equal(["RESUME", "OPTIONS", "RETRY", "TITLE"], resumeShell.MenuItems);
+        Assert.Equal(GameShellCommand.ResumeRun, resumeShell.Update(new MenuInput(confirm: true)));
+
+        var optionsShell = StartRun(new GameShell(new GameSettings()));
+        optionsShell.Pause();
+        optionsShell.Update(new MenuInput(down: true));
+        Assert.Equal(GameShellCommand.None, optionsShell.Update(new MenuInput(confirm: true)));
+        Assert.Equal(GameShellState.Options, optionsShell.State);
+
+        var retryShell = StartRun(new GameShell(new GameSettings()));
+        retryShell.Pause();
+        retryShell.Update(new MenuInput(down: true));
+        retryShell.Update(new MenuInput(down: true));
+        Assert.Equal(GameShellCommand.RetryRun, retryShell.Update(new MenuInput(confirm: true)));
+
+        var titleShell = StartRun(new GameShell(new GameSettings()));
+        titleShell.Pause();
+        titleShell.Update(new MenuInput(down: true));
+        titleShell.Update(new MenuInput(down: true));
+        titleShell.Update(new MenuInput(down: true));
+        Assert.Equal(GameShellCommand.ReturnToTitle, titleShell.Update(new MenuInput(confirm: true)));
+        Assert.Equal(GameShellState.Title, titleShell.State);
+    }
+
+    [Fact]
     public void TitlePauseOptionsResultAndTitleTransitionsAreAvailable()
     {
         var shell = new GameShell(new GameSettings());
