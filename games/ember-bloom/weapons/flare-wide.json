@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "id": "flare-wide",
+  "projectileId": "flare-bolt",
+  "cooldown": 0.08,
+  "actionType": "projectile",
+  "emitters": [{
+    "id": "wide",
+    "projectileId": "flare-bolt",
+    "fireInterval": 0.08,
+    "angleSource": "forward",
+    "distribution": "fan",
+    "projectileCount": 3,
+    "spreadDegrees": 18,
+    "speedMultipliers": [1.0]
+  }]
+}

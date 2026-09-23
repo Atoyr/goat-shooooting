@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "id": "ember-bloom",
+  "defaultRuleSetId": "original",
+  "ruleSetIds": ["original", "score-attack"],
+  "difficultyIds": ["novice", "arcade", "expert"],
+  "shipIds": ["flare-wing"],
+  "stageRouteId": "ember-route",
+  "defaultVariantId": "radiant-bloom",
+  "variantIds": ["radiant-bloom"],
+  "width": 720,
+  "height": 800,
+  "screenLayout": "donpachi",
+  "hudPanelWidth": 210,
+  "scorePosition": "left-panel"
+}

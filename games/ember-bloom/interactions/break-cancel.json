@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 3,
+  "id": "break-cancel",
+  "source": {"team":"player","requiredTags":["shot"],"excludedTags":[],"minimumPower":2,"maximumResistance":2147483647},
+  "target": {"team":"enemy","requiredTags":["bullet"],"excludedTags":["hard"],"minimumPower":0,"maximumResistance":0},
+  "shapeTest": "swept",
+  "priority": 100,
+  "actions": ["destroy-target","emit-projectile-interaction","emit-projectile-cancelled"]
+}

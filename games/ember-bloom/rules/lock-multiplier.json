@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 3,
+  "id": "lock-multiplier",
+  "phase": "post-interaction",
+  "on": "targets-locked",
+  "priority": 40,
+  "actions": [{"op":"award-score","category":"lock","base":100,"multiplier":{"event":"count"}}]
+}

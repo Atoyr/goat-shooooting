@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "id": "solar-bloom-core",
+  "hp": 2200,
+  "speed": 0,
+  "radius": 32,
+  "score": 18000,
+  "dropTable": [
+    {"itemId":"ember-shard","count":16,"chance":1.0,"scatterSpeed":120},
+    {"itemId":"score-spark","count":12,"chance":1.0,"scatterSpeed":100}
+  ]
+}

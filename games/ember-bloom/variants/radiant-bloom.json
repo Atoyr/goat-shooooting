@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 3,
+  "id": "radiant-bloom",
+  "bindings": [{"slotId":"boss.seed","programId":"seed-bloom","parameterSetId":"radiant-seed"}],
+  "ruleBindings": []
+}

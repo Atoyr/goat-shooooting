@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 2,
+  "id": "boss-attack-one",
+  "kind": "attack",
+  "commands": [
+    {"type":"repeat","parameters":{},"patternId":"boss-cycle-one","repeatCount":32,"maximumSpawnCount":0,"difficultyTags":[]}
+  ]
+}

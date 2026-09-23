@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "id": "boss-petal-ring",
+  "projectileId": "ember-hard",
+  "cooldown": 0.45,
+  "actionType": "projectile",
+  "emitters": [{
+    "id": "petal-ring",
+    "projectileId": "ember-hard",
+    "fireInterval": 0.45,
+    "angleSource": "rotating",
+    "distribution": "ring",
+    "projectileCount": 14,
+    "spreadDegrees": 360,
+    "rotationDegreesPerShot": 9,
+    "speedMultipliers": [0.68, 0.88, 1.08]
+  }]
+}

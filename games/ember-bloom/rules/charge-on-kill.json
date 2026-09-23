@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 3,
+  "id": "charge-on-kill",
+  "phase": "post-interaction",
+  "on": "enemy-destroyed",
+  "priority": 20,
+  "actions": [{"op":"add-resource","resourceId":"gauge","value":10}]
+}

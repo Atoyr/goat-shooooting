@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 2,
+  "id": "boss-attack-two",
+  "kind": "attack",
+  "commands": [
+    {"type":"repeat","parameters":{},"patternId":"boss-cycle-two","repeatCount":48,"maximumSpawnCount":0,"difficultyTags":[]}
+  ]
+}

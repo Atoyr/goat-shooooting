@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 2,
+  "id": "flare-lock",
+  "actionType": "lock-on",
+  "emitters": [{
+    "id": "lock-stream",
+    "projectileId": "flare-lance",
+    "fireInterval": 0.16,
+    "angleSource": "current-heading",
+    "distribution": "single",
+    "projectileCount": 1,
+    "speedMultipliers": [1.0]
+  }],
+  "lockOn": {
+    "maximumTargets": 8,
+    "range": 750,
+    "fireMode": "continuous",
+    "trigger": "fire",
+    "holdDelaySeconds": 0.12,
+    "acquisitionAngleDegrees": 100,
+    "movementSpeedMultiplier": 0.72,
+    "fireFromOptions": false
+  }
+}

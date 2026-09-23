@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "id": "ember-soft",
+  "speed": 145,
+  "damage": 1,
+  "hitRadius": 5,
+  "lifetime": 9,
+  "visualId": "ember-soft-visual",
+  "tags": ["bullet"],
+  "interactionResistance": 0,
+  "cancelResistance": "soft",
+  "behavior": { "type": "straight", "parameters": {} }
+}

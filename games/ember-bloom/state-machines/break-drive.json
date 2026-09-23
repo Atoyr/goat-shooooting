@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 3,
+  "id": "break-drive",
+  "scope": "player",
+  "resourceId": "gauge",
+  "initialStateId": "idle",
+  "activationAction": "special",
+  "states": [
+    {
+      "id": "idle",
+      "allowedActions": ["fire", "special", "bomb"],
+      "transitions": [{"trigger":"request","targetStateId":"break","resourceCost":50}]
+    },
+    {
+      "id": "break",
+      "drainPerTick": 0.34,
+      "modifiers": [
+        {"statKey":"player.damage","operation":"multiply","value":1.65,"priority":10},
+        {"statKey":"player.fire-interval","operation":"multiply","value":0.72,"priority":10},
+        {"statKey":"interaction.power","operation":"add","value":1,"priority":10},
+        {"statKey":"score.event-multiplier","operation":"multiply","value":2.0,"priority":10}
+      ],
+      "allowedActions": ["fire", "special", "bomb"],
+      "transitions": [
+        {"trigger":"request","targetStateId":"double-break","resourceCost":50,"priority":20},
+        {"trigger":"resource-empty","targetStateId":"idle","priority":10},
+        {"trigger":"bomb-used","targetStateId":"idle","priority":30},
+        {"trigger":"player-died","targetStateId":"idle","priority":30}
+      ]
+    },
+    {
+      "id": "double-break",
+      "drainPerTick": 0.58,
+      "modifiers": [
+        {"statKey":"player.damage","operation":"multiply","value":2.35,"priority":20},
+        {"statKey":"player.fire-interval","operation":"multiply","value":0.52,"priority":20},
+        {"statKey":"interaction.power","operation":"add","value":2,"priority":20},
+        {"statKey":"score.event-multiplier","operation":"multiply","value":3.5,"priority":20}
+      ],
+      "allowedActions": ["fire", "bomb"],
+      "transitions": [
+        {"trigger":"resource-empty","targetStateId":"idle","priority":10},
+        {"trigger":"bomb-used","targetStateId":"idle","priority":30},
+        {"trigger":"player-died","targetStateId":"idle","priority":30}
+      ]
+    }
+  ]
+}

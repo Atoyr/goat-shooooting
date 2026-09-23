@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 2,
+  "id": "bloom-seed",
+  "speed": 105,
+  "damage": 1,
+  "hitRadius": 8,
+  "lifetime": 8,
+  "visualId": "ember-hard-visual",
+  "tags": ["bullet", "seed"],
+  "interactionResistance": 2,
+  "cancelResistance": "hard",
+  "behavior": { "type": "straight", "parameters": {} },
+  "programSlot": {
+    "slotId": "boss.seed",
+    "defaultProgramId": "seed-bloom",
+    "defaultParameterSetId": "radiant-seed"
+  }
+}

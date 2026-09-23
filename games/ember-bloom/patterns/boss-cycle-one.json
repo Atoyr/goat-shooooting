@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 2,
+  "id": "boss-cycle-one",
+  "kind": "attack",
+  "commands": [
+    {"type":"fire","parameters":{"weaponId":"boss-seed"},"repeatCount":1,"maximumSpawnCount":6,"difficultyTags":[]},
+    {"type":"wait","parameters":{"duration":0.8},"repeatCount":1,"maximumSpawnCount":0,"difficultyTags":[]},
+    {"type":"fire","parameters":{"weaponId":"enemy-fan"},"repeatCount":1,"maximumSpawnCount":10,"difficultyTags":[]},
+    {"type":"wait","parameters":{"duration":0.65},"repeatCount":1,"maximumSpawnCount":0,"difficultyTags":[]}
+  ]
+}

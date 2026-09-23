@@ -1,7 +1,7 @@
-SYNC DRIVE Asset Ledger and Redistribution Notice
-=================================================
+Project Asset Ledger and Redistribution Notice
+===============================================
 
-Product asset scope: games/sync-drive and docs/marketing.
+Product asset scope: games/sync-drive, games/ember-bloom, and docs/marketing.
 Ledger date: 2026-09-14.
 
 The following files were created specifically for this repository. No
@@ -46,6 +46,28 @@ music.
 sync-stage.wav   SHA-256 5824ccf72867f046f7886e2a91f0b406b3ed775f19170c64ea342a98e3e289cc
 sync-boss.wav    SHA-256 b620550f731669a2ffee13b7dec25b21ba36c03cd8af7912425970b558907ee8
 sync-special.wav SHA-256 4ae7a389ea40c66c8c7f9356565ed5381e766e0ccf9ffba5d33c383dafb582b8
+
+EMBER BLOOM visual assets (OpenAI built-in image generation)
+-------------------------------------------------------------
+
+Ledger date: 2026-09-23. These files were generated specifically for this
+repository without an input image or third-party visual reference.
+
+games/ember-bloom/assets/ember-bloom-background.png
+SHA-256 2f3307548f4fb3d014a4bcc47d5b1625b6207a9922f37aa47d80713f386672ea
+Prompt: "Original portrait vertical-scrolling cosmic botanical environment;
+luminous solar petals and drifting ash around a calm dark central flight
+corridor; near-black navy, ember orange, gold, and sparse cyan; no ships,
+characters, projectiles, UI, text, logos, trademarks, clover symbols, or
+watermark."
+
+games/ember-bloom/assets/flare-wing.png
+SHA-256 18099fb6c8caa5665b8f237c067897a70d3073ea801afc176a5e0d4d18a8cdda
+Prompt: "Original top-down orthographic Flare Wing player spacecraft; compact
+solar-petal silhouette, dark graphite hard surface, ember-orange and gold
+energy seams, tiny cyan accents, transparent background; no text, logo,
+letters, watermark, clover symbol, or resemblance to an existing named game
+ship."
 
 Runtime and middleware notices are in THIRD-PARTY-NOTICES.txt and the .NET
 license files included by build/Publish-Game.ps1.

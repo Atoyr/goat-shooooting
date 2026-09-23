@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "id": "flare-focus",
+  "projectileId": "flare-bolt",
+  "cooldown": 0.055,
+  "actionType": "projectile",
+  "emitters": [{
+    "id": "focus",
+    "projectileId": "flare-bolt",
+    "fireInterval": 0.055,
+    "angleSource": "forward",
+    "distribution": "fan",
+    "projectileCount": 2,
+    "spreadDegrees": 4,
+    "speedMultipliers": [1.0]
+  }]
+}

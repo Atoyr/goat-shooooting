@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "textures": [
+    {"id":"ember-background-texture","path":"assets/ember-bloom-background.png"},
+    {"id":"flare-wing-texture","path":"assets/flare-wing.png"}
+  ],
+  "sprites": [
+    {"id":"flare-wing","textureId":"flare-wing-texture","x":0,"y":0,"width":1254,"height":1254,"displayWidth":54,"displayHeight":54,"layer":20},
+    {"id":"flare-shot","textureId":"flare-wing-texture","x":625,"y":500,"width":4,"height":4,"displayWidth":5,"displayHeight":13,"layer":22},
+    {"id":"ember-soft","textureId":"flare-wing-texture","x":512,"y":525,"width":4,"height":4,"displayWidth":9,"displayHeight":9,"layer":22},
+    {"id":"ember-hard","textureId":"flare-wing-texture","x":625,"y":745,"width":4,"height":4,"displayWidth":12,"displayHeight":12,"layer":22},
+    {"id":"ember-shard","textureId":"flare-wing-texture","x":625,"y":630,"width":8,"height":8,"displayWidth":18,"displayHeight":18,"layer":23},
+    {"id":"ember-garden-image","textureId":"ember-background-texture","x":0,"y":0,"width":1024,"height":1536,"originX":0,"originY":0,"layer":-100}
+  ],
+  "animations": [],
+  "backgrounds": [{
+    "id": "ember-garden",
+    "layers": [{"assetId":"ember-garden-image","scrollY":15,"parallax":0.22,"opacity":0.9,"layer":-100}]
+  }]
+}

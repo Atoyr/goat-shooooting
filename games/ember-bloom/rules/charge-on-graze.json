@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 3,
+  "id": "charge-on-graze",
+  "phase": "post-interaction",
+  "on": "player-grazed",
+  "priority": 10,
+  "actions": [{"op":"add-resource","resourceId":"gauge","value":0.5}]
+}
