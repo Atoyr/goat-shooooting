@@ -24,6 +24,7 @@ public sealed class ShootingGame : Game
     private readonly RunCompletionTracker _runCompletionTracker = new();
     private readonly RenderSystem _renderSystem = new();
     private readonly PresentationEffectSystem _presentation = new();
+    private readonly EntityAnimationClock _entityAnimationClock = new();
     private readonly FixedTickAccumulator _simulationClock = new();
     private ShootingSimulation _simulation;
     private FrameSnapshot _frameSnapshot;
@@ -53,6 +54,7 @@ public sealed class ShootingGame : Game
     private readonly string? _renderScreenshotPath;
     private readonly IStringCatalog _strings;
     private bool _renderScreenshotSaved;
+    private double _presentationTime;
 
     public ShootingGame(IDefinitionRepository definitionRepository)
         : this(definitionRepository, userDataStore: null, settings: new GameSettings())
@@ -255,6 +257,7 @@ public sealed class ShootingGame : Game
         }
 
         var deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        _presentationTime += deltaTime;
         var frameFeedback = default(SimulationFeedback);
         var elapsedSeconds = gameTime.ElapsedGameTime.TotalSeconds;
         if (_isReplayPlayback && _replayController is not null) elapsedSeconds *= _replayController.Speed;
@@ -279,6 +282,8 @@ public sealed class ShootingGame : Game
                     _frameSnapshot = _simulation.CaptureFrame(_renderSystem);
                     _presentation.ObserveTick(_frameSnapshot, _simulation.Events.Events);
                     _audio?.Process(_simulation.Events.Events);
+                    foreach (var cueId in _presentation.AudioCues)
+                        _audio?.Play(cueId, _simulation.RunState.Frame);
                 });
         }
         catch (ReplayException exception)
@@ -540,14 +545,18 @@ public sealed class ShootingGame : Game
         _userDataStore?.SaveProfile(_profile);
     }
 
-    private ShootingSimulation CreateSimulation(IDefinitionRepository repository) => new(
-        repository,
-        _input,
-        RunSelectionConfiguration.Create(_shell, seed: 0));
+    private ShootingSimulation CreateSimulation(IDefinitionRepository repository) =>
+        CreateSimulation(repository, RunSelectionConfiguration.Create(_shell, seed: 0));
 
     private ShootingSimulation CreateSimulation(
         IDefinitionRepository repository,
-        RunConfiguration configuration) => new(repository, _input, configuration);
+        RunConfiguration configuration)
+    {
+        var simulation = new ShootingSimulation(repository, _input, configuration);
+        _presentation.Configure(simulation.CompiledDefinitions.EffectRecipes);
+        _entityAnimationClock.Reset();
+        return simulation;
+    }
 
     private void BeginReplayRecording()
     {
@@ -556,7 +565,8 @@ public sealed class ShootingGame : Game
         _replayRecorder = new ReplayRecorder(
             _simulation.Configuration,
             DefinitionContentHasher.Compute(_simulation.Definitions),
-            DateTimeOffset.UtcNow);
+            DateTimeOffset.UtcNow,
+            compiledContentHash: _simulation.CompiledContentHash);
     }
 
     private void ResetReplayState()
@@ -578,9 +588,14 @@ public sealed class ShootingGame : Game
             _shell.ShowResult();
             return;
         }
+        var replayDefinitions = repository.Load();
+        var replayCompiledDefinitions = new DefinitionCompiler().Compile(
+            replayDefinitions,
+            RuntimeCapabilityRegistry.CreateBuiltIn());
         var load = _replayStore.Load(
             _shell.SelectedReplayPath,
-            DefinitionContentHasher.Compute(repository.Load()));
+            DefinitionContentHasher.Compute(replayDefinitions),
+            replayCompiledDefinitions.ContentHash);
         if (!load.Success)
         {
             _replayError = load.Error ?? "The replay could not be loaded.";
@@ -607,6 +622,7 @@ public sealed class ShootingGame : Game
     private void ResetPresentation()
     {
         _presentation.Reset();
+        _entityAnimationClock.Reset();
         _frameSnapshot = _simulation.CaptureFrame(_renderSystem);
     }
 
@@ -713,10 +729,11 @@ public sealed class ShootingGame : Game
 
     private void UpdateMusic()
     {
-        var cueId = _frameSnapshot.Boss is { DefinitionId.Length: > 0 } boss &&
+        var cueId = _simulation.StagePresentation.MusicCueId ??
+            (_frameSnapshot.Boss is { DefinitionId.Length: > 0 } boss &&
             _simulation.Definitions.Bosses.TryGetValue(boss.DefinitionId, out var definition)
             ? definition.BgmAudioId ?? _simulation.CurrentStage.BgmAudioId
-            : _simulation.CurrentStage.BgmAudioId;
+            : _simulation.CurrentStage.BgmAudioId);
         _audio?.SetMusic(cueId, _simulation.RunState.Frame);
     }
 
@@ -790,7 +807,9 @@ public sealed class ShootingGame : Game
         var pixel = _pixel ?? throw new InvalidOperationException("Content has not been loaded.");
 
         var feedbackShake = _shakeRemaining > 0 ? 5f * (_shakeRemaining / 0.3f) : 0;
-        var shakeMagnitude = Math.Max(feedbackShake, _presentation.CameraShake * 8) *
+        var shakeMagnitude = Math.Max(
+            Math.Max(feedbackShake, _presentation.CameraShake * 8),
+            _simulation.StagePresentation.CameraShake) *
             _appliedSettings.Gameplay.ScreenShakeStrength;
         var shakeOffset = shakeMagnitude > 0
             ? new Vector2(
@@ -798,16 +817,17 @@ public sealed class ShootingGame : Game
                 (Random.Shared.NextSingle() * 2 - 1) * shakeMagnitude)
             : Vector2.Zero;
 
-        var cameraTransform = Matrix.CreateTranslation(
-            _layout.Playfield.X + shakeOffset.X,
-            shakeOffset.Y,
-            0);
+        var stageCamera = _simulation.StagePresentation;
+        var cameraTransform = Matrix.CreateScale(stageCamera.CameraZoom, stageCamera.CameraZoom, 1) *
+            Matrix.CreateTranslation(
+                _layout.Playfield.X + shakeOffset.X + stageCamera.CameraOffset.X,
+                shakeOffset.Y + stageCamera.CameraOffset.Y,
+                0);
         spriteBatch.Begin(
             samplerState: SamplerState.PointClamp,
             transformMatrix: cameraTransform);
         var presentationAlpha = _presentation.HitStopRemaining > 0 ? 0 : _simulationClock.InterpolationAlpha;
-        var animationSeconds = (_simulation.RunState.Frame + presentationAlpha) /
-            SimulationTiming.TicksPerSecond;
+        var animationSeconds = _presentationTime;
         DrawBackground(spriteBatch, animationSeconds);
         DrawEffects(spriteBatch, pixel, PresentationBlendMode.Alpha);
         spriteBatch.End();
@@ -819,8 +839,11 @@ public sealed class ShootingGame : Game
         DrawEffects(spriteBatch, pixel, PresentationBlendMode.Additive);
         spriteBatch.End();
 
+        DrawPostProcessFallback(spriteBatch, pixel);
+
         spriteBatch.Begin(samplerState: SamplerState.PointClamp, transformMatrix: cameraTransform);
         var items = _frameSnapshot.Items;
+        _entityAnimationClock.Retain(items.Select(AnimationClockKey).ToArray());
         foreach (var item in items
                      .OrderBy(item => GetRenderLayer(item, animationSeconds))
                      .ThenBy(static item => item.EntityId))
@@ -948,8 +971,9 @@ public sealed class ShootingGame : Game
 
     private void DrawBackground(SpriteBatch spriteBatch, double animationSeconds)
     {
-        if (_visualAssets is null || string.IsNullOrWhiteSpace(_simulation.CurrentStage.BackgroundId) ||
-            !_visualAssets.TryGetBackground(_simulation.CurrentStage.BackgroundId, out var background))
+        var backgroundId = _simulation.StagePresentation.BackgroundId ?? _simulation.CurrentStage.BackgroundId;
+        if (_visualAssets is null || string.IsNullOrWhiteSpace(backgroundId) ||
+            !_visualAssets.TryGetBackground(backgroundId, out var background))
             return;
         var elapsedSeconds = _simulation.RunState.Frame / (double)SimulationTiming.TicksPerSecond;
         foreach (var layer in background.Layers.OrderBy(static item => item.Layer))
@@ -958,8 +982,10 @@ public sealed class ShootingGame : Game
             var scale = _layout.Playfield.Width / (float)frame.Source.Width;
             var tileWidth = Math.Max(1, (int)MathF.Ceiling(frame.Source.Width * scale));
             var tileHeight = Math.Max(1, (int)MathF.Ceiling(frame.Source.Height * scale));
-            var offsetX = PositiveModulo((float)(elapsedSeconds * layer.ScrollX * layer.Parallax), tileWidth);
-            var offsetY = PositiveModulo((float)(elapsedSeconds * layer.ScrollY * layer.Parallax), tileHeight);
+            var offsetX = PositiveModulo((float)(elapsedSeconds *
+                (layer.ScrollX + _simulation.StagePresentation.ScrollX) * layer.Parallax), tileWidth);
+            var offsetY = PositiveModulo((float)(elapsedSeconds *
+                (layer.ScrollY + _simulation.StagePresentation.ScrollY) * layer.Parallax), tileHeight);
             var tint = Color.White * (layer.Opacity * _appliedSettings.Gameplay.BackgroundBrightness);
             for (var x = (int)offsetX - tileWidth; x < _layout.Playfield.Width; x += tileWidth)
             {
@@ -977,13 +1003,33 @@ public sealed class ShootingGame : Game
     private bool TryResolveVisual(RenderItem item, double animationSeconds, out VisualAssetFrame frame)
     {
         var visualId = item.AnimationId ?? item.VisualId;
+        var entityAnimationSeconds = visualId is null
+            ? animationSeconds
+            : _entityAnimationClock.GetElapsed(AnimationClockKey(item), visualId, animationSeconds);
+        if (visualId is not null)
+        {
+            var separator = visualId.LastIndexOf(':');
+            if (separator > 0 && separator < visualId.Length - 1)
+            {
+                var stateSetId = visualId[..separator];
+                var semanticState = visualId[(separator + 1)..];
+                if (_simulation.Definitions.AnimationStates.TryGetValue(stateSetId, out var stateSet))
+                {
+                    if (!stateSet.States.TryGetValue(semanticState, out visualId))
+                        visualId = stateSet.States[stateSet.DefaultState];
+                }
+            }
+        }
         if (visualId is not null && _simulation.Definitions.Visuals.TryGetValue(visualId, out var visual))
             visualId = visual.AssetId;
         if (_visualAssets is not null && visualId is not null)
-            return _visualAssets.TryGetFrame(visualId, animationSeconds, out frame);
+            return _visualAssets.TryGetFrame(visualId, entityAnimationSeconds, out frame);
         frame = default;
         return false;
     }
+
+    private static long AnimationClockKey(RenderItem item) =>
+        ((long)(int)item.Kind << 32) | (uint)item.EntityId;
 
     private static Color ApplyTint(Color color, uint tint) => new(
         color.R * ((tint >> 24) & 0xff) / 255,
@@ -1028,6 +1074,27 @@ public sealed class ShootingGame : Game
                 DrawCircleOutline(spriteBatch, pixel, effect.Position, radius, color);
             }
         }
+    }
+
+    private void DrawPostProcessFallback(SpriteBatch spriteBatch, Texture2D pixel)
+    {
+        var passes = _presentation.PostProcessPasses;
+        if (passes.Count == 0) return;
+        spriteBatch.Begin(blendState: BlendState.AlphaBlend, samplerState: SamplerState.PointClamp);
+        foreach (var pass in passes.OrderBy(static value => value.Key, StringComparer.Ordinal))
+        {
+            var intensity = Math.Clamp(pass.Value, 0, 1);
+            var color = pass.Key switch
+            {
+                "bloom" => Color.White * (intensity * 0.08f),
+                "color-grade" => new Color(95, 70, 155) * (intensity * 0.12f),
+                "distortion" => new Color(70, 160, 210) * (intensity * 0.06f),
+                "afterimage" => new Color(70, 225, 225) * (intensity * 0.08f),
+                _ => Color.Transparent
+            };
+            if (color.A > 0) spriteBatch.Draw(pixel, _layout.Playfield, color);
+        }
+        spriteBatch.End();
     }
 
     private void DrawGameplayHud(SpriteBatch spriteBatch, Texture2D pixel)

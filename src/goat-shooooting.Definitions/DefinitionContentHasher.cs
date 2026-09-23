@@ -25,6 +25,17 @@ public static class DefinitionContentHasher
         Append(builder, "stages", definitions.Stages.Values, static value => value.Id);
         Append(builder, "rules", definitions.RuleSets.Values, static value => value.Id);
         Append(builder, "difficulties", definitions.Difficulties.Values, static value => value.Id);
+        Append(builder, "programs", definitions.Programs.Values, static value => value.Id);
+        Append(builder, "variants", definitions.Variants.Values, static value => value.Id);
+        Append(builder, "parameter-sets", definitions.ParameterSets.Values, static value => value.Id);
+        Append(builder, "interactions", definitions.Interactions.Values, static value => value.Id);
+        Append(builder, "resources", definitions.Resources.Values, static value => value.Id);
+        Append(builder, "event-rules", definitions.EventRules.Values, static value => value.Id);
+        Append(builder, "state-machines", definitions.StateMachines.Values, static value => value.Id);
+        Append(builder, "actors", definitions.Actors.Values, static value => value.Id);
+        Append(builder, "stage-programs", definitions.StagePrograms.Values, static value => value.Id);
+        Append(builder, "effects", definitions.EffectRecipes.Values, static value => value.Id);
+        Append(builder, "animation-states", definitions.AnimationStates.Values, static value => value.Id);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString()))).ToLowerInvariant();
     }
 
@@ -46,14 +57,66 @@ public static class DefinitionContentHasher
         var resolver = new DefaultJsonTypeInfoResolver();
         resolver.Modifiers.Add(static typeInfo =>
         {
+            if (typeInfo.Type == typeof(GameDefinition))
+            {
+                typeInfo.Properties.First(static property => property.Name == nameof(GameDefinition.DefaultVariantId))
+                    .ShouldSerialize = static (_, value) => value is not null;
+                typeInfo.Properties.First(static property => property.Name == nameof(GameDefinition.VariantIds))
+                    .ShouldSerialize = static (_, value) => value is IReadOnlyList<string> { Count: > 0 };
+            }
+            if (typeInfo.Type == typeof(ProjectileDefinition))
+            {
+                typeInfo.Properties.First(static property => property.Name == nameof(ProjectileDefinition.ProgramSlot))
+                    .ShouldSerialize = static (_, value) => value is not null;
+                typeInfo.Properties.First(static property => property.Name == nameof(ProjectileDefinition.Tags))
+                    .ShouldSerialize = static (_, value) => value is IReadOnlyList<string> { Count: > 0 };
+                typeInfo.Properties.First(static property => property.Name == nameof(ProjectileDefinition.InteractionPower))
+                    .ShouldSerialize = static (_, value) => value is int power && power != 1;
+                typeInfo.Properties.First(static property => property.Name == nameof(ProjectileDefinition.InteractionResistance))
+                    .ShouldSerialize = static (_, value) => value is int resistance && resistance != 0;
+            }
+            if (typeInfo.Type == typeof(LaserWeaponDefinition))
+            {
+                typeInfo.Properties.First(static property => property.Name == nameof(LaserWeaponDefinition.Tags))
+                    .ShouldSerialize = static (_, value) => value is IReadOnlyList<string> { Count: > 0 };
+                typeInfo.Properties.First(static property => property.Name == nameof(LaserWeaponDefinition.InteractionPower))
+                    .ShouldSerialize = static (_, value) => value is int power && power != 1;
+                typeInfo.Properties.First(static property => property.Name == nameof(LaserWeaponDefinition.InteractionResistance))
+                    .ShouldSerialize = static (_, value) => value is int resistance && resistance != 0;
+            }
+            if (typeInfo.Type == typeof(RuleSetDefinition))
+            {
+                foreach (var name in new[]
+                {
+                    nameof(RuleSetDefinition.ResourceIds), nameof(RuleSetDefinition.EventRuleIds),
+                    nameof(RuleSetDefinition.StateMachineIds)
+                })
+                    typeInfo.Properties.First(property => property.Name == name).ShouldSerialize =
+                        static (_, value) => value is IReadOnlyList<string> { Count: > 0 };
+                typeInfo.Properties.First(static property => property.Name == nameof(RuleSetDefinition.BombResourceId))
+                    .ShouldSerialize = static (_, value) => value is not null;
+            }
             if (typeInfo.Type == typeof(StageDefinition))
             {
                 foreach (var name in new[] { nameof(StageDefinition.BackgroundId), nameof(StageDefinition.BgmAudioId) })
                     typeInfo.Properties.First(property => property.Name == name).ShouldSerialize = static (_, _) => false;
+                typeInfo.Properties.First(static property => property.Name == nameof(StageDefinition.StageProgramId))
+                    .ShouldSerialize = static (_, value) => value is not null;
             }
             if (typeInfo.Type == typeof(BossDefinition))
+            {
                 typeInfo.Properties.First(static property => property.Name == nameof(BossDefinition.BgmAudioId))
                     .ShouldSerialize = static (_, _) => false;
+                typeInfo.Properties.First(static property => property.Name == nameof(BossDefinition.ActorId))
+                    .ShouldSerialize = static (_, value) => value is not null;
+            }
+            if (typeInfo.Type == typeof(BossPhaseDefinition))
+            {
+                typeInfo.Properties.First(static property => property.Name == nameof(BossPhaseDefinition.PartSignals))
+                    .ShouldSerialize = static (_, value) => value is IReadOnlyList<PartSignalDefinition> { Count: > 0 };
+                typeInfo.Properties.First(static property => property.Name == nameof(BossPhaseDefinition.Clock))
+                    .ShouldSerialize = static (_, value) => value is string clock && clock != "run-frame";
+            }
         });
         return new JsonSerializerOptions { TypeInfoResolver = resolver };
     }

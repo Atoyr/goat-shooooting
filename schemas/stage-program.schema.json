@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stage Program Definition v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "tracks"],
+  "properties": {
+    "schemaVersion": { "const": 3, "default": 3 },
+    "id": { "type": "string", "minLength": 1 },
+    "endFrame": { "type": ["integer", "null"], "minimum": 1 },
+    "tracks": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "kind", "events"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "kind": { "enum": ["spawn", "environment", "camera", "audio", "ui", "route"], "default": "spawn" },
+          "clock": { "enum": ["run-frame", "world-time"], "default": "run-frame" },
+          "events": {
+            "type": "array",
+            "default": [],
+            "items": {
+              "type": "object",
+              "additionalProperties": true,
+              "required": ["nodeId", "frame", "op"],
+              "properties": {
+                "nodeId": { "type": "string", "minLength": 1 },
+                "frame": { "type": "integer", "minimum": 0 },
+                "op": { "enum": ["spawn-actor", "spawn-formation", "spawn-boss", "spawn-hazard", "set-background", "set-scroll", "set-weather", "set-ground-layer", "camera-pan", "camera-zoom", "camera-shake", "set-world-time-scale", "set-bgm", "stinger", "duck", "warning", "message", "boss-title", "checkpoint", "wait-until-clear", "wait-signal", "clear-stage", "emit-signal"], "default": "spawn-actor" },
+                "durationFrames": { "type": "integer", "minimum": 0, "default": 0 },
+                "timeoutFrames": { "type": "integer", "minimum": 0, "default": 0 },
+                "signalId": { "type": ["string", "null"], "minLength": 1 },
+                "waitForSignalId": { "type": ["string", "null"], "minLength": 1 },
+                "actorId": { "type": "string", "minLength": 1 },
+                "bossId": { "type": "string", "minLength": 1 },
+                "cueId": { "type": "string", "minLength": 1 },
+                "x": { "type": "number" },
+                "y": { "type": "number" },
+                "value": { "type": "number" },
+                "scale": { "type": "number", "minimum": 0, "maximum": 4 },
+                "count": { "type": "integer", "minimum": 1 },
+                "spacingX": { "type": "number" },
+                "spacingY": { "type": "number" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

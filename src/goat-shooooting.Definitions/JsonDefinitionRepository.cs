@@ -38,7 +38,27 @@ public sealed class JsonDefinitionRepository(string rootDirectory) : IDefinition
             ruleSets: ReadAll<RuleSetDefinition>(Path.Combine(_rootDirectory, "rulesets"), requiredSchemaVersion: 2),
             difficulties: ReadAll<DifficultyDefinition>(Path.Combine(_rootDirectory, "difficulties"), requiredSchemaVersion: 2),
             visuals: ReadAll<VisualDefinition>(Path.Combine(_rootDirectory, "visuals"), requiredSchemaVersion: 2),
-            audio: ReadAll<AudioDefinition>(Path.Combine(_rootDirectory, "audio"), requiredSchemaVersion: 2));
+            audio: ReadAll<AudioDefinition>(Path.Combine(_rootDirectory, "audio"), requiredSchemaVersion: 2),
+            programs: ReadAll<ProgramDefinition>(Path.Combine(_rootDirectory, "programs"), requiredSchemaVersion: 3),
+            variants: ReadAll<VariantDefinition>(Path.Combine(_rootDirectory, "variants"), requiredSchemaVersion: 3),
+            parameterSets: ReadAll<ParameterSetDefinition>(
+                Path.Combine(_rootDirectory, "parameter-sets"), requiredSchemaVersion: 3),
+            interactions: ReadAll<InteractionProfileDefinition>(
+                Path.Combine(_rootDirectory, "interactions"), requiredSchemaVersion: 3),
+            resources: ReadAll<ResourceDefinition>(
+                Path.Combine(_rootDirectory, "resources"), requiredSchemaVersion: 3),
+            eventRules: ReadAll<EventRuleDefinition>(
+                Path.Combine(_rootDirectory, "rules"), requiredSchemaVersion: 3),
+            stateMachines: ReadAll<StateMachineDefinition>(
+                Path.Combine(_rootDirectory, "state-machines"), requiredSchemaVersion: 3),
+            actors: ReadAll<ActorDefinition>(
+                Path.Combine(_rootDirectory, "actors"), requiredSchemaVersion: 3),
+            stagePrograms: ReadAll<StageProgramDefinition>(
+                Path.Combine(_rootDirectory, "stage-programs"), requiredSchemaVersion: 3),
+            effectRecipes: ReadAll<EffectRecipeDefinition>(
+                Path.Combine(_rootDirectory, "effects"), requiredSchemaVersion: 3),
+            animationStates: ReadAll<AnimationStateDefinition>(
+                Path.Combine(_rootDirectory, "animation-states"), requiredSchemaVersion: 3));
     }
 
     private static IReadOnlyList<T> ReadAll<T>(

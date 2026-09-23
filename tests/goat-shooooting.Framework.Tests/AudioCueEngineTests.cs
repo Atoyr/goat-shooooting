@@ -68,6 +68,27 @@ public sealed class AudioCueEngineTests
         Assert.Equal(0, engine.ActiveVoiceCount);
     }
 
+    [Fact]
+    public void StageAudioTrackSwitchesMusicPlaysStingerAndDucksWithoutTreatingBgmAsSoundEffect()
+    {
+        using var backend = new RecordingBackend();
+        using var engine = new AudioCueEngine(CreateAssets(
+            Cue("bgm-track", "music", loop: true, ducking: 0.5f),
+            Cue("warning", "effect")), backend, new AudioSettings());
+
+        engine.Process(new IGameplayEvent[]
+        {
+            new StageAudioCueEvent(1, 0, "set-bgm", "bgm-track"),
+            new StageAudioCueEvent(1, 1, "stinger", "warning"),
+            new StageAudioCueEvent(1, 2, "duck", null, 60)
+        });
+        engine.Update(0.25f);
+
+        Assert.Equal("bgm-track", engine.MusicCueId);
+        Assert.Equal(["bgm-track", "warning"], backend.Plays.Select(static play => play.Id));
+        Assert.InRange(backend.Voices[0].Volume, 0.39f, 0.41f);
+    }
+
     private static AudioDefinition Cue(
         string id,
         string category = "effect",

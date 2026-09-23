@@ -58,6 +58,18 @@ public sealed record RankRule(
 /// <summary>Resolved orthogonal modifiers consumed by factories and weapon systems.</summary>
 public sealed class RunModifierState
 {
+    private static readonly StatKeyRegistry StatKeys = StatKeyRegistry.BuiltIn;
+    private static readonly StatKey EnemyHpKey = StatKeys.Resolve(BuiltInStatKeys.EnemyHp);
+    private static readonly StatKey EnemyProjectileSpeedKey = StatKeys.Resolve(BuiltInStatKeys.EnemyProjectileSpeed);
+    private static readonly StatKey EnemyFireIntervalKey = StatKeys.Resolve(BuiltInStatKeys.EnemyFireInterval);
+    private static readonly StatKey EmitterProjectileCountKey = StatKeys.Resolve(BuiltInStatKeys.EmitterProjectileCount);
+    private float _enemyHealthMultiplier = 1;
+    private float _enemyProjectileSpeedMultiplier = 1;
+    private float _enemyFireIntervalMultiplier = 1;
+    private int _additionalEnemyProjectiles;
+    private IReadOnlyList<ModifierProvenance> _compiledProvenance = Array.Empty<ModifierProvenance>();
+    private Func<IReadOnlyList<CompiledModifierSet>> _stateModifiers = static () => Array.Empty<CompiledModifierSet>();
+
     public DifficultyDefinition? Difficulty { get; private set; }
     public RankRule? RankRule { get; private set; }
     public SpecialGaugeRule? SpecialRule { get; private set; }
@@ -68,27 +80,64 @@ public sealed class RunModifierState
         RankRule? rankRule,
         SpecialGaugeRule? specialRule,
         RunState runState)
+        => Configure(
+            difficulty,
+            difficulty is null ? null : ModifierCompiler.CompileDifficulty(difficulty),
+            rankRule,
+            specialRule,
+            runState);
+
+    public void Configure(
+        DifficultyDefinition? difficulty,
+        CompiledModifierSet? difficultyModifiers,
+        RankRule? rankRule,
+        SpecialGaugeRule? specialRule,
+        RunState runState)
     {
         Difficulty = difficulty;
         RankRule = rankRule;
         SpecialRule = specialRule;
         RunState = runState ?? throw new ArgumentNullException(nameof(runState));
+        var baseValues = new Dictionary<StatKey, double>
+        {
+            [EnemyHpKey] = 1,
+            [EnemyProjectileSpeedKey] = 1,
+            [EnemyFireIntervalKey] = 1,
+            [EmitterProjectileCountKey] = 0
+        };
+        var resolution = ModifierResolver.Resolve(
+            baseValues,
+            difficultyModifiers is null ? Array.Empty<CompiledModifierSet>() : new[] { difficultyModifiers },
+            StatKeys);
+        _enemyHealthMultiplier = checked((float)resolution.Get(EnemyHpKey, 1));
+        _enemyProjectileSpeedMultiplier = checked((float)resolution.Get(EnemyProjectileSpeedKey, 1));
+        _enemyFireIntervalMultiplier = checked((float)resolution.Get(EnemyFireIntervalKey, 1));
+        _additionalEnemyProjectiles = checked((int)resolution.Get(EmitterProjectileCountKey));
+        _compiledProvenance = resolution.Provenance;
     }
 
-    public float EnemyHealthMultiplier => Difficulty?.EnemyHpMultiplier ?? 1;
+    public float EnemyHealthMultiplier => _enemyHealthMultiplier;
     public float EnemyProjectileSpeedMultiplier =>
-        (Difficulty?.ProjectileSpeedMultiplier ?? 1) *
-        (1 + ((float)(RunState?.Rank ?? 0) * (RankRule?.BulletSpeedPerRank ?? 0)));
+        checked((float)ResolveState(EnemyProjectileSpeedKey,
+            _enemyProjectileSpeedMultiplier *
+            (1 + ((float)(RunState?.Rank ?? 0) * (RankRule?.BulletSpeedPerRank ?? 0)))));
     public float EnemyFireIntervalMultiplier => Math.Max(
         0.05f,
-        (Difficulty?.FireIntervalMultiplier ?? 1) *
-        (1 - ((float)(RunState?.Rank ?? 0) * (RankRule?.FireRatePerRank ?? 0))));
+        checked((float)ResolveState(EnemyFireIntervalKey,
+            _enemyFireIntervalMultiplier *
+            (1 - ((float)(RunState?.Rank ?? 0) * (RankRule?.FireRatePerRank ?? 0))))));
     public int AdditionalEnemyProjectiles =>
-        (Difficulty?.AdditionalProjectileCount ?? 0) + GetRankProjectileCount();
-    public float PlayerDamageMultiplier => IsSpecialActive ? SpecialRule!.DamageMultiplier : 1;
-    public float PlayerFireIntervalMultiplier => IsSpecialActive ? SpecialRule!.FireIntervalMultiplier : 1;
-    public double ScoreMultiplier => IsSpecialActive ? SpecialRule!.ScoreMultiplier : 1;
+        checked((int)ResolveState(EmitterProjectileCountKey, _additionalEnemyProjectiles + GetRankProjectileCount()));
+    public float PlayerDamageMultiplier => checked((float)ResolveState(
+        StatKeys.Resolve(BuiltInStatKeys.PlayerDamage), IsSpecialActive ? SpecialRule!.DamageMultiplier : 1));
+    public float PlayerFireIntervalMultiplier => checked((float)ResolveState(
+        StatKeys.Resolve(BuiltInStatKeys.PlayerFireInterval), IsSpecialActive ? SpecialRule!.FireIntervalMultiplier : 1));
+    public double ScoreMultiplier => ResolveState(
+        StatKeys.Resolve(BuiltInStatKeys.ScoreEventMultiplier), IsSpecialActive ? SpecialRule!.ScoreMultiplier : 1);
+    public int InteractionPowerBonus => checked((int)Math.Round(ResolveState(
+        StatKeys.Resolve(BuiltInStatKeys.InteractionPower), 0)));
     public bool IsSpecialActive => RunState?.SpecialPhase == SpecialGaugePhase.Active && SpecialRule is not null;
+    public IReadOnlyList<ModifierProvenance> Provenance => BuildProvenance();
 
     public bool IsPatternEnabled(IReadOnlyList<string> tags)
     {
@@ -98,10 +147,67 @@ public sealed class RunModifierState
             tags.Any(tag => Difficulty.PatternTags.Contains(tag, StringComparer.Ordinal));
     }
 
+    public void SetStateModifierProvider(Func<IReadOnlyList<CompiledModifierSet>> provider) =>
+        _stateModifiers = provider ?? throw new ArgumentNullException(nameof(provider));
+
+    private double ResolveState(StatKey key, double baseValue)
+    {
+        var sets = _stateModifiers();
+        if (sets.Count == 0) return baseValue;
+        return ModifierResolver.Resolve(
+            new Dictionary<StatKey, double> { [key] = baseValue }, sets, StatKeys,
+            RunState?.Frame ?? 0).Get(key, baseValue);
+    }
+
     private int GetRankProjectileCount()
     {
         if (RankRule is null || RankRule.AdditionalProjectileEvery <= 0) return 0;
         return Math.Max(0, (int)Math.Floor((RunState?.Rank ?? 0) / RankRule.AdditionalProjectileEvery));
+    }
+
+    private IReadOnlyList<ModifierProvenance> BuildProvenance()
+    {
+        var values = new List<ModifierProvenance>(_compiledProvenance);
+        if (RankRule is not null && RunState is not null)
+        {
+            Add(values, BuiltInStatKeys.EnemyProjectileSpeed, ModifierOperation.Multiply,
+                _enemyProjectileSpeedMultiplier,
+                1 + (RunState.Rank * RankRule.BulletSpeedPerRank),
+                EnemyProjectileSpeedMultiplier, ModifierSourceTier.Rank, "dynamic-rank");
+            var fireOperand = 1 - (RunState.Rank * RankRule.FireRatePerRank);
+            Add(values, BuiltInStatKeys.EnemyFireInterval, ModifierOperation.Multiply,
+                _enemyFireIntervalMultiplier, fireOperand, EnemyFireIntervalMultiplier,
+                ModifierSourceTier.Rank, "dynamic-rank");
+            Add(values, BuiltInStatKeys.EmitterProjectileCount, ModifierOperation.Add,
+                _additionalEnemyProjectiles, GetRankProjectileCount(), AdditionalEnemyProjectiles,
+                ModifierSourceTier.Rank, "dynamic-rank");
+        }
+        if (IsSpecialActive)
+        {
+            Add(values, BuiltInStatKeys.PlayerDamage, ModifierOperation.Multiply, 1,
+                SpecialRule!.DamageMultiplier, PlayerDamageMultiplier, ModifierSourceTier.State, "special-active");
+            Add(values, BuiltInStatKeys.PlayerFireInterval, ModifierOperation.Multiply, 1,
+                SpecialRule.FireIntervalMultiplier, PlayerFireIntervalMultiplier, ModifierSourceTier.State, "special-active");
+            Add(values, BuiltInStatKeys.ScoreEventMultiplier, ModifierOperation.Multiply, 1,
+                SpecialRule.ScoreMultiplier, ScoreMultiplier, ModifierSourceTier.State, "special-active");
+        }
+        if (_stateModifiers().Count > 0)
+        {
+            var keys = StatKeys.Ids.Select(id => StatKeys.Resolve(id)).ToDictionary(static key => key, static _ => 1d);
+            values.AddRange(ModifierResolver.Resolve(keys, _stateModifiers(), StatKeys, RunState?.Frame ?? 0).Provenance);
+        }
+        return Array.AsReadOnly(values.ToArray());
+
+        static void Add(
+            ICollection<ModifierProvenance> output,
+            string statKey,
+            ModifierOperation operation,
+            double before,
+            double operand,
+            double after,
+            ModifierSourceTier tier,
+            string source) => output.Add(new ModifierProvenance(
+                statKey, operation, tier, 0, source, 0, "run", source, before, operand, after));
     }
 }
 
@@ -318,11 +424,16 @@ public sealed class RankSystem
 {
     private readonly RankRule? _rule;
     private readonly BulletFactory _bulletFactory;
+    private readonly CompiledProjectileDefinition? _revengeProjectile;
 
-    private RankSystem(RankRule? rule, RuntimeCapabilityRegistry capabilities)
+    private RankSystem(
+        RankRule? rule,
+        RuntimeCapabilityRegistry capabilities,
+        CompiledProjectileDefinition? revengeProjectile = null)
     {
         _rule = rule;
         _bulletFactory = new BulletFactory(capabilities);
+        _revengeProjectile = revengeProjectile;
     }
 
     public static RankSystem Create(RuleSetDefinition rules, RuntimeCapabilityRegistry capabilities)
@@ -330,6 +441,21 @@ public sealed class RankSystem
         if (rules.RankRule is null) return new RankSystem(null, capabilities);
         var factory = capabilities.RankRules.Resolve(rules.RankRule.Type, $"rulesets/{rules.Id}.json $.rankRule");
         return new RankSystem(factory.Create(rules.RankRule), capabilities);
+    }
+
+    public static RankSystem Create(
+        RuleSetDefinition rules,
+        RuntimeCapabilityRegistry capabilities,
+        CompiledCatalog definitions)
+    {
+        ArgumentNullException.ThrowIfNull(definitions);
+        if (rules.RankRule is null) return new RankSystem(null, capabilities);
+        var factory = capabilities.RankRules.Resolve(rules.RankRule.Type, $"rulesets/{rules.Id}.json $.rankRule");
+        var rule = factory.Create(rules.RankRule);
+        var revengeProjectile = string.IsNullOrWhiteSpace(rule.RevengeProjectileId)
+            ? null
+            : definitions.Get(definitions.ResolveProjectile(rule.RevengeProjectileId));
+        return new RankSystem(rule, capabilities, revengeProjectile);
     }
 
     public RankRule? Rule => _rule;
@@ -379,6 +505,53 @@ public sealed class RankSystem
         SpawnRevengeProjectiles(gameplayEvents, state, world, definitions, projectiles, telemetry);
     }
 
+    public void Observe(
+        IReadOnlyList<IGameplayEvent> gameplayEvents,
+        float deltaTime,
+        RunState state,
+        World world,
+        CompiledCatalog definitions,
+        ProjectileStore projectiles,
+        SimulationTelemetry telemetry,
+        GameEventBuffer output)
+    {
+        ObserveCore(gameplayEvents, deltaTime, state, world, definitions.Source, projectiles, telemetry, output);
+    }
+
+    private void ObserveCore(
+        IReadOnlyList<IGameplayEvent> gameplayEvents,
+        float deltaTime,
+        RunState state,
+        World world,
+        DefinitionCatalog definitions,
+        ProjectileStore projectiles,
+        SimulationTelemetry telemetry,
+        GameEventBuffer output)
+    {
+        if (_rule is null) return;
+        var previous = state.Rank;
+        state.Rank -= _rule.DecayPerSecond * deltaTime;
+        foreach (var gameplayEvent in gameplayEvents.ToArray())
+        {
+            state.Rank += gameplayEvent switch
+            {
+                EnemyDamagedEvent damaged => damaged.Damage * _rule.DamageGain,
+                EnemyDestroyedEvent => _rule.KillGain,
+                PlayerGrazedEvent => _rule.GrazeGain,
+                ProjectileCancelledEvent => _rule.CancelGain,
+                ItemCollectedEvent => _rule.ItemGain,
+                BombUsedEvent => -_rule.BombLoss,
+                PlayerDiedEvent => -_rule.DeathLoss,
+                _ => 0
+            };
+        }
+
+        state.Rank = Math.Clamp(state.Rank, _rule.Minimum, _rule.Maximum);
+        if (state.Rank != previous)
+            output.Publish((frame, sequence) => new RankChangedEvent(frame, sequence, previous, state.Rank));
+        SpawnRevengeProjectiles(gameplayEvents, state, world, definitions, projectiles, telemetry);
+    }
+
     private void SpawnRevengeProjectiles(
         IReadOnlyList<IGameplayEvent> gameplayEvents,
         RunState state,
@@ -399,15 +572,31 @@ public sealed class RankSystem
             for (var index = 0; index < count; index++)
             {
                 var angle = (MathF.PI * 2 * index) / count;
-                _bulletFactory.Create(
-                    projectiles,
-                    definitions.GetProjectile(_rule.RevengeProjectileId),
-                    transform.Position,
-                    new Vector2(MathF.Cos(angle), MathF.Sin(angle)),
-                    CollisionLayer.Enemy,
-                    enemy.Id,
-                    1,
-                    1);
+                var direction = new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+                if (_revengeProjectile is null)
+                {
+                    _bulletFactory.Create(
+                        projectiles,
+                        definitions.GetProjectile(_rule.RevengeProjectileId),
+                        transform.Position,
+                        direction,
+                        CollisionLayer.Enemy,
+                        enemy.Id,
+                        1,
+                        1);
+                }
+                else
+                {
+                    _bulletFactory.Create(
+                        projectiles,
+                        _revengeProjectile,
+                        transform.Position,
+                        direction,
+                        CollisionLayer.Enemy,
+                        enemy.Id,
+                        1,
+                        1);
+                }
                 telemetry.BulletsSpawned++;
                 telemetry.EnemyBulletsSpawned++;
             }
@@ -438,7 +627,10 @@ public readonly record struct RunDebugSnapshot(
     SpecialGaugePhase SpecialPhase,
     int SpecialLevel,
     double SpecialTimeRemaining,
-    double SpecialCooldownRemaining);
+    double SpecialCooldownRemaining)
+{
+    public IReadOnlyList<ModifierProvenance> ModifierProvenance { get; init; } = Array.Empty<ModifierProvenance>();
+}
 
 internal sealed class StandardSpecialGaugeRuleFactory : ISpecialGaugeRuleFactory
 {

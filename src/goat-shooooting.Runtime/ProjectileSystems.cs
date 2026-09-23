@@ -28,9 +28,21 @@ public sealed class ProjectileMovementSystem
             ref var previousPosition = ref projectiles.PreviousPositionAt(index);
             ref var velocity = ref projectiles.VelocityAt(index);
             previousPosition = position;
-            if (projectiles.BehaviorAt(index) == ProjectileBehavior.Homing)
+            var motionKernel = projectiles.MotionKernelAt(index);
+            if (motionKernel == ProjectileMotionKernel.Homing ||
+                projectiles.BehaviorAt(index) == ProjectileBehavior.Homing)
             {
                 UpdateHomingVelocity(projectiles, index, world, position, ref velocity, deltaTime);
+            }
+
+            if (motionKernel == ProjectileMotionKernel.Polar && projectiles.AngularVelocityAt(index) != 0)
+            {
+                velocity = Rotate(velocity, projectiles.AngularVelocityAt(index) * deltaTime);
+            }
+
+            if (motionKernel == ProjectileMotionKernel.VectorAcceleration)
+            {
+                velocity += projectiles.VectorAccelerationAt(index) * deltaTime;
             }
 
             var acceleration = projectiles.AccelerationAt(index);
@@ -112,7 +124,10 @@ public sealed class ProjectileMovementSystem
         var signedAngle = MathF.Atan2(
             (currentDirection.X * desiredDirection.Y) - (currentDirection.Y * desiredDirection.X),
             Vector2.Dot(currentDirection, desiredDirection));
-        var maximumTurn = projectiles.HomingTurnRateAt(projectileIndex) * deltaTime;
+        var turnRate = projectiles.AngularVelocityAt(projectileIndex) != 0
+            ? projectiles.AngularVelocityAt(projectileIndex)
+            : projectiles.HomingTurnRateAt(projectileIndex);
+        var maximumTurn = turnRate * deltaTime;
         velocity = Rotate(currentDirection, Math.Clamp(signedAngle, -maximumTurn, maximumTurn)) * speed;
     }
 
@@ -165,6 +180,8 @@ public sealed class ActorSpatialGrid
 
     public float CellSize { get; }
     public float MaximumInteractionRadius { get; private set; }
+    public bool HasPlayerTargets { get; private set; }
+    public bool HasEnemyTargets { get; private set; }
 
     public void Rebuild(World world)
     {
@@ -175,9 +192,12 @@ public sealed class ActorSpatialGrid
         }
 
         MaximumInteractionRadius = 0;
+        HasPlayerTargets = false;
+        HasEnemyTargets = false;
         foreach (var entity in world.Entities)
         {
             if (entity.Has<PendingDestroyComponent>() ||
+                entity.TryGet<ActorPartComponent>(out var part) && !part.Enabled ||
                 !entity.TryGet<TransformComponent>(out var transform) ||
                 !entity.TryGet<ColliderComponent>(out var collider) ||
                 (entity.TryGet<PlayerLifeCycleComponent>(out var lifeCycle) && !lifeCycle.CanBeHit) ||
@@ -190,6 +210,8 @@ public sealed class ActorSpatialGrid
                 ? Math.Max(collider.Radius, graze.Radius)
                 : collider.Radius;
             MaximumInteractionRadius = Math.Max(MaximumInteractionRadius, interactionRadius);
+            HasPlayerTargets |= collider.Layer == CollisionLayer.Player;
+            HasEnemyTargets |= collider.Layer == CollisionLayer.Enemy;
             var key = GetCell(transform.Position);
             if (!_cells.TryGetValue(key, out var entities))
             {
@@ -205,6 +227,13 @@ public sealed class ActorSpatialGrid
         _cells.TryGetValue((x, y), out var entities) ? entities : null;
 
     internal int GetCellCoordinate(float coordinate) => (int)MathF.Floor(coordinate / CellSize);
+
+    internal bool HasTargets(CollisionLayer layer) => layer switch
+    {
+        CollisionLayer.Player => HasPlayerTargets,
+        CollisionLayer.Enemy => HasEnemyTargets,
+        _ => false
+    };
 
     private (int X, int Y) GetCell(Vector2 position) =>
         (GetCellCoordinate(position.X), GetCellCoordinate(position.Y));
@@ -233,7 +262,15 @@ public sealed class ProjectileCollisionSystem
                 continue;
             }
 
-            DetectProjectile(projectiles, projectileIndex, grid, telemetry, events);
+            var targetLayer = projectiles.TeamAt(projectileIndex) == ProjectileTeam.Player
+                ? CollisionLayer.Enemy
+                : CollisionLayer.Player;
+            if (!projectiles.CanDamageAt(projectileIndex) || !grid.HasTargets(targetLayer))
+            {
+                continue;
+            }
+
+            DetectProjectile(projectiles, projectileIndex, targetLayer, grid, telemetry, events);
         }
 
         return _damageEvents;
@@ -242,6 +279,7 @@ public sealed class ProjectileCollisionSystem
     private void DetectProjectile(
         ProjectileStore projectiles,
         int projectileIndex,
+        CollisionLayer targetLayer,
         ActorSpatialGrid grid,
         SimulationTelemetry telemetry,
         GameEventBuffer events)
@@ -254,13 +292,6 @@ public sealed class ProjectileCollisionSystem
         var maxX = grid.GetCellCoordinate(Math.Max(previous.X, current.X) + searchRadius);
         var minY = grid.GetCellCoordinate(Math.Min(previous.Y, current.Y) - searchRadius);
         var maxY = grid.GetCellCoordinate(Math.Max(previous.Y, current.Y) + searchRadius);
-        var targetLayer = projectiles.TeamAt(projectileIndex) == ProjectileTeam.Player
-            ? CollisionLayer.Enemy
-            : CollisionLayer.Player;
-        if (!projectiles.CanDamageAt(projectileIndex))
-        {
-            return;
-        }
 
         Entity? nearestHit = null;
         var nearestHitTime = float.MaxValue;
@@ -287,11 +318,11 @@ public sealed class ProjectileCollisionSystem
 
                     telemetry.CollisionCandidatesChecked++;
                     var actorPosition = actor.Get<TransformComponent>().Position;
-                    if (IntersectsSweptCircle(
+                    if (ActorCollision.IntersectsSweptProjectile(
+                            actor,
                             previous,
                             current,
-                            actorPosition,
-                            projectileRadius + collider.Radius,
+                            projectileRadius,
                             out var hitTime) &&
                         hitTime < nearestHitTime)
                     {

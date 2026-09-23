@@ -76,7 +76,7 @@ public static class Program
         try
         {
             var catalog = new JsonDefinitionRepository(rootDirectory).Load();
-            new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
+            _ = new DefinitionCompiler().Compile(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
             var report = HeadlessBenchmarkRunner.Run(catalog);
             Console.WriteLine(JsonSerializer.Serialize(report, new JsonSerializerOptions
             {
@@ -102,7 +102,7 @@ public static class Program
         try
         {
             var catalog = new JsonDefinitionRepository(rootDirectory).Load();
-            new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
+            var compiled = new DefinitionCompiler().Compile(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
             var assets = VisualAssetManifestLoader.LoadOptional(rootDirectory, catalog);
             var audio = AudioAssetResolver.Resolve(rootDirectory, catalog);
             var stringsDirectory = Path.Combine(rootDirectory, "strings");
@@ -117,7 +117,8 @@ public static class Program
                     throw new InvalidDataException($"Japanese string catalog is missing: {string.Join(", ", japanese.MissingKeys)}.");
             }
             Console.WriteLine(
-                $"VALID: schema=2, game={catalog.Game.Id}, player={catalog.Game.PlayerId}, " +
+                $"VALID: schemas=1,2,3, compiler={DefinitionCompiler.CompilerContractVersion}, compiledHash={compiled.ContentHash}, " +
+                $"game={catalog.Game.Id}, player={catalog.Game.PlayerId}, " +
                 $"stage={catalog.Game.StageId}, ships={catalog.Ships.Count}, " +
                 $"projectiles={catalog.Projectiles.Count}, enemies={catalog.Enemies.Count}, " +
                 $"weapons={catalog.Weapons.Count}, textures={assets.Textures.Count}, sprites={assets.Sprites.Count}, " +
@@ -201,6 +202,8 @@ public static class Program
             Results.Json(service.Benchmark(request.Path, request.Content))));
         app.MapPost("/api/duplicate", (EditorDuplicateRequest request) => Handle(() =>
             Results.Json(service.Duplicate(request.SourcePath, request.TargetPath, request.NewId))));
+        app.MapPost("/api/rename", (EditorRenameRequest request) => Handle(() =>
+            Results.Json(service.Rename(request.Path, request.NewId))));
         app.MapPut("/api/file", (EditorRequest request) => Handle(() =>
             Results.Json(service.Save(request.Path, request.Content))));
         app.MapDelete("/api/file", (string path) => Handle(() =>
@@ -274,4 +277,5 @@ public static class Program
 
     public sealed record EditorRequest(string Path, string Content);
     public sealed record EditorDuplicateRequest(string SourcePath, string TargetPath, string NewId);
+    public sealed record EditorRenameRequest(string Path, string NewId);
 }

@@ -76,6 +76,18 @@ public sealed class WeaponSystem
         UpdateCore(world, definitions, input, deltaTime, telemetry, projectiles);
     }
 
+    public void Update(
+        World world,
+        CompiledCatalog definitions,
+        IInputState input,
+        float deltaTime,
+        SimulationTelemetry telemetry,
+        ProjectileStore projectiles)
+    {
+        ArgumentNullException.ThrowIfNull(projectiles);
+        _advancedWeaponSystem.Update(world, definitions, input, deltaTime, telemetry, projectiles);
+    }
+
     private void UpdateCore(
         World world,
         DefinitionCatalog definitions,
@@ -297,13 +309,18 @@ public sealed class OutOfBoundsSystem
 public sealed class StageSystem
 {
     private readonly StageDefinition _definition;
+    private readonly CompiledStageDefinition? _compiledDefinition;
     private readonly EnemyFactory _enemyFactory;
     private readonly RuntimeCapabilityRegistry _capabilities;
     private readonly int[] _spawnedCounts;
     private readonly int _bossesKilledAtStart;
+    private readonly StageProgramRuntime? _programRuntime;
+    private readonly FixedWorldClock _compatibilityWorldClock = new();
+    private readonly StagePresentationState _legacyPresentation;
     private readonly HashSet<string> _completedBossIds = new(StringComparer.Ordinal);
     private double _elapsed;
     private long _elapsedTicks;
+    private long _worldFrameAtStart = -1;
 
     public StageSystem(
         StageDefinition definition,
@@ -316,14 +333,33 @@ public sealed class StageSystem
         _capabilities = capabilities ?? RuntimeCapabilityRegistry.CreateBuiltIn();
         _spawnedCounts = new int[definition.Events.Count];
         _bossesKilledAtStart = bossesKilledAtStart;
+        _legacyPresentation = new StagePresentationState { BackgroundId = _definition.BackgroundId };
+    }
+
+    public StageSystem(
+        CompiledStageDefinition definition,
+        EnemyFactory enemyFactory,
+        int bossesKilledAtStart = 0)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        _definition = definition.Definition;
+        _compiledDefinition = definition;
+        _enemyFactory = enemyFactory ?? throw new ArgumentNullException(nameof(enemyFactory));
+        _capabilities = null!;
+        _spawnedCounts = new int[_definition.Events.Count];
+        _bossesKilledAtStart = bossesKilledAtStart;
+        _legacyPresentation = new StagePresentationState { BackgroundId = _definition.BackgroundId };
+        _programRuntime = definition.Program is null ? null : new StageProgramRuntime(
+            definition.Program, _enemyFactory, _definition.BackgroundId);
     }
 
     public double Elapsed => _elapsed;
-    public int BossCount => _definition.Events
+    public int BossCount => _programRuntime?.BossCount ?? _definition.Events
         .Where(static stageEvent => stageEvent.IsBoss)
         .Sum(static stageEvent => stageEvent.Count);
+    public StagePresentationState Presentation => _programRuntime?.Presentation ?? _legacyPresentation;
     internal IReadOnlyCollection<string> CompletedBossIds => _completedBossIds;
-    public bool IsComplete => _definition.Events
+    public bool IsComplete => _programRuntime?.IsComplete ?? _definition.Events
         .Select((stageEvent, index) => _spawnedCounts[index] >= stageEvent.Count)
         .All(static complete => complete);
 
@@ -331,6 +367,7 @@ public sealed class StageSystem
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(telemetry);
+        if (_programRuntime?.ForceClear == true) return true;
         if (_definition.Objectives.Count > 0)
         {
             return IsComplete && _definition.Objectives.All(objective => objective.Type switch
@@ -364,11 +401,87 @@ public sealed class StageSystem
         SpawnDueEvents(world, definitions, telemetry);
     }
 
+    public void Update(World world, CompiledCatalog definitions, float deltaTime, SimulationTelemetry telemetry)
+    {
+        _elapsed += deltaTime;
+        SpawnDueEvents(world, definitions, telemetry);
+    }
+
     public void Tick(World world, DefinitionCatalog definitions, SimulationTelemetry telemetry)
     {
         _elapsedTicks++;
         _elapsed = _elapsedTicks / (double)SimulationTiming.TicksPerSecond;
         SpawnDueEvents(world, definitions, telemetry);
+    }
+
+    public void Tick(World world, CompiledCatalog definitions, SimulationTelemetry telemetry)
+    {
+        _elapsedTicks++;
+        _elapsed = _elapsedTicks / (double)SimulationTiming.TicksPerSecond;
+        if (_programRuntime is not null)
+        {
+            _compatibilityWorldClock.Advance();
+            if (_worldFrameAtStart < 0) _worldFrameAtStart = _compatibilityWorldClock.Frame;
+            var events = new GameEventBuffer();
+            events.BeginTick(_elapsedTicks);
+            _programRuntime.Update(
+                world, definitions, _elapsedTicks - 1, _compatibilityWorldClock.Frame - _worldFrameAtStart,
+                _compatibilityWorldClock, telemetry, events);
+            return;
+        }
+        SpawnDueEvents(world, definitions, telemetry);
+    }
+
+    public void Tick(
+        World world,
+        CompiledCatalog definitions,
+        SimulationTelemetry telemetry,
+        long worldFrame,
+        FixedWorldClock worldClock,
+        GameEventBuffer events)
+    {
+        _elapsedTicks++;
+        _elapsed = _elapsedTicks / (double)SimulationTiming.TicksPerSecond;
+        if (_programRuntime is null)
+        {
+            SpawnDueEvents(world, definitions, telemetry);
+            return;
+        }
+        if (_worldFrameAtStart < 0) _worldFrameAtStart = worldFrame;
+        _programRuntime.Update(
+            world, definitions, _elapsedTicks - 1, worldFrame - _worldFrameAtStart, worldClock, telemetry, events);
+    }
+
+    public StageProgramRuntimeSnapshot? CaptureProgramSnapshot() =>
+        _programRuntime?.CaptureSnapshot();
+
+    internal StageSystemCheckpoint CaptureCheckpoint() => new(
+        _definition,
+        _compiledDefinition,
+        _bossesKilledAtStart,
+        (int[])_spawnedCounts.Clone(),
+        _completedBossIds.Order(StringComparer.Ordinal).ToArray(),
+        _elapsed,
+        _elapsedTicks,
+        _worldFrameAtStart,
+        _compatibilityWorldClock.ScaleQ16,
+        _compatibilityWorldClock.TimeQ16,
+        _programRuntime?.CaptureCheckpoint());
+
+    internal void RestoreCheckpoint(StageSystemCheckpoint checkpoint)
+    {
+        if (checkpoint.SpawnedCounts.Length != _spawnedCounts.Length)
+            throw new InvalidOperationException("Stage checkpoint does not match the active stage.");
+        checkpoint.SpawnedCounts.CopyTo(_spawnedCounts, 0);
+        _completedBossIds.Clear();
+        foreach (var bossId in checkpoint.CompletedBossIds) _completedBossIds.Add(bossId);
+        _elapsed = checkpoint.Elapsed;
+        _elapsedTicks = checkpoint.ElapsedTicks;
+        _worldFrameAtStart = checkpoint.WorldFrameAtStart;
+        _compatibilityWorldClock.Restore(checkpoint.CompatibilityScaleQ16, checkpoint.CompatibilityTimeQ16);
+        if (checkpoint.Program is not null)
+            (_programRuntime ?? throw new InvalidOperationException("Stage checkpoint requires a stage program."))
+                .RestoreCheckpoint(checkpoint.Program);
     }
 
     private void SpawnDueEvents(
@@ -402,7 +515,44 @@ public sealed class StageSystem
             }
         }
     }
+
+    private void SpawnDueEvents(
+        World world,
+        CompiledCatalog definitions,
+        SimulationTelemetry telemetry)
+    {
+        if (_programRuntime is not null) return;
+        var compiledDefinition = _compiledDefinition ?? throw new InvalidOperationException(
+            "A compiled stage system is required for compiled execution.");
+        for (var index = 0; index < compiledDefinition.Events.Count; index++)
+        {
+            var compiledEvent = compiledDefinition.Events[index];
+            var stageEvent = compiledEvent.Definition;
+            while (_spawnedCounts[index] < stageEvent.Count)
+            {
+                var spawnIndex = _spawnedCounts[index];
+                var spawnTime = stageEvent.Time + (spawnIndex * stageEvent.SpawnInterval);
+                if (spawnTime > _elapsed) break;
+                compiledEvent.Handler.Execute(world, definitions, compiledEvent, spawnIndex, _enemyFactory);
+                _spawnedCounts[index]++;
+                telemetry.EnemiesSpawned++;
+            }
+        }
+    }
 }
+
+internal sealed record StageSystemCheckpoint(
+    StageDefinition Definition,
+    CompiledStageDefinition? CompiledDefinition,
+    int BossesKilledAtStart,
+    int[] SpawnedCounts,
+    IReadOnlyList<string> CompletedBossIds,
+    double Elapsed,
+    long ElapsedTicks,
+    long WorldFrameAtStart,
+    int CompatibilityScaleQ16,
+    long CompatibilityTimeQ16,
+    StageProgramCheckpoint? Program);
 
 public readonly record struct CollisionPair(Entity Bullet, Entity Target);
 
@@ -471,6 +621,9 @@ public sealed class BombSystem
     private const float ForwardDropDistanceMultiplier = 1.25f;
     private bool _bombWasPressed;
 
+    internal bool CaptureCheckpoint() => _bombWasPressed;
+    internal void RestoreCheckpoint(bool value) => _bombWasPressed = value;
+
     public IReadOnlyList<DamageEvent> Update(
         World world,
         IInputState input,
@@ -505,7 +658,9 @@ public sealed class BombSystem
         SimulationTelemetry telemetry,
         GameEventBuffer events,
         int bombCost = 1,
-        float invincibilitySeconds = 0)
+        float invincibilitySeconds = 0,
+        ScopedResourceStore? resources = null,
+        ResourceHandle? sharedResource = null)
     {
         ArgumentNullException.ThrowIfNull(projectiles);
         ArgumentNullException.ThrowIfNull(events);
@@ -517,7 +672,9 @@ public sealed class BombSystem
             events,
             bombCost,
             invincibilitySeconds,
-            BombUsageKind.Manual);
+            BombUsageKind.Manual,
+            resources,
+            sharedResource);
         if (activation is null)
         {
             return Array.Empty<DamageEvent>();
@@ -536,13 +693,19 @@ public sealed class BombSystem
         int bombCost,
         float invincibilitySeconds,
         SimulationTelemetry telemetry,
-        GameEventBuffer events)
+        GameEventBuffer events,
+        ScopedResourceStore? resources = null,
+        ResourceHandle? sharedResource = null)
     {
         ArgumentNullException.ThrowIfNull(player);
         var bombs = player.Get<BombComponent>();
-        if (bombCost <= 0 || bombs.Remaining < bombCost) return Array.Empty<DamageEvent>();
+        if (bombCost <= 0 ||
+            (sharedResource is { } resource
+                ? resources is null || resources.Get(resource, player.Id) < bombCost
+                : bombs.Remaining < bombCost)) return Array.Empty<DamageEvent>();
         var effectPosition = player.Get<TransformComponent>().Position;
-        ConsumeBomb(player, effectPosition, bombCost, invincibilitySeconds, BombUsageKind.Auto, telemetry, events);
+        if (!ConsumeBomb(player, effectPosition, bombCost, invincibilitySeconds, BombUsageKind.Auto,
+            telemetry, events, resources, sharedResource)) return Array.Empty<DamageEvent>();
         ClearEnemyProjectiles(projectiles, telemetry, events);
         return CreateEffectAndDamage(world, player, effectPosition, effectRadius);
     }
@@ -557,7 +720,9 @@ public sealed class BombSystem
         GameEventBuffer? events,
         int bombCost = 1,
         float invincibilitySeconds = 0,
-        BombUsageKind kind = BombUsageKind.Manual)
+        BombUsageKind kind = BombUsageKind.Manual,
+        ScopedResourceStore? resources = null,
+        ResourceHandle? sharedResource = null)
     {
         if (!input.Bomb)
         {
@@ -584,26 +749,41 @@ public sealed class BombSystem
         }
 
         var bombs = player.Get<BombComponent>();
-        if (bombCost <= 0 || bombs.Remaining < bombCost)
+        if (bombCost <= 0 ||
+            (sharedResource is { } resource
+                ? resources is null || resources.Get(resource, player.Id) < bombCost
+                : bombs.Remaining < bombCost))
         {
             return null;
         }
 
         var effectPosition = GetEffectPosition(player, effectRadius, kind);
-        ConsumeBomb(player, effectPosition, bombCost, invincibilitySeconds, kind, telemetry, events);
+        if (!ConsumeBomb(player, effectPosition, bombCost, invincibilitySeconds, kind,
+            telemetry, events, resources, sharedResource)) return null;
         return new BombActivation(player, effectPosition);
     }
 
-    private static void ConsumeBomb(
+    private static bool ConsumeBomb(
         Entity player,
         Vector2 effectPosition,
         int bombCost,
         float invincibilitySeconds,
         BombUsageKind kind,
         SimulationTelemetry telemetry,
-        GameEventBuffer? events)
+        GameEventBuffer? events,
+        ScopedResourceStore? resources = null,
+        ResourceHandle? sharedResource = null)
     {
-        player.Get<BombComponent>().Remaining -= bombCost;
+        if (sharedResource is { } resource)
+        {
+            if (resources is null || !resources.TryConsume(resource, bombCost, player.Id)) return false;
+            if (resources.GetDefinition(resource).Adapter == StandardResourceAdapter.Bomb)
+                player.Get<BombComponent>().Remaining = checked((int)resources.Get(resource, player.Id));
+        }
+        else
+        {
+            player.Get<BombComponent>().Remaining -= bombCost;
+        }
         telemetry.BombsUsed++;
         if (kind == BombUsageKind.Auto) telemetry.AutoBombsUsed++;
         if (invincibilitySeconds > 0 && player.TryGet<InvincibilityComponent>(out var invincibility))
@@ -618,6 +798,7 @@ public sealed class BombSystem
             kind,
             effectPosition.X,
             effectPosition.Y));
+        return true;
     }
 
     internal static void ClearEnemyProjectiles(
@@ -695,6 +876,12 @@ public sealed class DamageSystem
                 continue;
             }
 
+            if (damageEvent.Target.TryGet<ActorPartComponent>(out var inactivePart) &&
+                (!inactivePart.Enabled || inactivePart.HealthPolicy == ActorPartHealthPolicy.Indestructible))
+            {
+                continue;
+            }
+
             if (damageEvent.Target.TryGet<HitFlashComponent>(out var hitFlash))
             {
                 hitFlash.Remaining = 0.1f;
@@ -728,36 +915,88 @@ public sealed class DamageSystem
                 continue;
             }
 
-            var health = damageEvent.Target.Get<HealthComponent>();
+            var resolvedTarget = damageEvent.Target;
+            Entity? forwardedTarget = null;
+            var forwardedDamage = 0;
+            if (damageEvent.Target.TryGet<ActorPartComponent>(out var actorPart))
+            {
+                var root = world is null ? null : OptionFollowSystem.FindEntity(world, actorPart.RootEntityId);
+                if (root is null || root.Has<PendingDestroyComponent>()) continue;
+                if (actorPart.HealthPolicy == ActorPartHealthPolicy.Shared)
+                    resolvedTarget = root;
+                else if (actorPart.DamageForwardingRatio > 0)
+                {
+                    forwardedTarget = root;
+                    forwardedDamage = Math.Max(0, (int)MathF.Round(
+                        damageEvent.Amount * actorPart.DamageForwardingRatio,
+                        MidpointRounding.AwayFromZero));
+                }
+            }
+
+            var health = resolvedTarget.Get<HealthComponent>();
             health.Current -= damageEvent.Amount;
-            if (damageEvent.Target.Has<EnemyComponent>())
+            if (resolvedTarget.Has<EnemyComponent>())
             {
                 events?.Publish((frame, sequence) => new EnemyDamagedEvent(
                     frame,
                     sequence,
-                    damageEvent.Target.Id,
+                    resolvedTarget.Id,
                     damageEvent.Amount));
+            }
+
+            if (forwardedTarget is not null && forwardedDamage > 0)
+            {
+                var forwardedHealth = forwardedTarget.Get<HealthComponent>();
+                forwardedHealth.Current -= forwardedDamage;
+                events?.Publish((frame, sequence) => new EnemyDamagedEvent(
+                    frame, sequence, forwardedTarget.Id, forwardedDamage));
+                if (forwardedHealth.Current <= 0 &&
+                    !(forwardedTarget.TryGet<BossComponent>(out var forwardedBoss) && forwardedBoss.IsManaged))
+                {
+                    forwardedTarget.Add(new PendingDestroyComponent());
+                    telemetry.EnemiesKilled++;
+                    events?.Publish((frame, sequence) => new EnemyDestroyedEvent(
+                        frame,
+                        sequence,
+                        forwardedTarget.Id,
+                        forwardedTarget.Get<EnemyComponent>().DefinitionId,
+                        forwardedTarget.Get<ScoreValueComponent>().Value,
+                        DistanceToPlayer(world, forwardedTarget)));
+                }
             }
 
             if (health.Current <= 0)
             {
-                if (damageEvent.Target.TryGet<BossComponent>(out var boss) && boss.IsManaged)
+                if (resolvedTarget.TryGet<BossComponent>(out var boss) && boss.IsManaged)
                 {
                     continue;
                 }
 
-                damageEvent.Target.Add(new PendingDestroyComponent());
-                if (damageEvent.Target.Has<EnemyComponent>())
+                resolvedTarget.Add(new PendingDestroyComponent());
+                if (resolvedTarget.TryGet<ActorPartComponent>(out var destroyedPart))
+                {
+                    events?.Publish((frame, sequence) => new ActorPartDestroyedEvent(
+                        frame,
+                        sequence,
+                        destroyedPart.RootEntityId,
+                        resolvedTarget.Id,
+                        destroyedPart.PartId,
+                        resolvedTarget.Get<TransformComponent>().Position));
+                    if (!string.IsNullOrWhiteSpace(destroyedPart.DestroySignal))
+                        events?.Publish((frame, sequence) => new RuleSignalEvent(
+                            frame, sequence, destroyedPart.DestroySignal, destroyedPart.PartId, false));
+                }
+                else if (resolvedTarget.Has<EnemyComponent>())
                 {
                     telemetry.EnemiesKilled++;
                     events?.Publish((frame, sequence) => new EnemyDestroyedEvent(
                         frame,
                         sequence,
-                        damageEvent.Target.Id,
-                        damageEvent.Target.Get<EnemyComponent>().DefinitionId,
-                        damageEvent.Target.Get<ScoreValueComponent>().Value,
-                        DistanceToPlayer(world, damageEvent.Target)));
-                    if (damageEvent.Target.Has<BossComponent>())
+                        resolvedTarget.Id,
+                        resolvedTarget.Get<EnemyComponent>().DefinitionId,
+                        resolvedTarget.Get<ScoreValueComponent>().Value,
+                        DistanceToPlayer(world, resolvedTarget)));
+                    if (resolvedTarget.Has<BossComponent>())
                     {
                         telemetry.BossesKilled++;
                     }
@@ -848,6 +1087,7 @@ public sealed class LifetimeSystem
             {
                 continue;
             }
+            if (entity.TryGet<ActorPartComponent>(out var actorPart) && !actorPart.Enabled) continue;
 
             var lifetime = entity.Get<LifetimeComponent>();
             lifetime.Remaining -= deltaTime;
@@ -962,11 +1202,12 @@ public sealed class RenderSystem
                 ? Math.Clamp((float)health.Current / health.Maximum, 0, 1)
                 : 1;
             entity.TryGet<BossComponent>(out var boss);
-            var visualId = entity.TryGet<ShipComponent>(out var shipComponent)
+            entity.TryGet<ActorPresentationComponent>(out var actorPresentation);
+            var visualId = actorPresentation?.VisualId ?? (entity.TryGet<ShipComponent>(out var shipComponent)
                 ? shipComponent.VisualId ?? shipComponent.DefinitionId
                 : entity.TryGet<EnemyComponent>(out var enemyComponent)
                     ? enemyComponent.DefinitionId
-                    : null;
+                    : null);
             var transform = entity.Get<TransformComponent>();
             items.Add(new RenderItem(
                 entity.Id,
@@ -983,7 +1224,10 @@ public sealed class RenderSystem
                 BossRemainingTime: boss?.IsManaged == true ? boss.RemainingTime : null,
                 BossWarning: boss?.IsWarning == true,
                 PreviousPosition: transform.PreviousPosition,
-                Layer: kind == RenderKind.Enemy ? 25 : 30));
+                AnimationId: actorPresentation?.AnimationStateId is null
+                    ? actorPresentation?.AnimationId
+                    : $"{actorPresentation.AnimationStateId}:{actorPresentation.SemanticState}",
+                Layer: actorPresentation?.RenderLayer ?? (kind == RenderKind.Enemy ? 25 : 30)));
         }
 
         foreach (var entity in world.Query<TransformComponent, ExplosionComponent>())
@@ -1129,7 +1373,7 @@ public sealed class RenderSystem
     private static RenderKind? GetRenderKind(Entity entity)
     {
         if (entity.Has<PlayerComponent>()) return RenderKind.Player;
-        if (entity.Has<EnemyComponent>()) return RenderKind.Enemy;
+        if (entity.Has<EnemyComponent>() || entity.Has<ActorPartComponent>()) return RenderKind.Enemy;
         if (!entity.TryGet<BulletComponent>(out _)) return null;
         return entity.Get<ColliderComponent>().Layer == CollisionLayer.PlayerBullet
             ? RenderKind.PlayerBullet

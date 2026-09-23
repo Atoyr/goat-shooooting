@@ -25,7 +25,18 @@ public sealed class DefinitionCatalog
         IEnumerable<RuleSetDefinition>? ruleSets = null,
         IEnumerable<DifficultyDefinition>? difficulties = null,
         IEnumerable<VisualDefinition>? visuals = null,
-        IEnumerable<AudioDefinition>? audio = null)
+        IEnumerable<AudioDefinition>? audio = null,
+        IEnumerable<ProgramDefinition>? programs = null,
+        IEnumerable<VariantDefinition>? variants = null,
+        IEnumerable<ParameterSetDefinition>? parameterSets = null,
+        IEnumerable<InteractionProfileDefinition>? interactions = null,
+        IEnumerable<ResourceDefinition>? resources = null,
+        IEnumerable<EventRuleDefinition>? eventRules = null,
+        IEnumerable<StateMachineDefinition>? stateMachines = null,
+        IEnumerable<ActorDefinition>? actors = null,
+        IEnumerable<StageProgramDefinition>? stagePrograms = null,
+        IEnumerable<EffectRecipeDefinition>? effectRecipes = null,
+        IEnumerable<AnimationStateDefinition>? animationStates = null)
     {
         ArgumentNullException.ThrowIfNull(game);
         Game = DefinitionMigrator.Migrate(game);
@@ -43,6 +54,23 @@ public sealed class DefinitionCatalog
         Difficulties = ToDictionary(difficulties ?? Array.Empty<DifficultyDefinition>(), static item => item.Id, "difficulty");
         Visuals = ToDictionary(visuals ?? Array.Empty<VisualDefinition>(), static item => item.Id, "visual");
         Audio = ToDictionary(audio ?? Array.Empty<AudioDefinition>(), static item => item.Id, "audio");
+        Programs = ToDictionary(programs ?? Array.Empty<ProgramDefinition>(), static item => item.Id, "program");
+        Variants = ToDictionary(variants ?? Array.Empty<VariantDefinition>(), static item => item.Id, "variant");
+        ParameterSets = ToDictionary(
+            parameterSets ?? Array.Empty<ParameterSetDefinition>(), static item => item.Id, "parameter set");
+        Interactions = ToDictionary(
+            interactions ?? Array.Empty<InteractionProfileDefinition>(), static item => item.Id, "interaction profile");
+        Resources = ToDictionary(resources ?? Array.Empty<ResourceDefinition>(), static item => item.Id, "resource");
+        EventRules = ToDictionary(eventRules ?? Array.Empty<EventRuleDefinition>(), static item => item.Id, "event rule");
+        StateMachines = ToDictionary(
+            stateMachines ?? Array.Empty<StateMachineDefinition>(), static item => item.Id, "state machine");
+        Actors = ToDictionary(actors ?? Array.Empty<ActorDefinition>(), static item => item.Id, "actor");
+        StagePrograms = ToDictionary(
+            stagePrograms ?? Array.Empty<StageProgramDefinition>(), static item => item.Id, "stage program");
+        EffectRecipes = ToDictionary(
+            effectRecipes ?? Array.Empty<EffectRecipeDefinition>(), static item => item.Id, "effect recipe");
+        AnimationStates = ToDictionary(
+            animationStates ?? Array.Empty<AnimationStateDefinition>(), static item => item.Id, "animation state");
         Validate();
     }
 
@@ -61,6 +89,17 @@ public sealed class DefinitionCatalog
     public IReadOnlyDictionary<string, DifficultyDefinition> Difficulties { get; }
     public IReadOnlyDictionary<string, VisualDefinition> Visuals { get; }
     public IReadOnlyDictionary<string, AudioDefinition> Audio { get; }
+    public IReadOnlyDictionary<string, ProgramDefinition> Programs { get; }
+    public IReadOnlyDictionary<string, VariantDefinition> Variants { get; }
+    public IReadOnlyDictionary<string, ParameterSetDefinition> ParameterSets { get; }
+    public IReadOnlyDictionary<string, InteractionProfileDefinition> Interactions { get; }
+    public IReadOnlyDictionary<string, ResourceDefinition> Resources { get; }
+    public IReadOnlyDictionary<string, EventRuleDefinition> EventRules { get; }
+    public IReadOnlyDictionary<string, StateMachineDefinition> StateMachines { get; }
+    public IReadOnlyDictionary<string, ActorDefinition> Actors { get; }
+    public IReadOnlyDictionary<string, StageProgramDefinition> StagePrograms { get; }
+    public IReadOnlyDictionary<string, EffectRecipeDefinition> EffectRecipes { get; }
+    public IReadOnlyDictionary<string, AnimationStateDefinition> AnimationStates { get; }
 
     public PlayerDefinition GetPlayer(string id) => Get(Players, id, "player");
     public EnemyDefinition GetEnemy(string id) => Get(Enemies, id, "enemy");
@@ -76,6 +115,17 @@ public sealed class DefinitionCatalog
     public DifficultyDefinition GetDifficulty(string id) => Get(Difficulties, id, "difficulty");
     public VisualDefinition GetVisual(string id) => Get(Visuals, id, "visual");
     public AudioDefinition GetAudio(string id) => Get(Audio, id, "audio");
+    public ProgramDefinition GetProgram(string id) => Get(Programs, id, "program");
+    public VariantDefinition GetVariant(string id) => Get(Variants, id, "variant");
+    public ParameterSetDefinition GetParameterSet(string id) => Get(ParameterSets, id, "parameter set");
+    public InteractionProfileDefinition GetInteraction(string id) => Get(Interactions, id, "interaction profile");
+    public ResourceDefinition GetResource(string id) => Get(Resources, id, "resource");
+    public EventRuleDefinition GetEventRule(string id) => Get(EventRules, id, "event rule");
+    public StateMachineDefinition GetStateMachine(string id) => Get(StateMachines, id, "state machine");
+    public ActorDefinition GetActor(string id) => Get(Actors, id, "actor");
+    public StageProgramDefinition GetStageProgram(string id) => Get(StagePrograms, id, "stage program");
+    public EffectRecipeDefinition GetEffectRecipe(string id) => Get(EffectRecipes, id, "effect recipe");
+    public AnimationStateDefinition GetAnimationState(string id) => Get(AnimationStates, id, "animation state");
 
     private void Validate()
     {
@@ -96,6 +146,7 @@ public sealed class DefinitionCatalog
 
         ValidateLegacyDefinitions();
         ValidateV2Definitions();
+        ValidateV3Definitions();
         ValidateStageRoutes();
         ValidatePatternGraphAndBudgets();
     }
@@ -147,6 +198,649 @@ public sealed class DefinitionCatalog
         {
             throw new DefinitionValidationException(
                 $"Game stage route '{Game.StageRouteId}' does not match default rule set '{ruleSet.Id}'.");
+        }
+    }
+
+    private void ValidateV3Definitions()
+    {
+        foreach (var id in Game.VariantIds) _ = GetVariant(id);
+        if (Game.DefaultVariantId is not null &&
+            !Game.VariantIds.Contains(Game.DefaultVariantId, StringComparer.Ordinal))
+        {
+            throw new DefinitionValidationException(
+                $"Game default variant '{Game.DefaultVariantId}' must be present in variantIds.");
+        }
+
+        foreach (var program in Programs.Values)
+        {
+            EnsureSchemaV3(program.SchemaVersion, "program", program.Id);
+            EnsureKnownValue(program.Domain, new[] { "projectile", "actor", "attack", "stage", "rule" },
+                $"Program '{program.Id}' domain");
+            foreach (var parameter in program.Parameters)
+            {
+                EnsureNotEmpty(parameter.Key, $"Program '{program.Id}' parameter id");
+                ValidateParameter(program.Id, parameter.Key, parameter.Value);
+            }
+
+            var nodeIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var entryPoint in program.EntryPoints)
+            {
+                EnsureNotEmpty(entryPoint.Key, $"Program '{program.Id}' entry point");
+                foreach (var node in entryPoint.Value)
+                {
+                    EnsureNotEmpty(node.NodeId, $"Program '{program.Id}' node id");
+                    EnsureNotEmpty(node.Op, $"Program '{program.Id}' node '{node.NodeId}' op");
+                    if (!nodeIds.Add(node.NodeId))
+                        throw new DefinitionValidationException(
+                            $"Program '{program.Id}' has duplicate node id '{node.NodeId}'.");
+                }
+            }
+        }
+
+        foreach (var parameterSet in ParameterSets.Values)
+        {
+            EnsureSchemaV3(parameterSet.SchemaVersion, "parameter set", parameterSet.Id);
+            foreach (var value in parameterSet.Values)
+            {
+                EnsureNotEmpty(value.Key, $"Parameter set '{parameterSet.Id}' value id");
+                EnsureFiniteJson(value.Value, $"Parameter set '{parameterSet.Id}' value '{value.Key}'");
+            }
+        }
+
+        foreach (var variant in Variants.Values)
+        {
+            EnsureSchemaV3(variant.SchemaVersion, "variant", variant.Id);
+            var slots = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var binding in variant.Bindings)
+            {
+                EnsureNotEmpty(binding.SlotId, $"Variant '{variant.Id}' slot id");
+                if (!slots.Add(binding.SlotId))
+                    throw new DefinitionValidationException(
+                        $"Variant '{variant.Id}' has duplicate binding for slot '{binding.SlotId}'.");
+                _ = GetProgram(binding.ProgramId);
+                if (!string.IsNullOrWhiteSpace(binding.ParameterSetId)) _ = GetParameterSet(binding.ParameterSetId);
+            }
+            var ruleSlots = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var binding in variant.RuleBindings)
+            {
+                EnsureNotEmpty(binding.SlotId, $"Variant '{variant.Id}' rule slot id");
+                if (!ruleSlots.Add(binding.SlotId))
+                    throw new DefinitionValidationException(
+                        $"Variant '{variant.Id}' has duplicate rule binding for slot '{binding.SlotId}'.");
+                _ = GetEventRule(binding.EventRuleId);
+            }
+        }
+
+        foreach (var interaction in Interactions.Values)
+        {
+            EnsureSchemaV3(interaction.SchemaVersion, "interaction profile", interaction.Id);
+            ValidateInteractionFilter(interaction.Source, $"Interaction '{interaction.Id}' source");
+            ValidateInteractionFilter(interaction.Target, $"Interaction '{interaction.Id}' target");
+            EnsureKnownValue(interaction.ShapeTest, new[] { "circle", "capsule", "swept", "aabb", "obb" },
+                $"Interaction '{interaction.Id}' shape test");
+            EnsureNonEmptyList(interaction.Actions, $"Interaction '{interaction.Id}' actions");
+            var knownActions = new[]
+            {
+                "destroy-source", "destroy-target", "convert-target", "reflect-target",
+                "emit-projectile-interaction", "emit-projectile-cancelled", "emit-laser-contact"
+            };
+            foreach (var action in interaction.Actions)
+                EnsureKnownValue(action, knownActions, $"Interaction '{interaction.Id}' action");
+            if (interaction.Actions.Distinct(StringComparer.Ordinal).Count() != interaction.Actions.Count)
+                throw new DefinitionValidationException($"Interaction '{interaction.Id}' has duplicate actions.");
+            if (interaction.Actions.Contains("convert-target", StringComparer.Ordinal))
+            {
+                _ = GetProjectile(interaction.ConvertProjectileId ?? string.Empty);
+                if (interaction.Target.RequiredTags.Contains("laser", StringComparer.Ordinal))
+                    throw new DefinitionValidationException(
+                        $"Interaction '{interaction.Id}' cannot convert a laser target to a projectile.");
+            }
+            else if (!string.IsNullOrWhiteSpace(interaction.ConvertProjectileId))
+                throw new DefinitionValidationException(
+                    $"Interaction '{interaction.Id}' convertProjectileId requires convert-target action.");
+            if (interaction.Actions.Contains("convert-target", StringComparer.Ordinal) &&
+                interaction.Actions.Contains("destroy-target", StringComparer.Ordinal))
+                throw new DefinitionValidationException(
+                    $"Interaction '{interaction.Id}' cannot both convert and destroy its target.");
+            if (interaction.Actions.Contains("reflect-target", StringComparer.Ordinal) &&
+                !interaction.Target.RequiredTags.Contains("laser", StringComparer.Ordinal))
+                throw new DefinitionValidationException(
+                    $"Interaction '{interaction.Id}' reflect-target action requires a laser target filter.");
+        }
+
+        foreach (var resource in Resources.Values)
+        {
+            EnsureSchemaV3(resource.SchemaVersion, "resource", resource.Id);
+            EnsureKnownValue(resource.Scope, new[] { "run", "player", "stage", "boss-phase" },
+                $"Resource '{resource.Id}' scope");
+            EnsureKnownValue(resource.ValueType, new[] { "number", "counter", "timer", "boolean" },
+                $"Resource '{resource.Id}' value type");
+            EnsureFinite(resource.Initial, $"Resource '{resource.Id}' initial");
+            EnsureFinite(resource.Minimum, $"Resource '{resource.Id}' minimum");
+            EnsureFinite(resource.Maximum, $"Resource '{resource.Id}' maximum");
+            if (resource.Minimum > resource.Maximum || resource.Initial < resource.Minimum || resource.Initial > resource.Maximum)
+                throw new DefinitionValidationException($"Resource '{resource.Id}' requires minimum <= initial <= maximum.");
+            if (resource.ValueType == "boolean" &&
+                (resource.Minimum != 0 || resource.Maximum != 1 || resource.Initial is not (0 or 1)))
+                throw new DefinitionValidationException(
+                    $"Boolean resource '{resource.Id}' requires minimum 0, maximum 1, and an initial value of 0 or 1.");
+            EnsureKnownValue(resource.ResetPolicy,
+                new[] { "on-run-start", "on-stage-start", "on-boss-phase", "manual" },
+                $"Resource '{resource.Id}' reset policy");
+            if (resource.Adapter is not null)
+                EnsureKnownValue(resource.Adapter,
+                    new[] { "score", "chain", "hit", "rank", "power", "life", "bomb", "gauge" },
+                    $"Resource '{resource.Id}' adapter");
+            if (resource.Hud is { } hud)
+            {
+                EnsureKnownValue(hud.Format, new[] { "number", "counter", "gauge", "segmented-gauge", "timer", "flag" },
+                    $"Resource '{resource.Id}' HUD format");
+                EnsureNonNegative(hud.Segments, $"Resource '{resource.Id}' HUD segments");
+                if (hud.Format == "segmented-gauge" && hud.Segments == 0)
+                    throw new DefinitionValidationException($"Resource '{resource.Id}' segmented gauge requires segments.");
+            }
+        }
+
+        foreach (var rule in EventRules.Values)
+        {
+            EnsureSchemaV3(rule.SchemaVersion, "event rule", rule.Id);
+            EnsureKnownValue(rule.Phase, new[] { "pre-input", "post-interaction" }, $"Event rule '{rule.Id}' phase");
+            EnsureNotEmpty(rule.On, $"Event rule '{rule.Id}' event");
+            EnsureNonEmptyList(rule.Actions, $"Event rule '{rule.Id}' actions");
+            ValidateRuleActions(rule.Actions, $"Event rule '{rule.Id}'");
+        }
+
+        foreach (var machine in StateMachines.Values)
+        {
+            EnsureSchemaV3(machine.SchemaVersion, "state machine", machine.Id);
+            EnsureKnownValue(machine.Scope, new[] { "run", "player", "stage", "boss-phase" },
+                $"State machine '{machine.Id}' scope");
+            ValidateResourceReference(machine.ResourceId, $"State machine '{machine.Id}'");
+            EnsureKnownValue(machine.ActivationAction, new[] { "special", "bomb", "automatic", "rule" },
+                $"State machine '{machine.Id}' activation action");
+            EnsureNonEmptyList(machine.States, $"State machine '{machine.Id}' states");
+            var stateIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var state in machine.States)
+            {
+                EnsureNotEmpty(state.Id, $"State machine '{machine.Id}' state id");
+                if (!stateIds.Add(state.Id))
+                    throw new DefinitionValidationException($"State machine '{machine.Id}' has duplicate state '{state.Id}'.");
+                if (state.DurationFrames is <= 0)
+                    throw new DefinitionValidationException(
+                        $"State machine '{machine.Id}' state '{state.Id}' durationFrames must be positive.");
+                ValidateTags(state.AllowedActions, $"State machine '{machine.Id}' state '{state.Id}' allowed actions");
+                ValidateRuleActions(state.EnterActions, $"State machine '{machine.Id}' state '{state.Id}' enter actions");
+                ValidateRuleActions(state.TickActions, $"State machine '{machine.Id}' state '{state.Id}' tick actions");
+                ValidateRuleActions(state.ExitActions, $"State machine '{machine.Id}' state '{state.Id}' exit actions");
+                foreach (var transition in state.Transitions)
+                {
+                    EnsureKnownValue(transition.Trigger,
+                        new[] { "request", "automatic", "resource-empty", "timer-elapsed", "bomb-used", "player-died", "rule" },
+                        $"State machine '{machine.Id}' state '{state.Id}' transition trigger");
+                    EnsureNotEmpty(transition.TargetStateId,
+                        $"State machine '{machine.Id}' state '{state.Id}' transition target");
+                }
+            }
+            if (!stateIds.Contains(machine.InitialStateId))
+                throw new DefinitionValidationException(
+                    $"State machine '{machine.Id}' references unknown initial state '{machine.InitialStateId}'.");
+            foreach (var state in machine.States)
+                foreach (var transition in state.Transitions)
+                    if (!stateIds.Contains(transition.TargetStateId))
+                        throw new DefinitionValidationException(
+                            $"State machine '{machine.Id}' state '{state.Id}' references unknown target state '{transition.TargetStateId}'.");
+        }
+
+        ValidateActors();
+        ValidateStagePrograms();
+        ValidatePresentationDefinitions();
+
+        foreach (var ruleSet in RuleSets.Values)
+        {
+            ValidateTags(ruleSet.ResourceIds, $"Rule set '{ruleSet.Id}' resource ids");
+            ValidateTags(ruleSet.EventRuleIds, $"Rule set '{ruleSet.Id}' event rule ids");
+            ValidateTags(ruleSet.StateMachineIds, $"Rule set '{ruleSet.Id}' state machine ids");
+            foreach (var id in ruleSet.ResourceIds) ValidateResourceReference(id, $"Rule set '{ruleSet.Id}'");
+            foreach (var id in ruleSet.EventRuleIds) _ = GetEventRule(id);
+            foreach (var id in ruleSet.StateMachineIds) _ = GetStateMachine(id);
+            if (!string.IsNullOrWhiteSpace(ruleSet.BombResourceId))
+                ValidateResourceReference(ruleSet.BombResourceId, $"Rule set '{ruleSet.Id}' bomb resource");
+        }
+    }
+
+    private void ValidateActors()
+    {
+        foreach (var actor in Actors.Values)
+        {
+            EnsureSchemaV3(actor.SchemaVersion, "actor", actor.Id);
+            _ = GetEnemy(actor.EnemyId);
+            ValidateTags(actor.Tags, $"Actor '{actor.Id}' tags");
+            var parts = new Dictionary<string, ActorPartDefinition>(StringComparer.Ordinal);
+            foreach (var part in actor.Parts)
+            {
+                EnsureNotEmpty(part.Id, $"Actor '{actor.Id}' part id");
+                if (!parts.TryAdd(part.Id, part))
+                    throw new DefinitionValidationException($"Actor '{actor.Id}' has duplicate part '{part.Id}'.");
+                EnsureKnownValue(part.HealthPolicy, new[] { "shared", "independent", "indestructible" },
+                    $"Actor '{actor.Id}' part '{part.Id}' health policy");
+                if (part.HealthPolicy == "independent" && part.MaximumHealth is not > 0)
+                    throw new DefinitionValidationException(
+                        $"Actor '{actor.Id}' independent part '{part.Id}' requires positive maximumHealth.");
+                if (part.MaximumHealth is <= 0)
+                    throw new DefinitionValidationException(
+                        $"Actor '{actor.Id}' part '{part.Id}' maximumHealth must be positive when supplied.");
+                EnsureNonNegative(part.DamageForwardingRatio,
+                    $"Actor '{actor.Id}' part '{part.Id}' damage forwarding ratio");
+                if (!float.IsFinite(part.DamageForwardingRatio) || part.DamageForwardingRatio > 1)
+                    throw new DefinitionValidationException(
+                        $"Actor '{actor.Id}' part '{part.Id}' damageForwardingRatio must be between 0 and 1.");
+                EnsureNonNegative(part.LockCapacity, $"Actor '{actor.Id}' part '{part.Id}' lock capacity");
+                EnsureNotEmpty(part.InteractionClass, $"Actor '{actor.Id}' part '{part.Id}' interaction class");
+                ValidateTags(part.Tags, $"Actor '{actor.Id}' part '{part.Id}' tags");
+                ValidateHurtboxes(actor, part);
+                ValidateHardpoints(actor, part);
+                if (!string.IsNullOrWhiteSpace(part.AnimationStateId)) _ = GetAnimationState(part.AnimationStateId);
+            }
+
+            foreach (var part in actor.Parts)
+            {
+                if (part.ParentPartId is not null && !parts.ContainsKey(part.ParentPartId))
+                    throw new DefinitionValidationException(
+                        $"Actor '{actor.Id}' part '{part.Id}' references unknown parent '{part.ParentPartId}'.");
+                var visited = new HashSet<string>(StringComparer.Ordinal) { part.Id };
+                var parent = part.ParentPartId;
+                while (parent is not null)
+                {
+                    if (!visited.Add(parent))
+                        throw new DefinitionValidationException(
+                            $"Actor '{actor.Id}' part graph contains a cycle at '{parent}'.");
+                    parent = parts[parent].ParentPartId;
+                }
+            }
+        }
+
+        foreach (var boss in Bosses.Values)
+        {
+            if (!string.IsNullOrWhiteSpace(boss.ActorId)) _ = GetActor(boss.ActorId);
+            foreach (var phase in boss.Phases)
+                foreach (var signal in phase.PartSignals)
+                {
+                    if (string.IsNullOrWhiteSpace(signal.PartId) == string.IsNullOrWhiteSpace(signal.Tag))
+                        throw new DefinitionValidationException(
+                            $"Boss '{boss.Id}' phase '{phase.Id}' part signal requires exactly one of partId or tag.");
+                    EnsureKnownValue(signal.Operation, new[] { "enable", "disable", "detach" },
+                        $"Boss '{boss.Id}' phase '{phase.Id}' part signal operation");
+                    if (!string.IsNullOrWhiteSpace(signal.PartId) && !string.IsNullOrWhiteSpace(boss.ActorId) &&
+                        !GetActor(boss.ActorId).Parts.Any(part => part.Id == signal.PartId))
+                        throw new DefinitionValidationException(
+                            $"Boss '{boss.Id}' phase '{phase.Id}' references unknown part '{signal.PartId}'.");
+                }
+        }
+    }
+
+    private void ValidateStagePrograms()
+    {
+        foreach (var stage in Stages.Values)
+            if (!string.IsNullOrWhiteSpace(stage.StageProgramId)) _ = GetStageProgram(stage.StageProgramId);
+        foreach (var boss in Bosses.Values)
+            foreach (var phase in boss.Phases)
+                EnsureKnownValue(phase.Clock, new[] { "run-frame", "world-time" },
+                    $"Boss '{boss.Id}' phase '{phase.Id}' clock");
+
+        var trackOperations = new Dictionary<string, string[]>(StringComparer.Ordinal)
+        {
+            ["spawn"] = ["spawn-actor", "spawn-formation", "spawn-boss", "spawn-hazard", "emit-signal", "wait-signal", "wait-until-clear"],
+            ["environment"] = ["set-background", "set-scroll", "set-weather", "set-ground-layer", "emit-signal", "wait-signal"],
+            ["camera"] = ["camera-pan", "camera-zoom", "camera-shake", "set-world-time-scale", "emit-signal", "wait-signal"],
+            ["audio"] = ["set-bgm", "stinger", "duck", "emit-signal", "wait-signal"],
+            ["ui"] = ["warning", "message", "boss-title", "emit-signal", "wait-signal"],
+            ["route"] = ["checkpoint", "wait-until-clear", "wait-signal", "clear-stage", "emit-signal"]
+        };
+        foreach (var program in StagePrograms.Values)
+        {
+            EnsureSchemaV3(program.SchemaVersion, "stage program", program.Id);
+            if (program.EndFrame is <= 0)
+                throw new DefinitionValidationException($"Stage program '{program.Id}' endFrame must be positive.");
+            EnsureNonEmptyList(program.Tracks, $"Stage program '{program.Id}' tracks");
+            var trackIds = new HashSet<string>(StringComparer.Ordinal);
+            var nodeIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var track in program.Tracks)
+            {
+                EnsureNotEmpty(track.Id, $"Stage program '{program.Id}' track id");
+                if (!trackIds.Add(track.Id))
+                    throw new DefinitionValidationException(
+                        $"Stage program '{program.Id}' has duplicate track '{track.Id}'.");
+                EnsureKnownValue(track.Kind, trackOperations.Keys.ToArray(),
+                    $"Stage program '{program.Id}' track '{track.Id}' kind");
+                EnsureKnownValue(track.Clock, new[] { "run-frame", "world-time" },
+                    $"Stage program '{program.Id}' track '{track.Id}' clock");
+                foreach (var stageEvent in track.Events)
+                {
+                    EnsureNotEmpty(stageEvent.NodeId,
+                        $"Stage program '{program.Id}' track '{track.Id}' node id");
+                    if (!nodeIds.Add(stageEvent.NodeId))
+                        throw new DefinitionValidationException(
+                            $"Stage program '{program.Id}' has duplicate node '{stageEvent.NodeId}'.");
+                    if (stageEvent.Frame < 0)
+                        throw new DefinitionValidationException(
+                            $"Stage program '{program.Id}' node '{stageEvent.NodeId}' frame must be non-negative.");
+                    EnsureKnownValue(stageEvent.Op, trackOperations[track.Kind],
+                        $"Stage program '{program.Id}' track '{track.Id}' node '{stageEvent.NodeId}' op");
+                    EnsureNonNegative(stageEvent.DurationFrames,
+                        $"Stage program '{program.Id}' node '{stageEvent.NodeId}' duration");
+                    EnsureNonNegative(stageEvent.TimeoutFrames,
+                        $"Stage program '{program.Id}' node '{stageEvent.NodeId}' timeout");
+                    if (stageEvent.Op is "wait-signal" or "wait-until-clear" &&
+                        stageEvent.TimeoutFrames == 0 && program.EndFrame is null)
+                        throw new DefinitionValidationException(
+                            $"Stage program '{program.Id}' node '{stageEvent.NodeId}' requires timeoutFrames or program endFrame.");
+                    if (stageEvent.Op == "wait-signal" && string.IsNullOrWhiteSpace(stageEvent.WaitForSignalId))
+                        throw new DefinitionValidationException(
+                            $"Stage program '{program.Id}' node '{stageEvent.NodeId}' requires waitForSignalId.");
+                    if (stageEvent.Op == "emit-signal" && string.IsNullOrWhiteSpace(stageEvent.SignalId))
+                        throw new DefinitionValidationException(
+                            $"Stage program '{program.Id}' node '{stageEvent.NodeId}' requires signalId.");
+                    ValidateStageOperation(program, stageEvent);
+                }
+            }
+        }
+    }
+
+    private void ValidateStageOperation(StageProgramDefinition program, StageProgramEventDefinition stageEvent)
+    {
+        var owner = $"Stage program '{program.Id}' node '{stageEvent.NodeId}'";
+        if (stageEvent.Op is "spawn-actor" or "spawn-formation" or "spawn-hazard")
+        {
+            var actorId = RequiredStageString(stageEvent, "actorId", owner);
+            if (!Actors.ContainsKey(actorId) && !Enemies.ContainsKey(actorId))
+                throw new DefinitionValidationException($"{owner} references unknown actor '{actorId}'.");
+        }
+        if (stageEvent.Op == "spawn-boss") _ = GetBoss(RequiredStageString(stageEvent, "bossId", owner));
+        if (stageEvent.Op is "set-background" or "set-weather" or "set-ground-layer" or
+            "warning" or "message" or "boss-title" or "checkpoint")
+            _ = RequiredStageString(stageEvent, "cueId", owner);
+        if (stageEvent.Op is "set-bgm" or "stinger") _ = GetAudio(RequiredStageString(stageEvent, "cueId", owner));
+        if (stageEvent.Op == "set-world-time-scale")
+        {
+            var scale = RequiredStageNumber(stageEvent, "scale", owner);
+            if (scale < 0 || scale > 4)
+                throw new DefinitionValidationException($"{owner} scale must be between 0 and 4.");
+        }
+        if (stageEvent.Op == "camera-zoom" && RequiredStageNumber(stageEvent, "value", owner) <= 0)
+            throw new DefinitionValidationException($"{owner} camera zoom must be positive.");
+        if (stageEvent.Op == "camera-shake" && RequiredStageNumber(stageEvent, "value", owner) < 0)
+            throw new DefinitionValidationException($"{owner} camera shake must be non-negative.");
+        if (stageEvent.Op == "duck" && stageEvent.DurationFrames <= 0)
+            throw new DefinitionValidationException($"{owner} duck requires positive durationFrames.");
+        if ((stageEvent.Op is "spawn-actor" or "spawn-formation" or "spawn-hazard" or "spawn-boss") &&
+            stageEvent.Arguments.TryGetValue("count", out var countValue) &&
+            (!countValue.TryGetInt32(out var count) || count <= 0 || count > MaximumTimelineSpawnCount))
+            throw new DefinitionValidationException(
+                $"{owner} count must be an integer between 1 and {MaximumTimelineSpawnCount}.");
+    }
+
+    private void ValidatePresentationDefinitions()
+    {
+        foreach (var recipe in EffectRecipes.Values)
+        {
+            EnsureSchemaV3(recipe.SchemaVersion, "effect recipe", recipe.Id);
+            EnsureNotEmpty(recipe.On, $"Effect recipe '{recipe.Id}' event");
+            EnsureNonEmptyList(recipe.Actions, $"Effect recipe '{recipe.Id}' actions");
+            foreach (var action in recipe.Actions)
+            {
+                EnsureKnownValue(action.Type,
+                    new[] { "particle", "flash", "shake", "hit-stop", "audio", "post-process" },
+                    $"Effect recipe '{recipe.Id}' action type");
+                EnsureNonNegative(action.Count, $"Effect recipe '{recipe.Id}' action count");
+                EnsureNonNegative(action.Radius, $"Effect recipe '{recipe.Id}' action radius");
+                EnsureNonNegative(action.Duration, $"Effect recipe '{recipe.Id}' action duration");
+                EnsureNonNegative(action.Intensity, $"Effect recipe '{recipe.Id}' action intensity");
+                EnsureKnownValue(action.Blend, new[] { "alpha", "additive" },
+                    $"Effect recipe '{recipe.Id}' action blend");
+                if (action.Type == "audio") _ = GetAudio(action.CueId ?? string.Empty);
+                if (action.Type == "post-process")
+                    EnsureKnownValue(action.Pass ?? string.Empty,
+                        new[] { "bloom", "color-grade", "distortion", "afterimage" },
+                        $"Effect recipe '{recipe.Id}' post-process pass");
+            }
+        }
+        foreach (var animation in AnimationStates.Values)
+        {
+            EnsureSchemaV3(animation.SchemaVersion, "animation state", animation.Id);
+            if (animation.States.Count == 0)
+                throw new DefinitionValidationException($"Animation state '{animation.Id}' states must not be empty.");
+            if (!animation.States.ContainsKey(animation.DefaultState))
+                throw new DefinitionValidationException(
+                    $"Animation state '{animation.Id}' has unknown default state '{animation.DefaultState}'.");
+            foreach (var state in animation.States)
+            {
+                EnsureNotEmpty(state.Key, $"Animation state '{animation.Id}' state");
+                EnsureNotEmpty(state.Value, $"Animation state '{animation.Id}' asset");
+            }
+        }
+    }
+
+    private static string RequiredStageString(StageProgramEventDefinition stageEvent, string name, string owner)
+    {
+        if (!stageEvent.Arguments.TryGetValue(name, out var value) || value.ValueKind != JsonValueKind.String ||
+            string.IsNullOrWhiteSpace(value.GetString()))
+            throw new DefinitionValidationException($"{owner} requires '{name}'.");
+        return value.GetString()!;
+    }
+
+    private static double RequiredStageNumber(StageProgramEventDefinition stageEvent, string name, string owner)
+    {
+        if (!stageEvent.Arguments.TryGetValue(name, out var value) || value.ValueKind != JsonValueKind.Number ||
+            !value.TryGetDouble(out var result) || !double.IsFinite(result))
+            throw new DefinitionValidationException($"{owner} requires finite number '{name}'.");
+        return result;
+    }
+
+    private void ValidateHardpoints(ActorDefinition actor, ActorPartDefinition part)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var hardpoint in part.Hardpoints)
+        {
+            EnsureNotEmpty(hardpoint.Id, $"Actor '{actor.Id}' part '{part.Id}' hardpoint id");
+            if (!ids.Add(hardpoint.Id))
+                throw new DefinitionValidationException(
+                    $"Actor '{actor.Id}' part '{part.Id}' has duplicate hardpoint '{hardpoint.Id}'.");
+            if (string.IsNullOrWhiteSpace(hardpoint.WeaponId) && hardpoint.ProgramSlot is null)
+                throw new DefinitionValidationException(
+                    $"Actor '{actor.Id}' part '{part.Id}' hardpoint '{hardpoint.Id}' requires weaponId or programSlot.");
+            if (!string.IsNullOrWhiteSpace(hardpoint.WeaponId)) _ = GetWeapon(hardpoint.WeaponId);
+            if (hardpoint.ProgramSlot is { } slot) _ = GetProgram(slot.DefaultProgramId);
+        }
+    }
+
+    private static void ValidateHurtboxes(ActorDefinition actor, ActorPartDefinition part)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var hurtbox in part.Hurtboxes)
+        {
+            EnsureNotEmpty(hurtbox.Id, $"Actor '{actor.Id}' part '{part.Id}' hurtbox id");
+            if (!ids.Add(hurtbox.Id))
+                throw new DefinitionValidationException(
+                    $"Actor '{actor.Id}' part '{part.Id}' has duplicate hurtbox '{hurtbox.Id}'.");
+            EnsureKnownValue(hurtbox.Shape, new[] { "circle", "capsule", "aabb", "obb" },
+                $"Actor '{actor.Id}' part '{part.Id}' hurtbox '{hurtbox.Id}' shape");
+            if (hurtbox.Shape == "circle")
+                EnsurePositive(hurtbox.Radius,
+                    $"Actor '{actor.Id}' part '{part.Id}' hurtbox '{hurtbox.Id}' radius");
+            else
+            {
+                EnsurePositive(hurtbox.Width,
+                    $"Actor '{actor.Id}' part '{part.Id}' hurtbox '{hurtbox.Id}' width");
+                EnsurePositive(hurtbox.Shape == "capsule" ? hurtbox.Length : hurtbox.Height,
+                    $"Actor '{actor.Id}' part '{part.Id}' hurtbox '{hurtbox.Id}' extent");
+            }
+        }
+    }
+
+    private void ValidateRuleActions(IReadOnlyList<RuleActionDefinition> actions, string owner)
+    {
+        var known = new[]
+        {
+            "add-resource", "set-resource", "clamp-resource", "consume-resource", "award-score",
+            "spawn-item", "spawn-actor", "spawn-projectile", "cancel-projectiles", "convert-projectiles",
+            "request-state-transition", "add-modifier", "remove-modifier", "emit-gameplay-signal",
+            "emit-presentation-signal", "set-route-flag", "emit-achievement-candidate"
+        };
+        for (var index = 0; index < actions.Count; index++)
+        {
+            var action = actions[index];
+            EnsureKnownValue(action.Op, known, $"{owner} action {index}");
+            if (action.Op is "add-resource" or "set-resource" or "clamp-resource" or "consume-resource")
+                ValidateResourceReference(GetRequiredActionId(action, "resourceId", owner, index), owner);
+            if (action.Op == "request-state-transition")
+                _ = GetStateMachine(GetRequiredActionId(action, "stateMachineId", owner, index));
+            if (action.Op == "spawn-item") _ = GetItem(GetRequiredActionId(action, "itemId", owner, index));
+            if (action.Op == "spawn-actor")
+            {
+                var actorId = GetRequiredActionId(action, "actorId", owner, index);
+                if (!Actors.ContainsKey(actorId) && !Enemies.ContainsKey(actorId))
+                    throw new DefinitionValidationException($"{owner} action {index} references unknown actor '{actorId}'.");
+            }
+            if (action.Op is "spawn-projectile" or "convert-projectiles")
+                _ = GetProjectile(GetRequiredActionId(action, "projectileId", owner, index));
+            if (action.Op is "cancel-projectiles" or "convert-projectiles")
+            {
+                if (action.Arguments.TryGetValue("team", out var team))
+                {
+                    if (team.ValueKind != JsonValueKind.String)
+                        throw new DefinitionValidationException($"{owner} action {index} team must be a string.");
+                    EnsureKnownValue(team.GetString() ?? string.Empty, new[] { "any", "player", "enemy" },
+                        $"{owner} action {index} team");
+                }
+                if (action.Arguments.TryGetValue("requiredTags", out var tags))
+                {
+                    if (tags.ValueKind != JsonValueKind.Array)
+                        throw new DefinitionValidationException($"{owner} action {index} requiredTags must be an array.");
+                    ValidateTags(tags.EnumerateArray().Select(item =>
+                    {
+                        if (item.ValueKind != JsonValueKind.String)
+                            throw new DefinitionValidationException(
+                                $"{owner} action {index} requiredTags must contain strings.");
+                        return item.GetString() ?? string.Empty;
+                    }).ToArray(), $"{owner} action {index} required tags");
+                }
+            }
+        }
+    }
+
+    private static string GetRequiredActionId(RuleActionDefinition action, string name, string owner, int index)
+    {
+        if (!action.Arguments.TryGetValue(name, out var value) || value.ValueKind != JsonValueKind.String ||
+            string.IsNullOrWhiteSpace(value.GetString()))
+            throw new DefinitionValidationException($"{owner} action {index} requires '{name}'.");
+        return value.GetString()!;
+    }
+
+    private void ValidateResourceReference(string id, string owner)
+    {
+        if (Resources.ContainsKey(id) || new[] { "score", "chain", "hit", "rank", "power", "life", "bomb", "gauge" }
+            .Contains(id, StringComparer.Ordinal)) return;
+        throw new DefinitionValidationException($"{owner} references unknown resource definition id '{id}'.");
+    }
+
+    private static void ValidateInteractionFilter(InteractionFilterDefinition filter, string owner)
+    {
+        EnsureKnownValue(filter.Team, new[] { "any", "player", "enemy" }, $"{owner} team");
+        EnsureNonNegative(filter.MinimumPower, $"{owner} minimum power");
+        EnsureNonNegative(filter.MaximumResistance, $"{owner} maximum resistance");
+        ValidateTags(filter.RequiredTags, $"{owner} required tags");
+        ValidateTags(filter.ExcludedTags, $"{owner} excluded tags");
+        if (filter.RequiredTags.Intersect(filter.ExcludedTags, StringComparer.Ordinal).Any())
+            throw new DefinitionValidationException($"{owner} requires and excludes the same tag.");
+    }
+
+    private static void ValidateTags(IReadOnlyList<string> tags, string owner)
+    {
+        var unique = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tag in tags)
+        {
+            EnsureNotEmpty(tag, owner);
+            if (!unique.Add(tag)) throw new DefinitionValidationException($"{owner} contains duplicate tag '{tag}'.");
+        }
+    }
+
+    private static void ValidateParameter(
+        string programId,
+        string parameterId,
+        ProgramParameterDefinition parameter)
+    {
+        var owner = $"Program '{programId}' parameter '{parameterId}'";
+        EnsureKnownValue(parameter.Type, new[] { "number", "integer", "boolean", "vector2", "id", "tag-set" },
+            $"{owner} type");
+        if (parameter.Default.ValueKind == JsonValueKind.Undefined)
+            throw new DefinitionValidationException($"{owner} requires a default value.");
+        ValidateParameterValue(parameter.Type, parameter.Default, owner);
+        if (parameter.Minimum is { } minimum && !double.IsFinite(minimum))
+            throw new DefinitionValidationException($"{owner} minimum must be finite.");
+        if (parameter.Maximum is { } maximum && !double.IsFinite(maximum))
+            throw new DefinitionValidationException($"{owner} maximum must be finite.");
+        if (parameter.Minimum is { } min && parameter.Maximum is { } max && min > max)
+            throw new DefinitionValidationException($"{owner} minimum must not exceed maximum.");
+        if (parameter.Type is not ("number" or "integer") &&
+            (parameter.Minimum is not null || parameter.Maximum is not null))
+            throw new DefinitionValidationException($"{owner} range is only valid for numeric types.");
+        if (parameter.Type is "number" or "integer")
+        {
+            var value = parameter.Default.GetDouble();
+            if (parameter.Minimum is { } lower && value < lower ||
+                parameter.Maximum is { } upper && value > upper)
+                throw new DefinitionValidationException($"{owner} default is outside its range.");
+        }
+    }
+
+    private static void ValidateParameterValue(string type, JsonElement value, string owner)
+    {
+        var valid = type switch
+        {
+            "number" => value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number) && double.IsFinite(number),
+            "integer" => value.ValueKind == JsonValueKind.Number && value.TryGetInt64(out _),
+            "boolean" => value.ValueKind is JsonValueKind.True or JsonValueKind.False,
+            "vector2" => IsVector2(value),
+            "id" => value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString()),
+            "tag-set" => IsTagSet(value),
+            _ => false
+        };
+        if (!valid) throw new DefinitionValidationException($"{owner} default does not match type '{type}'.");
+    }
+
+    private static bool IsVector2(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array || value.GetArrayLength() != 2) return false;
+        return value.EnumerateArray().All(static item =>
+            item.ValueKind == JsonValueKind.Number && item.TryGetDouble(out var number) && double.IsFinite(number));
+    }
+
+    private static bool IsTagSet(JsonElement value)
+    {
+        if (value.ValueKind != JsonValueKind.Array) return false;
+        var tags = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var item in value.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String || string.IsNullOrWhiteSpace(item.GetString()) ||
+                !tags.Add(item.GetString()!)) return false;
+        }
+        return true;
+    }
+
+    private static void EnsureFiniteJson(JsonElement value, string owner)
+    {
+        switch (value.ValueKind)
+        {
+            case JsonValueKind.Number:
+                if (!value.TryGetDouble(out var number) || !double.IsFinite(number))
+                    throw new DefinitionValidationException($"{owner} must be finite.");
+                break;
+            case JsonValueKind.Array:
+                foreach (var item in value.EnumerateArray()) EnsureFiniteJson(item, owner);
+                break;
+            case JsonValueKind.Object:
+                foreach (var property in value.EnumerateObject()) EnsureFiniteJson(property.Value, owner);
+                break;
         }
     }
 
@@ -308,6 +1002,9 @@ public sealed class DefinitionCatalog
                     weapon.Laser.ProjectileInteraction,
                     new[] { "none", "cancel-soft" },
                     $"Weapon '{weapon.Id}' laser projectile interaction");
+                ValidateTags(weapon.Laser.Tags, $"Weapon '{weapon.Id}' laser tags");
+                EnsureNonNegative(weapon.Laser.InteractionPower, $"Weapon '{weapon.Id}' laser interaction power");
+                EnsureNonNegative(weapon.Laser.InteractionResistance, $"Weapon '{weapon.Id}' laser interaction resistance");
             }
 
             if (weapon.ActionType == "lock-on")
@@ -491,6 +1188,9 @@ public sealed class DefinitionCatalog
             EnsureKnownValue(projectile.CancelResistance, new[] { "soft", "hard", "uncancelable" }, $"Projectile '{projectile.Id}' cancel resistance");
             EnsureKnownValue(projectile.DamageType, new[] { "normal" }, $"Projectile '{projectile.Id}' damage type");
             EnsureKnownValue(projectile.ClearBehavior, new[] { "remove" }, $"Projectile '{projectile.Id}' clear behavior");
+            ValidateTags(projectile.Tags, $"Projectile '{projectile.Id}' tags");
+            EnsureNonNegative(projectile.InteractionPower, $"Projectile '{projectile.Id}' interaction power");
+            EnsureNonNegative(projectile.InteractionResistance, $"Projectile '{projectile.Id}' interaction resistance");
         }
 
         foreach (var item in Items.Values)
@@ -958,6 +1658,11 @@ public sealed class DefinitionCatalog
         if (value != 2) throw new DefinitionValidationException($"The {kind} '{id}' was not migrated to schemaVersion 2.");
     }
 
+    private static void EnsureSchemaV3(int value, string kind, string id)
+    {
+        if (value != 3) throw new DefinitionValidationException($"The {kind} '{id}' must use schemaVersion 3.");
+    }
+
     private static void EnsureNotEmpty(string value, string name)
     {
         if (string.IsNullOrWhiteSpace(value)) throw new DefinitionValidationException($"{name} must not be empty.");
@@ -996,6 +1701,11 @@ public sealed class DefinitionCatalog
     private static void EnsureFinite(float value, string name)
     {
         if (!float.IsFinite(value)) throw new DefinitionValidationException($"{name} must be finite.");
+    }
+
+    private static void EnsureFinite(double value, string name)
+    {
+        if (!double.IsFinite(value)) throw new DefinitionValidationException($"{name} must be finite.");
     }
 
     private static void EnsureRange(float value, float minimum, float maximum, string name)

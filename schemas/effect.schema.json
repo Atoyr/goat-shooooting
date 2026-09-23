@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Effect Recipe Definition v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "on", "actions"],
+  "properties": {
+    "schemaVersion": { "const": 3, "default": 3 },
+    "id": { "type": "string", "minLength": 1 },
+    "on": { "type": "string", "minLength": 1 },
+    "priority": { "type": "integer", "default": 0 },
+    "when": { "type": ["object", "null"], "additionalProperties": true },
+    "actions": {
+      "type": "array",
+      "default": [],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type"],
+        "properties": {
+          "type": { "enum": ["particle", "flash", "shake", "hit-stop", "audio", "post-process"], "default": "particle" },
+          "kind": { "type": "string", "default": "hit" },
+          "count": { "type": "integer", "minimum": 0, "default": 1 },
+          "radius": { "type": "number", "minimum": 0, "default": 4 },
+          "duration": { "type": "number", "minimum": 0, "default": 0.2 },
+          "intensity": { "type": "number", "minimum": 0, "default": 1 },
+          "tint": { "type": "integer", "minimum": 0, "maximum": 4294967295, "default": 4294967295 },
+          "blend": { "enum": ["alpha", "additive"], "default": "additive" },
+          "cueId": { "type": ["string", "null"], "minLength": 1 },
+          "pass": { "enum": ["bloom", "color-grade", "distortion", "afterimage", null] }
+        }
+      }
+    }
+  }
+}

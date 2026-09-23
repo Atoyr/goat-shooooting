@@ -42,6 +42,38 @@ public static class VisualAssetAnimationResolver
     }
 }
 
+/// <summary>Keeps presentation-only animation phases local to each rendered entity and semantic state.</summary>
+public sealed class EntityAnimationClock
+{
+    private readonly Dictionary<long, Entry> _entries = new();
+
+    public double GetElapsed(long entityKey, string stateKey, double presentationSeconds)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(stateKey);
+        var now = double.IsFinite(presentationSeconds) && presentationSeconds > 0 ? presentationSeconds : 0;
+        if (!_entries.TryGetValue(entityKey, out var entry) ||
+            !string.Equals(entry.StateKey, stateKey, StringComparison.Ordinal))
+        {
+            _entries[entityKey] = new Entry(stateKey, now);
+            return 0;
+        }
+        return Math.Max(0, now - entry.StartedAt);
+    }
+
+    public void Retain(IReadOnlyCollection<long> entityKeys)
+    {
+        ArgumentNullException.ThrowIfNull(entityKeys);
+        if (_entries.Count == 0) return;
+        var visible = entityKeys.ToHashSet();
+        foreach (var entityKey in _entries.Keys.Where(key => !visible.Contains(key)).ToArray())
+            _entries.Remove(entityKey);
+    }
+
+    public void Reset() => _entries.Clear();
+
+    private readonly record struct Entry(string StateKey, double StartedAt);
+}
+
 /// <summary>Owns MonoGame textures while preserving the last successfully loaded asset set.</summary>
 public sealed class MonoGameVisualAssetCatalog : IVisualAssetCatalog
 {

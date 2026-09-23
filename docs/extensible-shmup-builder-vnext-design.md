@@ -598,12 +598,31 @@ Definition v3を一括導入しない。各段階でv1／v2 sampleとSYNC DRIVE�
 - Runtimeの文字列lookupをtick外へ移す。
 - compiled content hashとdiagnostic mapを追加する。
 
+#### M0実装契約
+
+- `DefinitionCompiler`と`CompiledCatalog`は、capability factoryの型を所有する`Runtime` assemblyに置く。`Definitions`は引き続きJSON構造、migration、静的validationだけを所有し、`Runtime`への参照を追加しない。
+- compilerはvalidated `DefinitionCatalog`をdeep snapshotしてから、IDのordinal順で型付き数値handleを割り当てる。compiled table、展開済みtimeline、emitter参照、boss phase参照、drop参照はread-onlyとし、compile後のauthoring object変更をrunへ反映しない。
+- built-in capabilityもdomain別`CapabilityHandle`へcompileし、通常のproduction tickではcapability type、definition ID、timeline includeを文字列解決しない。旧Factory APIからrun中に注入されたv1／v2 Entityだけは、互換adapterとして初回更新時にcompiled handleへ解決できる。
+- compiled content hashはsource content hash、compiler contract version、built-in module ID／version／Replay互換version、登録capability type集合からSHA-256で生成する。将来module descriptorを追加する場合も同じ入力へmodule情報を追加する。
+- 既存Replay v1の`contentHash`はsource hashとして維持する。新規Replayはoptional `compiledContentHash`も保存し、値が存在する場合だけ厳密一致を要求する。これにより既存Replay documentを拒否せず、compiler／module不一致を新規記録では検出する。
+- diagnostic mapはdefinition kind／IDからlogical fileとJSON Pathを引ける。v1からmemory migrationしたShip／Projectileは、生成後のv2 directoryではなく元の`player.json`／`bullets/*.json`を指す。
+
 ### M1: Parameter、Expression、Variant
 
 - 型付きparameterとpure expression compilerを追加する。
 - semantic slotとvariant bindingを追加する。
 - modifierの解決順とprovenance debug表示を追加する。
 - 現行Difficultyをmodifierへcompileする。
+
+#### M1実装契約
+
+- v3 authoringは`programs/`、`variants/`、`parameter-sets/`を追加し、各documentは`schemaVersion: 3`を必須とする。既存のgame／ship／stage等はv1／v2のまま段階移行でき、空のv3 collectionは既存content hashを変えない。
+- parameter schemaはIDのordinal順でslot化し、`number`、`integer`、`boolean`、`vector2`、`id`、`tag-set`をload時に型検査する。parameter setのunknown key、型違反、range違反は、variant bindingまたはsemantic slotをcompileした時点で拒否する。
+- pure expressionは型検査済みnode IRへcompileし、parameter、difficulty、resource、context（frame／age／rankを含む）、event field、snapshot、instance-local deterministic random sampleだけを読む。`add`、`subtract`、`multiply`、`divide-safe`、`min`、`max`、`clamp`、`lerp`、`curve`、比較、boolean演算以外は拒否し、division fallbackを必須とする。IO、wall clock、reflection、任意code実行はIRに存在しない。
+- `Variant`はRunConfigurationのDifficultyと独立した選択軸とし、semantic `slotId`を別program handleへbindできる。binding時にparameter setを型付き値配列へ確定し、通常tickではslot／program／parameter IDの文字列検索を行わない。bindingがないslotだけprogram defaultへfallbackする。
+- Acceptance Pack Cはscore ruleもvariantごとに差し替える一方、3.2節のbinding例はprogramだけを規定していた。この不足を解消するため、Variantは任意の`ruleBindings`（semantic rule slotからEventRuleへのbinding）も持てる。RuleSet共通ruleと選択Variantのrule bindingをhandleで合成し、同じEventRuleは一度だけ実行する。RuleSet軸そのものは変更せず、v1／v2および`ruleBindings`未指定variantの挙動は変えない。
+- `StatKey`はbuilt-in registryでhandle化し、自由文字列のままRuntimeへ流さない。modifierはsource tier（program default、variant、difficulty、ship、rank、state）、priority、definition ID、記載順で安定sortする。同じStatKey／tier／priorityの複数overrideはvalidation errorとする。
+- 現行DifficultyのHP、projectile speed、fire interval、追加projectileは同じ値のmodifier setへcompileする。解決値はrun開始時にcacheし、rank／active stateだけを従来どおり動的に重ねる。各適用前後の値、source、scope、stateは`RunDebugSnapshot.ModifierProvenance`から取得できる。
 
 ### M2: Projectile Program
 
@@ -612,11 +631,29 @@ Definition v3を一括導入しない。各段階でv1／v2 sampleとSYNC DRIVE�
 - wake schedulerとstatic／runtime budgetを追加する。
 - 既存straight／homing／emitterを同じIRへcompileする。
 
+#### M2実装契約
+
+- `ProjectileStore`のSoAへdefinition／program handle、program counter、wake frame、local slot offset、motion kernel、vector acceleration、angular velocity、target、spawn lineage、tag mask、interaction classを追加する。programを持たないstraight projectileはVM scheduleへ登録せず、従来のdense loop最短経路を維持する。
+- projectile programの`onSpawn`はnode ID付きbounded IRへcompileする。M2ではspeed／angle変更、angular velocity、acceleration、1 tick以上のwait、player snapshotへのaim、期限付きhoming、ring emit／split、別projectileへのtransform、motion kernel切替、despawnを提供する。不明opcode、無上限spawn count、per-wake 256命令または4,096 spawn超過、program spawn／transform cycle、深度64超過はcompile errorとする。
+- VMは全projectileを毎tick走査せず、`(wakeFrame, projectileId)`の安定priority queueから期限到来instanceだけを実行する。dense storeのswap removal時もprojectile IDからindexを更新し、古いschedule entryはwake frame照合で無効化する。
+- motion kernelはlinear、scalar／vector acceleration、polar、homingを毎tickの小さい分岐で処理する。v1／v2 straight、homing、emitterは従来adapterから同じspawn command／motion kernelへcompileされる。curve kernelの状態列は予約し、curve segment authoringは後続の制御構造拡張で追加する。
+- child lineageはrun seed、stage instance、owner lineage、program handle、安定node ID、invocation counter、child indexから決定的に導出する。program stateとlineageはcanonical state hashへ含める。
+- compile済みbudgetをRuntimeでも再確認し、破損または想定外の動的値がbudgetを超えた場合はsilent dropせず`SimulationStatus.ContentError`とdiagnostic messageでrunを停止する。
+
 ### M3: Interaction Engine
 
 - projectile対projectile、laser対laserのbroad phaseを追加する。
 - interaction power／resistance、tag query、convert commandを実装する。
 - 現行`cancel-soft`をinteraction profileへ移行する。
+
+#### M3実装契約
+
+- v3 `interactions/`はsource／targetのteam、required／excluded tag、minimum power、maximum resistance、shape test、priority、actionを宣言する。tagはcompile時に最大64個のregistryへhandle化し、ProjectileStore／LaserComponentでは`ulong` maskとして照合する。未知action、重複action、convert先不明、convertとdestroy-targetの競合はload／compile時に拒否する。
+- projectileはteam由来の`projectile`＋`shot`／`bullet` tagとDefinition固有tag、interaction power／resistanceをSoAに保持する。laserも同じmask／power／resistanceを保持する。v2のsoft／hard／uncancelableは数値resistanceへadapter変換する。
+- projectile対projectileは64px uniform grid、laser対projectileはlaser capsuleのAABBが交差するgrid cell、laser対laserはcapsule AABB gridとpair de-duplicationをbroad phaseに使う。narrow phaseはswept circleまたはcapsule segment距離で判定し、同teamは既定で相互作用させない。
+- actionはsource／target破棄、target projectile変換、laser target反射、`ProjectileInteractionEvent`、`ProjectileCancelledEvent`、`LaserContactEvent`発行を持つ。score／resourceを直接変更せず、後段ruleがeventを消費する。convertはcompiled ProjectileHandleでin-place definitionを差し替え、reflectはlaserのteamと方向を決定的に反転する。`reflect-target`はtarget filterがlaserを必須tagに持つ場合だけ許可する。
+- v2 laserの`projectileInteraction: cancel-soft`はcompilerが`v2-adapter.cancel-soft` profileへ変換し、通常production経路から旧hard-code cancel loopを外す。旧`LaserSystem`を単体利用する公開APIだけはcompiled catalogがない場合に互換adapterを通す。
+- interaction profileが0件のpackではSystemは即returnし、10,000 projectile既存hot pathにgrid構築を追加しない。interaction state、tag、power、resistanceはcanonical hashへ含める。
 
 ### M4: Resource、Rule、State Machine
 
@@ -625,11 +662,30 @@ Definition v3を一括導入しない。各段階でv1／v2 sampleとSYNC DRIVE�
 - score、gauge、rankの既存factoryをv3 ruleへadapterする。
 - bombとspecialが同じresourceを消費できるactionを追加する。
 
+#### M4実装契約
+
+- `resources/`、`rules/`、`state-machines/`は`schemaVersion: 3`とし、compilerがそれぞれ`ResourceHandle`、`EventRuleHandle`、`StateMachineHandle`／`StateHandle`へ変換する。Resourceはrun／player／stage／boss-phase scope、number／counter／timer／boolean、初期値・上下限、run／stage／boss-phase／manual reset policyを持ち、scope key順のsnapshotをcanonical hashへ含める。
+- RuleSetがresource／specialの意味を所有するという3.1節に対し、従来の`RuleSetDefinition`にはv3定義の選択参照が未規定だった。この曖昧さを解消するため、互換追加fieldとして`resourceIds`、`eventRuleIds`、`stateMachineIds`、`bombResourceId`を置く。未指定のv1／v2 RuleSetは従来factory adapterを使用し、source content hashでは空の追加fieldを省略する。これにより既存packを変更せず、同じcontent tree内のRuleSetごとにv3 reducerを選択できる。
+- score、chain、hit、rank、power、life、bomb、gaugeはcompilerが標準Resource slotとして補完する。明示Resourceが同じIDを定義した場合はそのrange／scopeを使う。production tickの前後でv2 `RunState`／Componentとのadapter同期を行い、v3 actionと既存score／gauge／rank factoryのどちらを選んでも同じ参照APIとcanonical stateを使う。
+- event ruleはimmutableな同一phaseのevent snapshotとresource snapshotだけを読み、worldを変更せずcommand列を生成する。`pre-input`／`post-interaction`内ではpriority、rule ID、event sequence、action indexの順を固定し、command適用で増えたeventを同じreducer passへ戻さない。event field、resource ID、式の型、action参照はcompile時に検証する。
+- resource add／set／clamp／consume、score、state transition、signalはreducer後に適用する。item／actor／projectile spawnとprojectile cancel／convert queryはdeferred commandとしてpre-inputまたはpost-interactionの適用境界で処理する。route flag、achievement候補、presentation signalも型付きsignal eventとして後段へ渡し、ruleからWorldを直接操作しない。
+- state machineはscopeごとにcurrent state、enter frame、state tickを保持する。request／automatic／resource-empty／timer-elapsed／bomb-used／player-died／rule transition、resource cost、per-tick drain、duration、enter／tick／exit command、allowed action、state modifierをcompileする。入力edgeを保持するため、active中に同じactionを再押下した場合だけ上位stateへupgradeできる。bombとspecialは`bombResourceId`とmachine `resourceId`を同じhandleへ解決することで原子的に同じmeterを消費する。
+- state modifierは既存の`StatKey` registryと`ModifierResolver`へ合成し、provenanceへmachine／stateを残す。resource値とmachine stateはReplay checkpointのcanonical hashへ入り、同一input列のrecord／playbackで一致を要求する。
+
 ### M5: Actor Composition
 
 - parent transform、part health policy、hardpoint、複数hurtboxを追加する。
 - lock slotとphase signalを追加する。
 - 現行BossDefinitionをroot 1個のActorへ変換する。
+
+#### M5実装契約
+
+- v3 authoringは`actors/`を追加し、`schemaVersion: 3`、`id`、rootの基礎値を供給する`enemyId`、任意の`tags`と`parts`を持つ。partは`parentPartId`、local offset／rotation、`shared`／`independent`／`indestructible` health policy、0〜1のdamage forwarding ratio、targetable、lock capacity、enabled、interaction class、tags、hurtbox、hardpoint、destroy／detach signal、presentation参照を持つ。parent cycle、未知参照、重複part／hurtbox／hardpoint、無効shape寸法はvalidation errorとする。
+- compilerは明示ActorをID順にhandle化し、partは親を先にしたtopological orderの中でpart ID順にindexを固定する。Actorが明示されていない既存Enemyには同じID、part 0件のroot Actorを合成する。`BossDefinition.actorId`は任意の互換追加fieldとし、未指定Bossは`enemyId`から合成Actorを選ぶ。空の追加fieldと空のv3 collectionはsource content hashへ追加しない。
+- root Entityを先に、part Entityをcompiled part index順に生成する。weapon hardpointはpartを親とするmount Entityへcompile済みWeaponHandleを持たせ、親の移動・回転・enabled状態へ追従する。複数hurtboxはcircle、capsule、AABB、OBBを持て、uniform gridでは包含半径、narrow phaseでは各shapeを使う。
+- shared partへのdamageはrootへ全量、independent partは自身へ適用したうえでratio分をrootへforwardし、indestructibleまたはdisabled partはdamage対象外とする。part破壊は`ActorPartDestroyedEvent`と任意signalを発行し、boss rootのphase HP解決は従来どおり`BossPhaseSystem`が所有する。
+- lock-onはtarget Entity IDの集合ではなくslot列として扱い、同じpart IDを`lockCapacity`まで保持できる。複数weapon間の占有数も決定的に差し引き、距離、Entity ID、slot順で割り当てる。phaseのpart signalはcompile時にpart／tagをpart handle列へ解決し、Runtimeで文字列検索せずenable、disable、detachを適用する。
+- legacy root Actorには派生static componentを追加してよいが、旧Replayのcanonical hashを変えない。v3 partのenabled／detached／parent、health、weapon state、lock slotはcanonical hashへ含める。
 
 ### M6: Stage／Presentation
 
@@ -637,11 +693,30 @@ Definition v3を一括導入しない。各段階でv1／v2 sampleとSYNC DRIVE�
 - Effect recipe、state animation、post-process passを追加する。
 - audio／camera／background trackをEditorへ接続する。
 
+#### M6実装契約
+
+- v3 authoringは`stage-programs/`、`effects/`、`animation-states/`を追加し、各documentは`schemaVersion: 3`と一意なIDを持つ。`StageDefinition.stageProgramId`は任意の互換fieldとし、未指定のv1／v2 Stageは従来の秒単位spawn eventをそのまま使う。空のv3 collectionと未指定fieldは既存source content hashを変えない。
+- Stage programは`spawn`、`environment`、`camera`、`audio`、`ui`、`route`のtrackを持つ。compilerはtrack kind、track ID、event frame、node IDの順で固定し、Runtimeは型付きActor／Boss handleとcompile済みscalarだけを実行する。frame 0はStage playing開始後の最初のtickであり、同frameのsignalはこの固定track順で後続trackから観測できる。waitは`timeoutFrames`またはprogramの`endFrame`を必須とし、無期限停止を保存前に拒否する。
+- `run-frame`はStage playing中の60Hz tick、`world-time`はQ16.16 accumulatorの整数frameを参照する。`set-world-time-scale`は0〜4をQ16.16へ量子化し、command実行の次tickからmotion、weapon、projectile program、world animationへ適用する。clock scale、accumulator、track cursor、wait開始frame、発火済みsignal、force-clearはcanonical hashへ含める。Boss phase clockは`run-frame`をdefaultとし、明示時だけ`world-time`を使う。
+- environment／camera／audio／UI trackはWorldを直接装飾せず、`StagePresentationState`とsemantic eventを更新する。BGMは`SetMusic`としてcrossfadeし、stingerはone-shot、duckはduration付きmusic duckingとしてFrameworkへ渡す。camera shakeは有限durationで解除する。background、scroll、camera、audio、UIのpresentation状態はcanonical hashへ混ぜない。
+- Effect recipeはreflectionで列挙済みのsemantic gameplay eventと、その型付きfieldだけを条件式から読む。particle、trail、flash、shake、hit-stop、audio、bloom／color-grade／distortion／afterimage stateへ展開できるが、World、score、resourceを変更できない。density、flash、shakeのaccessibility設定は展開時に適用し、hitbox、enemy bullet outline、lock markerはrecipeやpost-processが無効でも表示する。
+- state animationはActor partごとのsemantic stateを`idle`、移動方向、`damaged`、`destroy`などへ解決し、state set IDとsemantic stateをrendererへ渡す。全Entity共通のrun開始時刻ではなくFrameworkのpresentation clockでframeを選ぶ。Editorはv3 schemaを公開し、Stage programの全trackを同一timeline上に表示してbackground／camera／audio nodeをproduction Runtime previewと同じcandidate contentから検証する。
+
 ### M7: Editor
 
 - Preview Sandboxとcheckpoint seekを追加する。
 - Pattern Graph、Curve、Actor Composer、Stage Timeline、Rule Inspectorを順に追加する。
 - undo／redoとID rename transactionを追加する。
+
+#### M7実装契約
+
+- M7のcompiler contractはversion 8、built-in moduleは`3.0.0-m7`とする。diagnostic mapはdefinition／domain／file／JSON Path／node IDに加え、参照chain、解決済みparameter、modifier provenance、推定instruction／spawn budgetを返す。Editorのvalidateは成功時にもこのcompile結果を返し、保存前に全variant bindingとbudgetを検証する。
+- Preview Sandboxは簡易再実装を持たず、productionの`ShootingSimulation`、compiled catalog、factory、Systemを使う。full stageに加えてprogram／pattern、Actor、Boss phaseをdefinition IDで隔離起動でき、入力script、signal、world time scaleを同じfixed tickへ注入する。Boss Trainingのcheckpoint探索はlegacy stage event／objectiveだけでなく、compiled Stage programの`BossHandle`参照も対象とする。旧packのcheckpoint選択は変わらない。
+- seekは300 frame間隔でimmutable `SimulationCheckpoint`をcacheし、直前checkpointを復元して目的frameまで同じInputFrame列を再生する。checkpointはWorld、ProjectileStore、stage track cursorとsignal、resource／state machine、RNG、clock、pending input edgeを含む。復元後のcontinuation hashと先行実行hashの一致をテストする。
+- EditorはJSON text編集に加え、Pattern Graph、Curve、Emitter gizmo、Actor part tree／hurtbox／hardpoint、Stage multi-track timeline、Rule／Resource／State inspectorを提供する。複数選択、copy／paste、undo／redoは単一transaction単位とし、ID renameは参照graphを先に列挙して全変更を一括validateし、1件でも失敗すればfileを変更しない。
+- `program`、`parameter-set`、`variant`、`interaction`、`resource`、`rule`、`state-machine`、`actor`、`stage-program`、`effect`、`animation-state`をfile type routingとJSON schemaへ追加する。schema validation後にcandidate content全体をcompileし、局所documentだけでは見つからないunknown reference、cycle、override競合も保存前に拒否する。
+- preview結果はprojectileのprogram／source node、rule commandのsource definition／action index、resource snapshot、active state、modifier provenanceを返す。これにより弾、score、resource、modifierをRuntimeで実際に適用したnodeまで追跡できる。
+- 10,000 projectile benchmarkはcontent追加順でhomingやVM workloadへ変質しないよう、ID ordinalで最初のprogramなしstraight projectileのscalar値を選び、外部stage event／ruleの影響を除いた固定のminimal stageで600 tick測定する。player projectileに対するenemy target layerが空の場合はcollision method呼び出し前にskipし、命中event用closureをdense loopで生成しない。この基準workloadの意味を変える場合はreport formatを更新する。
 
 各migrationは旧APIをadapterとして残し、利用箇所がゼロになってから別変更で削除する。
 

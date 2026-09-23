@@ -40,4 +40,12 @@ public sealed class Entity
     public bool Has<T>() where T : class => _components.ContainsKey(typeof(T));
 
     public bool Remove<T>() where T : class => _components.Remove(typeof(T));
+
+    internal IEnumerable<object> Components => _components.Values;
+
+    internal void AddComponent(object component)
+    {
+        ArgumentNullException.ThrowIfNull(component);
+        _components.Add(component.GetType(), component);
+    }
 }

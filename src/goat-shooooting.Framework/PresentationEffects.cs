@@ -14,7 +14,8 @@ public enum PresentationEffectKind
     Bomb,
     Special,
     BossTransition,
-    Trail
+    Trail,
+    Custom
 }
 
 public enum PresentationBlendMode
@@ -66,6 +67,9 @@ public sealed class PresentationEffectSystem
     private readonly PresentationEffect[] _effects;
     private PresentationSettings _settings;
     private int _activeCount;
+    private IReadOnlyList<CompiledEffectRecipe> _recipes = Array.Empty<CompiledEffectRecipe>();
+    private readonly List<string> _audioCues = new();
+    private readonly Dictionary<string, PostProcessState> _postProcess = new(StringComparer.Ordinal);
 
     public PresentationEffectSystem(PresentationSettings? settings = null)
     {
@@ -80,6 +84,15 @@ public sealed class PresentationEffectSystem
     public float ScreenFlash { get; private set; }
     public float CameraShake { get; private set; }
     public float HitStopRemaining { get; private set; }
+    public IReadOnlyList<string> AudioCues => _audioCues;
+    public IReadOnlyDictionary<string, float> PostProcessPasses => _postProcess.ToDictionary(
+        static pair => pair.Key, static pair => pair.Value.Intensity, StringComparer.Ordinal);
+
+    public void Configure(IReadOnlyList<CompiledEffectRecipe> recipes) =>
+        _recipes = Array.AsReadOnly((recipes ?? throw new ArgumentNullException(nameof(recipes)))
+            .OrderBy(static recipe => recipe.Definition.Priority)
+            .ThenBy(static recipe => recipe.Definition.Id, StringComparer.Ordinal)
+            .ToArray());
 
     public void Apply(PresentationSettings settings)
     {
@@ -103,6 +116,8 @@ public sealed class PresentationEffectSystem
         ScreenFlash = 0;
         CameraShake = 0;
         HitStopRemaining = 0;
+        _audioCues.Clear();
+        _postProcess.Clear();
     }
 
     public void ObserveTick(FrameSnapshot snapshot, IReadOnlyList<IGameplayEvent> events)
@@ -110,8 +125,13 @@ public sealed class PresentationEffectSystem
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(events);
         Advance(SimulationTiming.TickDurationSeconds);
+        _audioCues.Clear();
         EmitTrails(snapshot);
-        for (var index = 0; index < events.Count; index++) EmitEvent(events[index], snapshot);
+        for (var index = 0; index < events.Count; index++)
+        {
+            EmitEvent(events[index], snapshot);
+            EmitRecipes(events[index], snapshot);
+        }
     }
 
     private void Advance(float elapsed)
@@ -119,6 +139,13 @@ public sealed class PresentationEffectSystem
         ScreenFlash = Math.Max(0, ScreenFlash - (elapsed * 4));
         CameraShake = Math.Max(0, CameraShake - (elapsed * 3));
         HitStopRemaining = Math.Max(0, HitStopRemaining - elapsed);
+        foreach (var key in _postProcess.Keys.ToArray())
+        {
+            var state = _postProcess[key];
+            state = state with { Remaining = state.Remaining - elapsed };
+            if (state.Remaining <= 0) _postProcess.Remove(key);
+            else _postProcess[key] = state;
+        }
         var index = 0;
         while (index < _activeCount)
         {
@@ -179,6 +206,8 @@ public sealed class PresentationEffectSystem
                 (PresentationEffectKind.BossTransition, value.BossEntityId, 20, 14f, 0.8f, 0xff5b7fffu, PresentationBlendMode.Additive),
             BossPhaseEndedEvent value =>
                 (PresentationEffectKind.BossTransition, value.BossEntityId, 20, 14f, 0.8f, 0xffd36fffu, PresentationBlendMode.Additive),
+            ActorPartDestroyedEvent value =>
+                (PresentationEffectKind.Destroy, value.PartEntityId, 10, 7f, 0.4f, 0xff9b42ffu, PresentationBlendMode.Additive),
             _ => default
         };
         if (count == 0) return;
@@ -205,6 +234,106 @@ public sealed class PresentationEffectSystem
                 break;
         }
     }
+
+    private void EmitRecipes(IGameplayEvent gameplayEvent, FrameSnapshot snapshot)
+    {
+        for (var recipeIndex = 0; recipeIndex < _recipes.Count; recipeIndex++)
+        {
+            var recipe = _recipes[recipeIndex];
+            if (!recipe.Event.EventType.IsInstanceOfType(gameplayEvent)) continue;
+            var facts = recipe.Event.Read(gameplayEvent);
+            if (recipe.Condition is not null && !recipe.Condition.Evaluate(new ExpressionEvaluationContext
+            {
+                Events = facts,
+                Context = new Dictionary<string, ExpressionValue>(StringComparer.Ordinal)
+                {
+                    ["frame"] = ExpressionValue.Integer(gameplayEvent.Frame),
+                    ["stateElapsed"] = ExpressionValue.Integer(0),
+                    ["particleDensity"] = ExpressionValue.Number(_settings.ParticleDensity),
+                    ["flashIntensity"] = ExpressionValue.Number(_settings.FlashIntensity),
+                    ["shakeIntensity"] = ExpressionValue.Number(_settings.ShakeIntensity),
+                    ["trailsEnabled"] = ExpressionValue.Boolean(_settings.TrailsEnabled)
+                }
+            }).BooleanValue) continue;
+            var position = RecipePosition(gameplayEvent, snapshot.Items);
+            foreach (var action in recipe.Definition.Actions)
+            {
+                switch (action.Type)
+                {
+                    case "particle":
+                        EmitBurst(
+                            ParseKind(action.Kind),
+                            position,
+                            action.Count,
+                            action.Radius,
+                            action.Duration,
+                            action.Tint,
+                            action.Blend == "alpha" ? PresentationBlendMode.Alpha : PresentationBlendMode.Additive,
+                            gameplayEvent.Frame,
+                            gameplayEvent.Sequence);
+                        break;
+                    case "flash":
+                        ScreenFlash = Math.Max(
+                            ScreenFlash, action.Intensity * _settings.FlashIntensity);
+                        break;
+                    case "shake":
+                        CameraShake = Math.Max(
+                            CameraShake, action.Intensity * _settings.ShakeIntensity);
+                        break;
+                    case "hit-stop":
+                        HitStopRemaining = Math.Max(HitStopRemaining, action.Duration);
+                        break;
+                    case "audio":
+                        _audioCues.Add(action.CueId!);
+                        break;
+                    case "post-process":
+                        _postProcess[action.Pass!] = new PostProcessState(action.Intensity, action.Duration);
+                        break;
+                }
+            }
+        }
+    }
+
+    private static PresentationEffectKind ParseKind(string value) => value switch
+    {
+        "muzzle" => PresentationEffectKind.Muzzle,
+        "hit" => PresentationEffectKind.Hit,
+        "destroy" => PresentationEffectKind.Destroy,
+        "bullet-cancel" => PresentationEffectKind.BulletCancel,
+        "item-collect" => PresentationEffectKind.ItemCollect,
+        "bomb" => PresentationEffectKind.Bomb,
+        "special" => PresentationEffectKind.Special,
+        "boss-transition" => PresentationEffectKind.BossTransition,
+        "trail" => PresentationEffectKind.Trail,
+        _ => PresentationEffectKind.Custom
+    };
+
+    private static Vector2 RecipePosition(IGameplayEvent gameplayEvent, IReadOnlyList<RenderItem> items) =>
+        gameplayEvent switch
+        {
+            ActorPartDestroyedEvent value => value.Position,
+            ProjectileCancelledEvent { X: { } x, Y: { } y } => new Vector2(x, y),
+            BombUsedEvent { EffectPosition: { } value } => value,
+            StagePresentationCueEvent value => new Vector2(value.X, value.Y),
+            _ => FindPosition(items, EventEntityId(gameplayEvent))
+        };
+
+    private static int EventEntityId(IGameplayEvent gameplayEvent) => gameplayEvent switch
+    {
+        ProjectileSpawnedEvent value => value.OwnerEntityId,
+        ProjectileHitEvent value => value.TargetEntityId,
+        EnemyDamagedEvent value => value.EnemyEntityId,
+        EnemyDestroyedEvent value => value.EnemyEntityId,
+        ItemCollectedEvent value => value.PlayerEntityId,
+        BombUsedEvent value => value.PlayerEntityId,
+        SpecialActivatedEvent value => value.PlayerEntityId,
+        BossPhaseStartedEvent value => value.BossEntityId,
+        BossPhaseEndedEvent value => value.BossEntityId,
+        ActorPartDestroyedEvent value => value.PartEntityId,
+        _ => 0
+    };
+
+    private readonly record struct PostProcessState(float Intensity, float Remaining);
 
     private void EmitBurst(
         PresentationEffectKind kind,

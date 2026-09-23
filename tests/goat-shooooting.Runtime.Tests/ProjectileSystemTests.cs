@@ -94,6 +94,38 @@ public sealed class ProjectileSystemTests
     }
 
     [Fact]
+    public void PlayerProjectileDensePathSkipsCollisionScanWhenEnemyLayerIsEmpty()
+    {
+        var world = new World();
+        world.CreateEntity()
+            .Add(new TransformComponent(new Vector2(50, 100)))
+            .Add(new ColliderComponent(5, CollisionLayer.Player))
+            .Add(new PlayerComponent("player", 200));
+        var projectiles = new ProjectileStore();
+        for (var index = 0; index < 10_000; index++)
+        {
+            projectiles.QueueSpawn(CreateCommand(
+                ProjectileTeam.Player,
+                new Vector2(index % 100, index / 100),
+                Vector2.Zero));
+        }
+        projectiles.CommitSpawns();
+        var grid = new ActorSpatialGrid();
+        grid.Rebuild(world);
+        var telemetry = new SimulationTelemetry();
+        var events = new GameEventBuffer();
+        events.BeginTick(0);
+
+        var damage = new ProjectileCollisionSystem().Detect(projectiles, grid, telemetry, events);
+
+        Assert.True(grid.HasPlayerTargets);
+        Assert.False(grid.HasEnemyTargets);
+        Assert.Empty(damage);
+        Assert.Empty(events.Events);
+        Assert.Equal(0, telemetry.CollisionCandidatesChecked);
+    }
+
+    [Fact]
     public void EnemyProjectileGrazesTheSamePlayerOnlyOnce()
     {
         var world = new World();

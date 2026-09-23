@@ -64,4 +64,30 @@ public sealed class SimulationTelemetry
     public int PlayerRespawns { get; internal set; }
     public int ExtendsAwarded { get; internal set; }
     public int ContinuesUsed { get; internal set; }
+
+    internal SimulationTelemetry CloneForCheckpoint() => new()
+    {
+        EnemiesSpawned = EnemiesSpawned,
+        EnemyMovementFrames = EnemyMovementFrames,
+        BulletsSpawned = BulletsSpawned,
+        EnemyBulletsSpawned = EnemyBulletsSpawned,
+        BulletMovementFrames = BulletMovementFrames,
+        CollisionsDetected = CollisionsDetected,
+        CollisionCandidatesChecked = CollisionCandidatesChecked,
+        PlayerGrazes = PlayerGrazes,
+        DamageEventsApplied = DamageEventsApplied,
+        PlayerDamageEventsApplied = PlayerDamageEventsApplied,
+        BombsUsed = BombsUsed,
+        AutoBombsUsed = AutoBombsUsed,
+        EnemyBulletsCleared = EnemyBulletsCleared,
+        EnemiesKilled = EnemiesKilled,
+        BossesKilled = BossesKilled,
+        Score = Score,
+        ItemsSpawned = ItemsSpawned,
+        ItemsCollected = ItemsCollected,
+        PlayerDeaths = PlayerDeaths,
+        PlayerRespawns = PlayerRespawns,
+        ExtendsAwarded = ExtendsAwarded,
+        ContinuesUsed = ContinuesUsed
+    };
 }

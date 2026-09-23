@@ -62,6 +62,24 @@ public sealed class AudioCueEngine : IDisposable
         for (var index = 0; index < events.Count; index++)
         {
             var gameplayEvent = events[index];
+            if (gameplayEvent is StageAudioCueEvent stageAudio)
+            {
+                switch (stageAudio.Kind)
+                {
+                    case "set-bgm":
+                        SetMusic(stageAudio.CueId, stageAudio.Frame);
+                        break;
+                    case "stinger" when stageAudio.CueId is not null:
+                        Play(stageAudio.CueId, stageAudio.Frame, stageAudio.Sequence);
+                        break;
+                    case "duck":
+                        _duckRemaining = Math.Max(
+                            _duckRemaining,
+                            stageAudio.DurationFrames / (float)SimulationTiming.TicksPerSecond);
+                        break;
+                }
+                continue;
+            }
             var cueId = gameplayEvent switch
             {
                 AudioCueEvent value => value.CueId,
@@ -247,6 +265,7 @@ internal sealed class GameAudio : IDisposable
     }
 
     public void Process(IReadOnlyList<IGameplayEvent> events) => _engine?.Process(events);
+    public bool Play(string cueId, long frame) => _engine?.Play(cueId, frame) ?? false;
     public bool SetMusic(string? cueId, long frame) => _engine?.SetMusic(cueId, frame) ?? false;
     public void Preview(string category, long frame) => _engine?.Preview(category, frame);
     public void Update(float elapsedSeconds) => _engine?.Update(elapsedSeconds);

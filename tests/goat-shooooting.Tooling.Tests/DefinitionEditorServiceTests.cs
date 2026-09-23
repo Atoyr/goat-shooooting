@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GoatShooooting.Definitions;
+using GoatShooooting.Runtime;
 using GoatShooooting.Tooling;
 using Xunit;
 
@@ -17,6 +18,17 @@ public sealed class DefinitionEditorServiceTests
     [InlineData("difficulties/a.json", "difficulty")]
     [InlineData("visuals/a.json", "visual")]
     [InlineData("audio/a.json", "audio")]
+    [InlineData("stage-programs/a.json", "stage-program")]
+    [InlineData("effects/a.json", "effect")]
+    [InlineData("animation-states/a.json", "animation-state")]
+    [InlineData("programs/a.json", "program")]
+    [InlineData("variants/a.json", "variant")]
+    [InlineData("parameter-sets/a.json", "parameter-set")]
+    [InlineData("interactions/a.json", "interaction")]
+    [InlineData("resources/a.json", "resource")]
+    [InlineData("rules/a.json", "rule")]
+    [InlineData("state-machines/a.json", "state-machine")]
+    [InlineData("actors/a.json", "actor")]
     [InlineData("assets.json", "assets")]
     public void V2DefinitionPathsSelectTheirSchema(string path, string schema)
     {
@@ -81,6 +93,40 @@ public sealed class DefinitionEditorServiceTests
     }
 
     [Fact]
+    public void RenameUpdatesTypedReferencesAfterWholePackValidation()
+    {
+        using var fixture = DefinitionFixture.Create();
+        var service = new DefinitionEditorService(fixture.Path);
+
+        var result = service.Rename("weapons/weapon.json", "renamed-weapon");
+
+        Assert.True(result.Success, result.Message);
+        Assert.Contains("renamed-weapon", service.Read("weapons/weapon.json"), StringComparison.Ordinal);
+        Assert.Contains("renamed-weapon", service.Read("player.json"), StringComparison.Ordinal);
+        Assert.True(service.Validate("player.json", service.Read("player.json")).Success);
+    }
+
+    [Fact]
+    public void RenameEventRuleUpdatesVariantRuleBinding()
+    {
+        using var fixture = DefinitionFixture.Create();
+        Directory.CreateDirectory(Path.Combine(fixture.Path, "rules"));
+        Directory.CreateDirectory(Path.Combine(fixture.Path, "variants"));
+        File.WriteAllText(Path.Combine(fixture.Path, "rules", "score.json"),
+            """{"schemaVersion":3,"id":"score-rule","on":"enemy-destroyed","actions":[{"op":"award-score","category":"kill","base":1}]}""");
+        File.WriteAllText(Path.Combine(fixture.Path, "variants", "mode.json"),
+            """{"schemaVersion":3,"id":"mode","bindings":[],"ruleBindings":[{"slotId":"score.main","eventRuleId":"score-rule"}]}""");
+        var service = new DefinitionEditorService(fixture.Path);
+
+        var result = service.Rename("rules/score.json", "renamed-score-rule");
+
+        Assert.True(result.Success, result.Message);
+        Assert.Contains("renamed-score-rule", service.Read("rules/score.json"), StringComparison.Ordinal);
+        Assert.Contains("renamed-score-rule", service.Read("variants/mode.json"), StringComparison.Ordinal);
+        Assert.True(service.Validate("variants/mode.json", service.Read("variants/mode.json")).Success);
+    }
+
+    [Fact]
     public void PreviewUsesProductionRuntimeAndIsDeterministicForSeedAndSeek()
     {
         using var fixture = DefinitionFixture.Create();
@@ -101,6 +147,28 @@ public sealed class DefinitionEditorServiceTests
         Assert.Contains(first.ScoreTrace, static item => item.FinalAmount > 0);
         Assert.Equal(first.StateHash, second.StateHash);
         Assert.Equal(first.ActiveProjectiles, second.ActiveProjectiles);
+    }
+
+    [Fact]
+    public void PreviewSeekRestoresNearestImmutableCheckpointAndAcceptsRecordedInput()
+    {
+        using var fixture = DefinitionFixture.Create();
+        var service = new DefinitionEditorService(fixture.Path);
+        var stage = service.Read("stages/stage.json")
+            .Replace("\"time\":1", "\"time\":1000", StringComparison.Ordinal);
+        var recorded = Enumerable.Repeat(new InputFrame(0, 0, InputButtons.Fire), 800).ToArray();
+        var first = service.Preview(new EditorPreviewRequest(
+            "stages/stage.json", stage, TargetFrame: 650, Seed: 91,
+            RecordedInputs: recorded, WorldTimeScale: 0.75f, PreviewKind: "full-run"));
+        var seek = service.Preview(new EditorPreviewRequest(
+            "stages/stage.json", stage, TargetFrame: 780, Seed: 91,
+            RecordedInputs: recorded, WorldTimeScale: 0.75f, PreviewKind: "full-run"));
+
+        Assert.True(first.Success, first.Message);
+        Assert.True(seek.Success, seek.Message);
+        Assert.Equal(600, seek.RestoredCheckpointFrame);
+        Assert.Equal(180, seek.SimulatedFrames);
+        Assert.NotEmpty(seek.LiveResources);
     }
 
     [Fact]

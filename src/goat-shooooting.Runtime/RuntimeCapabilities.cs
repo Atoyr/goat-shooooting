@@ -59,6 +59,14 @@ public interface IStageEventHandler : IRuntimeCapability
         StageEventDefinition stageEvent,
         int spawnIndex,
         EnemyFactory enemyFactory);
+
+    void Execute(
+        World world,
+        CompiledCatalog definitions,
+        CompiledStageEventDefinition stageEvent,
+        int spawnIndex,
+        EnemyFactory enemyFactory) =>
+        Execute(world, definitions.Source, stageEvent.Definition, spawnIndex, enemyFactory);
 }
 
 public readonly record struct ProjectileBehaviorConfiguration(
@@ -75,6 +83,7 @@ public sealed class CapabilityRegistry<TCapability> where TCapability : IRuntime
     }
 
     public IReadOnlyCollection<string> Types => _capabilities.Keys;
+    public IReadOnlyCollection<TCapability> Values => _capabilities.Values;
 
     public void Register(TCapability capability)
     {
@@ -418,6 +427,25 @@ internal sealed class SpawnEnemyStageEventHandler : IStageEventHandler
             new Vector2(stageEvent.X + (spawnIndex * stageEvent.SpacingX), stageEvent.Y),
             stageEvent.IsBoss || boss is not null,
             boss);
+    }
+
+    public void Execute(
+        World world,
+        CompiledCatalog definitions,
+        CompiledStageEventDefinition stageEvent,
+        int spawnIndex,
+        EnemyFactory enemyFactory)
+    {
+        var definition = stageEvent.Definition;
+        var enemyHandle = stageEvent.EnemyHandle ?? throw new DefinitionValidationException(
+            "Compiled spawn-enemy event has no enemy handle.");
+        enemyFactory.Create(
+            world,
+            definitions,
+            enemyHandle,
+            new Vector2(definition.X + (spawnIndex * definition.SpacingX), definition.Y),
+            definition.IsBoss || stageEvent.BossHandle is not null,
+            stageEvent.BossHandle);
     }
 }
 

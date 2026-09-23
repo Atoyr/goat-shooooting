@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","title":"Parameter Set v3","type":"object","required":["schemaVersion","id","values"],"properties":{"schemaVersion":{"const":3},"id":{"type":"string","minLength":1},"values":{"type":"object"}}}

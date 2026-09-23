@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Text.Json;
 using GoatShooooting.Definitions;
 using GoatShooooting.Framework;
 using GoatShooooting.Runtime;
@@ -105,6 +106,65 @@ public sealed class PresentationEffectSystemTests
         Assert.Equal(0, system.CameraShake);
     }
 
+    [Fact]
+    public void CompiledRecipeReadsEventFactsAndExpandsPresentationOnlyActions()
+    {
+        var compiled = CompileRecipe(new EffectRecipeDefinition
+        {
+            Id = "large-destroy",
+            On = "enemy-destroyed",
+            When = JsonDocument.Parse(
+                """
+                { "op": "and",
+                  "left": { "op": "greater-than", "left": { "event": "baseScore" }, "right": 0 },
+                  "right": { "op": "greater-than", "left": { "context": "particleDensity" }, "right": 0.5 } }
+                """).RootElement.Clone(),
+            Actions =
+            [
+                new EffectRecipeActionDefinition { Type = "particle", Kind = "custom", Count = 2 },
+                new EffectRecipeActionDefinition { Type = "flash", Intensity = 0.4f },
+                new EffectRecipeActionDefinition { Type = "shake", Intensity = 0.3f },
+                new EffectRecipeActionDefinition { Type = "hit-stop", Duration = 0.1f },
+                new EffectRecipeActionDefinition { Type = "audio", CueId = "impact" },
+                new EffectRecipeActionDefinition
+                { Type = "post-process", Pass = "bloom", Intensity = 0.6f, Duration = 0.2f }
+            ]
+        });
+        var system = new PresentationEffectSystem(new PresentationSettings { TrailsEnabled = false });
+        system.Configure(compiled.EffectRecipes);
+
+        system.ObserveTick(CreateSnapshot(),
+            [new EnemyDestroyedEvent(10, 0, 2, "enemy", BaseScore: 100)]);
+
+        Assert.Equal(14, system.ActiveCount);
+        Assert.Contains(Enumerable.Range(0, system.ActiveCount).Select(system.GetEffect),
+            static effect => effect.Kind == PresentationEffectKind.Custom);
+        Assert.True(system.ScreenFlash >= 0.4f);
+        Assert.True(system.CameraShake >= 0.3f);
+        Assert.True(system.HitStopRemaining >= 0.1f);
+        Assert.Equal(["impact"], system.AudioCues);
+        Assert.Equal(0.6f, system.PostProcessPasses["bloom"]);
+
+        var filtered = new PresentationEffectSystem(new PresentationSettings { TrailsEnabled = false });
+        filtered.Configure(compiled.EffectRecipes);
+        filtered.ObserveTick(CreateSnapshot(),
+            [new EnemyDestroyedEvent(10, 0, 2, "enemy", BaseScore: 0)]);
+        Assert.Equal(12, filtered.ActiveCount);
+        Assert.Empty(filtered.AudioCues);
+        Assert.Empty(filtered.PostProcessPasses);
+
+        var accessible = new PresentationEffectSystem(new PresentationSettings
+        {
+            ParticleDensity = 0.25f,
+            TrailsEnabled = false
+        });
+        accessible.Configure(compiled.EffectRecipes);
+        accessible.ObserveTick(CreateSnapshot(),
+            [new EnemyDestroyedEvent(10, 0, 2, "enemy", BaseScore: 100)]);
+        Assert.Empty(accessible.AudioCues);
+        Assert.Empty(accessible.PostProcessPasses);
+    }
+
     [Theory]
     [InlineData("full", 0)]
     [InlineData("touhou", 180)]
@@ -156,5 +216,32 @@ public sealed class PresentationEffectSystemTests
         3,
         2,
         new BossHudSnapshot(2, "boss", "BOSS", "PHASE", 0.5f, 20, false));
+
+    private static CompiledCatalog CompileRecipe(EffectRecipeDefinition recipe)
+    {
+        var definitions = new DefinitionCatalog(
+            new GameDefinition { PlayerId = "player", StageId = "stage", Width = 800, Height = 600 },
+            [new PlayerDefinition
+            {
+                Id = "player",
+                Lives = 2,
+                Bombs = 2,
+                Speed = 200,
+                WeaponId = "weapon",
+                Radius = 10
+            }],
+            [new EnemyDefinition { Id = "enemy", Hp = 10, Radius = 10 }],
+            [new BulletDefinition { Id = "bullet", Speed = 100, Damage = 1, Radius = 3, Lifetime = 5 }],
+            [new WeaponDefinition { Id = "weapon", BulletId = "bullet", Cooldown = 0.5f }],
+            [new StageDefinition
+            {
+                Id = "stage",
+                Events = [new StageEventDefinition
+                { Type = "spawn-enemy", EnemyId = "enemy", X = 10, Y = 10 }]
+            }],
+            audio: [new AudioDefinition { Id = "impact", AssetId = "impact.wav" }],
+            effectRecipes: [recipe]);
+        return new DefinitionCompiler().Compile(definitions, RuntimeCapabilityRegistry.CreateBuiltIn());
+    }
 
 }

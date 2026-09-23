@@ -15,6 +15,7 @@ public sealed record ReplayHeader
     public int ReplayVersion { get; init; } = ReplayFormat.CurrentVersion;
     public string EngineVersion { get; init; } = ReplayFormat.EngineVersion;
     public string ContentHash { get; init; } = string.Empty;
+    public string? CompiledContentHash { get; init; }
     public RunConfiguration Configuration { get; init; } = new("invalid", 0);
     public long Seed { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
@@ -91,7 +92,8 @@ public sealed class ReplayRecorder
         RunConfiguration configuration,
         string contentHash,
         DateTimeOffset createdAt,
-        int hashInterval = ReplayFormat.DefaultHashInterval)
+        int hashInterval = ReplayFormat.DefaultHashInterval,
+        string? compiledContentHash = null)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
@@ -102,6 +104,7 @@ public sealed class ReplayRecorder
             Configuration = configuration,
             Seed = configuration.Seed,
             ContentHash = contentHash,
+            CompiledContentHash = compiledContentHash,
             CreatedAt = createdAt
         };
     }
@@ -274,7 +277,8 @@ public static class ReplayValidator
     public static void Validate(
         ReplayDocument replay,
         string expectedContentHash,
-        string expectedEngineVersion = ReplayFormat.EngineVersion)
+        string expectedEngineVersion = ReplayFormat.EngineVersion,
+        string? expectedCompiledContentHash = null)
     {
         ArgumentNullException.ThrowIfNull(replay);
         if (replay.Header is null || replay.Header.Configuration is null || replay.Inputs is null ||
@@ -288,6 +292,11 @@ public static class ReplayValidator
                 $"Replay engine '{replay.Header.EngineVersion}' does not match '{expectedEngineVersion}'.");
         if (!string.Equals(replay.Header.ContentHash, expectedContentHash, StringComparison.Ordinal))
             throw new ReplayException(ReplayErrorCode.ContentMismatch, "Replay content does not match the installed game data.");
+        if (!string.IsNullOrWhiteSpace(replay.Header.CompiledContentHash) &&
+            !string.Equals(replay.Header.CompiledContentHash, expectedCompiledContentHash, StringComparison.Ordinal))
+            throw new ReplayException(
+                ReplayErrorCode.ContentMismatch,
+                "Replay compiled content does not match the installed compiler or module set.");
         if (replay.Header.Seed != replay.Header.Configuration.Seed)
             throw new ReplayException(ReplayErrorCode.InvalidStructure, "Replay seed does not match RunConfiguration.");
         if (replay.Result.EndFrame < 0 || replay.Result.EndFrame > ReplayFormat.MaximumFrames ||

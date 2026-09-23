@@ -27,7 +27,8 @@ public sealed record RunConfiguration
         int? initialGauge = null,
         float? initialInvincibilitySeconds = null,
         bool slowPractice = false,
-        bool showHitboxes = false)
+        bool showHitboxes = false,
+        string? variantId = null)
     {
         GameId = RequireId(gameId, nameof(gameId));
         Seed = seed;
@@ -54,6 +55,7 @@ public sealed record RunConfiguration
         InitialInvincibilitySeconds = initialInvincibilitySeconds;
         SlowPractice = slowPractice;
         ShowHitboxes = showHitboxes;
+        VariantId = OptionalId(variantId, nameof(variantId));
     }
 
     public string GameId { get; }
@@ -72,6 +74,7 @@ public sealed record RunConfiguration
     public float? InitialInvincibilitySeconds { get; }
     public bool SlowPractice { get; }
     public bool ShowHitboxes { get; }
+    public string? VariantId { get; }
 
     private static string RequireId(string value, string parameterName)
     {
@@ -161,7 +164,59 @@ public sealed class RunState
         _scoreBreakdown[category] = current > long.MaxValue - awarded ? long.MaxValue : current + awarded;
         return awarded;
     }
+
+    internal void SetScoreFromResource(double value)
+    {
+        if (!double.IsFinite(value) || value < 0) throw new ArgumentOutOfRangeException(nameof(value));
+        Score = value >= long.MaxValue ? long.MaxValue : (long)Math.Floor(value);
+    }
+
+    internal RunStateCheckpoint CaptureCheckpoint() => new(
+        Frame, Score, Power, Gauge, Rank, SpecialPhase, SpecialLevel, SpecialTimeRemaining,
+        SpecialCooldownRemaining, SpecialScoreMultiplier, SpecialGaugeValue, CreditsRemaining,
+        ContinuesUsed, Continued, Chain, MaximumChain, HitCombo, ConsecutiveItems, Multiplier,
+        LastKillFrame, LastHitFrame, LastItemFrame,
+        new Dictionary<string, long>(_scoreBreakdown, StringComparer.Ordinal),
+        _claimedExtendThresholds.Order().ToArray());
+
+    internal void RestoreCheckpoint(RunStateCheckpoint checkpoint)
+    {
+        Frame = checkpoint.Frame;
+        Score = checkpoint.Score;
+        Power = checkpoint.Power;
+        Gauge = checkpoint.Gauge;
+        Rank = checkpoint.Rank;
+        SpecialPhase = checkpoint.SpecialPhase;
+        SpecialLevel = checkpoint.SpecialLevel;
+        SpecialTimeRemaining = checkpoint.SpecialTimeRemaining;
+        SpecialCooldownRemaining = checkpoint.SpecialCooldownRemaining;
+        SpecialScoreMultiplier = checkpoint.SpecialScoreMultiplier;
+        SpecialGaugeValue = checkpoint.SpecialGaugeValue;
+        CreditsRemaining = checkpoint.CreditsRemaining;
+        ContinuesUsed = checkpoint.ContinuesUsed;
+        Continued = checkpoint.Continued;
+        Chain = checkpoint.Chain;
+        MaximumChain = checkpoint.MaximumChain;
+        HitCombo = checkpoint.HitCombo;
+        ConsecutiveItems = checkpoint.ConsecutiveItems;
+        Multiplier = checkpoint.Multiplier;
+        LastKillFrame = checkpoint.LastKillFrame;
+        LastHitFrame = checkpoint.LastHitFrame;
+        LastItemFrame = checkpoint.LastItemFrame;
+        _scoreBreakdown.Clear();
+        foreach (var pair in checkpoint.ScoreBreakdown) _scoreBreakdown.Add(pair.Key, pair.Value);
+        _claimedExtendThresholds.Clear();
+        foreach (var threshold in checkpoint.ClaimedExtendThresholds) _claimedExtendThresholds.Add(threshold);
+    }
 }
+
+internal sealed record RunStateCheckpoint(
+    long Frame, long Score, int Power, int Gauge, double Rank, SpecialGaugePhase SpecialPhase,
+    int SpecialLevel, double SpecialTimeRemaining, double SpecialCooldownRemaining,
+    double SpecialScoreMultiplier, double SpecialGaugeValue, int CreditsRemaining, int ContinuesUsed,
+    bool Continued, int Chain, int MaximumChain, int HitCombo, int ConsecutiveItems,
+    double Multiplier, long LastKillFrame, long LastHitFrame, long LastItemFrame,
+    IReadOnlyDictionary<string, long> ScoreBreakdown, IReadOnlyList<long> ClaimedExtendThresholds);
 
 public sealed record RunResult(
     SimulationStatus Status,
