@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 2,
+  "id": "boss-cycle-two",
+  "kind": "attack",
+  "commands": [
+    {"type":"fire","parameters":{"weaponId":"boss-petal-ring"},"repeatCount":1,"maximumSpawnCount":42,"difficultyTags":[]},
+    {"type":"wait","parameters":{"duration":0.42},"repeatCount":1,"maximumSpawnCount":0,"difficultyTags":[]},
+    {"type":"fire","parameters":{"weaponId":"boss-seed"},"repeatCount":1,"maximumSpawnCount":6,"difficultyTags":[]},
+    {"type":"wait","parameters":{"duration":0.55},"repeatCount":1,"maximumSpawnCount":0,"difficultyTags":[]}
+  ]
+}

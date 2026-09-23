@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "id": "enemy-fan",
+  "projectileId": "ember-soft",
+  "cooldown": 0.9,
+  "actionType": "projectile",
+  "emitters": [{
+    "id": "fan",
+    "projectileId": "ember-soft",
+    "fireInterval": 0.9,
+    "angleSource": "aim-at-player",
+    "distribution": "fan",
+    "projectileCount": 5,
+    "spreadDegrees": 44,
+    "speedMultipliers": [0.8, 1.0]
+  }]
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "id": "flare-lance",
+  "speed": 650,
+  "damage": 30,
+  "hitRadius": 4,
+  "lifetime": 2.8,
+  "visualId": "flare-shot-visual",
+  "tags": ["shot", "lock"],
+  "interactionPower": 1,
+  "cancelResistance": "soft",
+  "behavior": { "type": "homing", "parameters": { "turnDegreesPerSecond": 780 } }
+}

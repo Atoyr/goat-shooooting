@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "id": "cinder-scout",
+  "hp": 70,
+  "speed": 62,
+  "weaponId": "enemy-fan",
+  "radius": 13,
+  "score": 500,
+  "movementPattern": "sine",
+  "movementAmplitude": 52,
+  "movementFrequency": 0.32,
+  "dropTable": [
+    {"itemId":"ember-shard","count":2,"chance":1.0,"scatterSpeed":65},
+    {"itemId":"score-spark","count":1,"chance":0.45,"scatterSpeed":45}
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "id": "boss-seed",
+  "projectileId": "bloom-seed",
+  "cooldown": 1.1,
+  "actionType": "projectile",
+  "emitters": [{
+    "id": "seed",
+    "projectileId": "bloom-seed",
+    "fireInterval": 1.1,
+    "angleSource": "aim-at-player",
+    "distribution": "fan",
+    "projectileCount": 3,
+    "spreadDegrees": 70,
+    "speedMultipliers": [0.85, 1.0]
+  }]
+}

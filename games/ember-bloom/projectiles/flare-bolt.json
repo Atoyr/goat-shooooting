@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 2,
+  "id": "flare-bolt",
+  "speed": 760,
+  "damage": 18,
+  "hitRadius": 3,
+  "lifetime": 2.2,
+  "visualId": "flare-shot-visual",
+  "tags": ["shot"],
+  "interactionPower": 1,
+  "cancelResistance": "soft",
+  "behavior": { "type": "straight", "parameters": {} }
+}

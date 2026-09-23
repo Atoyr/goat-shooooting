@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 3,
+  "id": "gauge",
+  "scope": "run",
+  "valueType": "number",
+  "initial": 200,
+  "minimum": 0,
+  "maximum": 200,
+  "resetPolicy": "on-run-start",
+  "adapter": "gauge",
+  "hud": {"format":"segmented-gauge","segments":2}
+}

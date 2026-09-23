@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "id": "petal-gunship",
+  "hp": 260,
+  "speed": 24,
+  "weaponId": "enemy-ring",
+  "radius": 22,
+  "score": 2400,
+  "movementPattern": "sine",
+  "movementAmplitude": 120,
+  "movementFrequency": 0.14,
+  "dropTable": [
+    {"itemId":"ember-shard","count":7,"chance":1.0,"scatterSpeed":90},
+    {"itemId":"score-spark","count":4,"chance":1.0,"scatterSpeed":75}
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 3,
+  "id": "solar-bloom-actor",
+  "enemyId": "solar-bloom-core",
+  "tags": ["boss", "large-target"],
+  "parts": [{
+    "id": "core",
+    "healthPolicy": "shared",
+    "targetable": true,
+    "lockCapacity": 8,
+    "interactionClass": "boss-core",
+    "tags": ["core", "large-target"],
+    "hurtboxes": [{"id":"core-hit","shape":"circle","radius":32}],
+    "destroySignal": "solar-bloom-core-destroyed"
+  }]
+}

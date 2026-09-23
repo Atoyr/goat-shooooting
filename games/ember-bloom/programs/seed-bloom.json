@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 3,
+  "id": "seed-bloom",
+  "domain": "projectile",
+  "parameters": {
+    "waitFrames": {"type":"integer","default":36,"minimum":18,"maximum":60},
+    "petalCount": {"type":"integer","default":12,"minimum":6,"maximum":18}
+  },
+  "entryPoints": {
+    "onSpawn": [
+      {"nodeId":"spin","op":"angular-velocity","value":34},
+      {"nodeId":"wait","op":"wait-frames","value":{"parameter":"waitFrames"}},
+      {"nodeId":"bloom","op":"split","count":{"parameter":"petalCount"},"projectileId":"ember-soft","speed":170}
+    ]
+  }
+}

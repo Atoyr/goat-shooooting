@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 3,
+  "id": "cancel-reward",
+  "phase": "post-interaction",
+  "on": "projectile-cancelled",
+  "priority": 30,
+  "actions": [
+    {"op":"add-resource","resourceId":"gauge","value":0.25},
+    {"op":"award-score","category":"break-cancel","base":40}
+  ]
+}

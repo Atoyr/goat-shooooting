@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 2,
+  "id": "ember-01",
+  "title": "EMBER BLOOM",
+  "subtitle": "ASHEN GARDEN",
+  "openingDuration": 0,
+  "resultsDuration": 1,
+  "backgroundId": "ember-garden",
+  "events": [
+    {"schemaVersion":2,"time":1,"type":"spawn-enemy","enemyId":"cinder-scout","x":100,"y":65,"count":5,"spawnInterval":0.25,"spacingX":105},
+    {"schemaVersion":2,"time":8,"type":"spawn-enemy","enemyId":"petal-gunship","x":200,"y":75,"count":2,"spawnInterval":0.4,"spacingX":320},
+    {"schemaVersion":2,"time":15,"type":"spawn-enemy","enemyId":"cinder-scout","x":80,"y":60,"count":6,"spawnInterval":0.2,"spacingX":110},
+    {"schemaVersion":2,"time":23,"type":"spawn-enemy","enemyId":"petal-gunship","x":120,"y":80,"count":3,"spawnInterval":0.6,"spacingX":240},
+    {"schemaVersion":2,"time":31,"type":"spawn-enemy","enemyId":"cinder-scout","x":110,"y":55,"count":5,"spawnInterval":0.18,"spacingX":125},
+    {"schemaVersion":2,"time":39,"type":"spawn-enemy","enemyId":"petal-gunship","x":210,"y":70,"count":2,"spawnInterval":0.5,"spacingX":300},
+    {"schemaVersion":2,"time":48,"type":"spawn-enemy","enemyId":"solar-bloom-core","x":360,"y":105,"count":1,"spawnInterval":0,"spacingX":0,"isBoss":true,"bossId":"solar-bloom"}
+  ],
+  "objectives": [{"type":"complete-boss","bossId":"solar-bloom"}]
+}

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 2,
+  "id": "solar-bloom",
+  "displayName": "SOLAR BLOOM",
+  "enemyId": "solar-bloom-core",
+  "actorId": "solar-bloom-actor",
+  "warningSeconds": 2,
+  "phases": [
+    {
+      "id": "corolla",
+      "displayName": "IGNITION COROLLA",
+      "hp": 1800,
+      "timeLimit": 38,
+      "attackPatternIds": ["boss-attack-one"],
+      "invulnerabilitySeconds": 0.4,
+      "checkpointId": "corolla",
+      "startProjectileCancel": "none",
+      "endProjectileCancel": "soft",
+      "baseBonus": 30000,
+      "timeBonusPerSecond": 900,
+      "noMissBonus": 25000,
+      "noBombBonus": 18000
+    },
+    {
+      "id": "supernova",
+      "displayName": "PETAL SUPERNOVA",
+      "hp": 2400,
+      "timeLimit": 42,
+      "attackPatternIds": ["boss-attack-two"],
+      "invulnerabilitySeconds": 0.4,
+      "checkpointId": "supernova",
+      "startProjectileCancel": "soft",
+      "endProjectileCancel": "soft",
+      "baseBonus": 50000,
+      "timeBonusPerSecond": 1200,
+      "noMissBonus": 40000,
+      "noBombBonus": 30000
+    }
+  ]
+}
