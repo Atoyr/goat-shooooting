@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Animation State Definition v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "defaultState", "states"],
+  "properties": {
+    "schemaVersion": { "const": 3, "default": 3 },
+    "id": { "type": "string", "minLength": 1 },
+    "defaultState": { "type": "string", "minLength": 1, "default": "idle" },
+    "states": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    }
+  }
+}

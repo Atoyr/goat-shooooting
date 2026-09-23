@@ -22,6 +22,14 @@ public sealed record EnemyDestroyedEvent(
     int BaseScore = 0,
     float? DistanceToPlayer = null) : IGameplayEvent;
 
+public sealed record ActorPartDestroyedEvent(
+    long Frame,
+    int Sequence,
+    int RootEntityId,
+    int PartEntityId,
+    string PartId,
+    Vector2 Position) : IGameplayEvent;
+
 public sealed record PlayerGrazedEvent(
     long Frame,
     int Sequence,
@@ -34,7 +42,19 @@ public sealed record ProjectileSpawnedEvent(
     int ProjectileEntityId,
     int OwnerEntityId,
     ProjectileTeam Team,
-    string ProjectileDefinitionId) : IGameplayEvent;
+    string ProjectileDefinitionId,
+    string? ProgramId = null,
+    string? SourceNodeId = null) : IGameplayEvent;
+
+public sealed record RuleCommandAppliedEvent(
+    long Frame,
+    int Sequence,
+    string SourceDefinitionId,
+    int ActionIndex,
+    string Command,
+    string? TargetId,
+    string? ResourceId,
+    double Value) : IGameplayEvent;
 
 public sealed record ProjectileHitEvent(
     long Frame,
@@ -52,6 +72,22 @@ public sealed record ProjectileCancelledEvent(
     string Source = "",
     float? X = null,
     float? Y = null) : IGameplayEvent;
+
+public sealed record ProjectileInteractionEvent(
+    long Frame,
+    int Sequence,
+    string SourceKind,
+    int SourceId,
+    string TargetKind,
+    int TargetId,
+    string ProfileId) : IGameplayEvent;
+
+public sealed record LaserContactEvent(
+    long Frame,
+    int Sequence,
+    int SourceLaserEntityId,
+    int TargetEntityId,
+    string ProfileId) : IGameplayEvent;
 
 public sealed record ItemCollectedEvent(
     long Frame,
@@ -265,5 +301,11 @@ public sealed class GameEventBuffer
 
         _events.Add(gameplayEvent);
         return gameplayEvent;
+    }
+
+    internal void RestoreCheckpoint(long frame, IReadOnlyList<IGameplayEvent> events)
+    {
+        BeginTick(frame);
+        _events.AddRange(events);
     }
 }

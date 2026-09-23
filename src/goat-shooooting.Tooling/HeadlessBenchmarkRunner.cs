@@ -102,15 +102,20 @@ public static class HeadlessBenchmarkRunner
         int bulletCount,
         int tickCount)
     {
-        var input = new MutableInputState();
-        var simulation = new ShootingSimulation(new MemoryDefinitionRepository(definitions), input);
-        while (simulation.Phase == StagePhase.Opening)
-        {
-            simulation.Tick(default);
-        }
-
-        var projectile = definitions.Projectiles.Values.FirstOrDefault()
+        // This scenario is the stable program-free dense-loop baseline. Content directory enumeration
+        // order must not silently turn it into a homing or VM workload when a pack adds a projectile.
+        var projectile = definitions.Projectiles.Values
+            .Where(static value => value.ProgramSlot is null && value.Behavior.Type == "straight")
+            .OrderBy(static value => value.Id, StringComparer.Ordinal)
+            .FirstOrDefault() ?? definitions.Projectiles.Values
+            .Where(static value => value.ProgramSlot is null)
+            .OrderBy(static value => value.Id, StringComparer.Ordinal)
+            .FirstOrDefault()
             ?? throw new InvalidOperationException("Benchmark requires at least one projectile definition.");
+        var stressDefinitions = CreateStressDefinitions(definitions, projectile);
+        var simulation = new ShootingSimulation(
+            new MemoryDefinitionRepository(stressDefinitions), new MutableInputState());
+        projectile = stressDefinitions.GetProjectile("benchmark-projectile");
         var factory = new BulletFactory();
         const int columns = 100;
         for (var index = 0; index < bulletCount; index++)
@@ -134,6 +139,62 @@ public static class HeadlessBenchmarkRunner
         return Measure($"stress-{bulletCount}-bullets", simulation, tickCount, _ =>
             simulation.Tick(default));
     }
+
+    private static DefinitionCatalog CreateStressDefinitions(
+        DefinitionCatalog source,
+        ProjectileDefinition projectile) => new(
+        new GameDefinition
+        {
+            PlayerId = "benchmark-player",
+            StageId = "benchmark-stage",
+            Width = source.Game.Width,
+            Height = source.Game.Height
+        },
+        [
+            new PlayerDefinition
+            {
+                Id = "benchmark-player",
+                Lives = 2,
+                Bombs = 2,
+                BombDamage = 1,
+                Speed = 200,
+                WeaponId = "benchmark-weapon",
+                X = source.Game.Width / 2f,
+                Y = source.Game.Height - 50,
+                Radius = 3
+            }
+        ],
+        [new EnemyDefinition { Id = "benchmark-sentinel", Hp = 1, Speed = 0, Radius = 1 }],
+        [
+            new BulletDefinition
+            {
+                Id = "benchmark-projectile",
+                Speed = projectile.Speed,
+                Damage = projectile.Damage,
+                Radius = projectile.HitRadius,
+                Lifetime = projectile.Lifetime,
+                MovementPattern = "straight",
+                Behavior = new CapabilityDefinition { Type = "straight" }
+            }
+        ],
+        [new WeaponDefinition { Id = "benchmark-weapon", BulletId = "benchmark-projectile", Cooldown = 1 }],
+        [
+            new StageDefinition
+            {
+                Id = "benchmark-stage",
+                Events =
+                [
+                    new StageEventDefinition
+                    {
+                        Time = 1_000_000,
+                        Type = "spawn-enemy",
+                        EnemyId = "benchmark-sentinel",
+                        X = source.Game.Width / 2f,
+                        Y = 20
+                    }
+                ]
+            }
+        ]);
 
     private static HeadlessBenchmarkResult Measure(
         string name,

@@ -73,6 +73,22 @@ public sealed class ReplayTests
         Assert.False(string.IsNullOrWhiteSpace(exception.Message));
     }
 
+    [Fact]
+    public void ValidatorPreservesLegacyReplayAndChecksCompiledIdentityWhenPresent()
+    {
+        ReplayValidator.Validate(ValidReplay(), "content");
+        var compiled = ValidReplay() with
+        {
+            Header = ValidReplay().Header with { CompiledContentHash = "compiled" }
+        };
+
+        ReplayValidator.Validate(compiled, "content", expectedCompiledContentHash: "compiled");
+        var exception = Assert.Throws<ReplayException>(() =>
+            ReplayValidator.Validate(compiled, "content", expectedCompiledContentHash: "different"));
+
+        Assert.Equal(ReplayErrorCode.ContentMismatch, exception.Code);
+    }
+
     private static ReplayDocument ValidReplay() => new()
     {
         Header = new ReplayHeader

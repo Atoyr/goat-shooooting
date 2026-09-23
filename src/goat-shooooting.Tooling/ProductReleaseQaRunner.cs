@@ -42,7 +42,10 @@ public sealed record ProductReleaseQaReport(
     IReadOnlyList<ProductSoakResult> SoakRuns,
     ReplayRegressionResult ReplayRegression,
     HeadlessBenchmarkResult Stress,
-    string ContentHash);
+    string ContentHash)
+{
+    public string? CompiledContentHash { get; init; }
+}
 
 /// <summary>Deterministic, renderer-free product gate for content scale, full-route stability, and replay.</summary>
 public static class ProductReleaseQaRunner
@@ -54,7 +57,7 @@ public static class ProductReleaseQaRunner
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gameDirectory);
         var definitions = new JsonDefinitionRepository(gameDirectory).Load();
-        new CapabilityValidator().Validate(definitions, RuntimeCapabilityRegistry.CreateBuiltIn());
+        var compiled = new DefinitionCompiler().Compile(definitions, RuntimeCapabilityRegistry.CreateBuiltIn());
         _ = VisualAssetManifestLoader.LoadOptional(gameDirectory, definitions);
         var audio = AudioAssetResolver.Resolve(gameDirectory, definitions);
         if (audio.Values.Any(static cue => cue.ResolvedPath is null))
@@ -83,7 +86,10 @@ public static class ProductReleaseQaRunner
             soakRuns,
             replay,
             stress,
-            DefinitionContentHasher.Compute(definitions));
+            DefinitionContentHasher.Compute(definitions))
+        {
+            CompiledContentHash = compiled.ContentHash
+        };
     }
 
     public static ProductContentAudit Audit(DefinitionCatalog definitions)
@@ -208,11 +214,13 @@ public static class ProductReleaseQaRunner
             initialInvincibilitySeconds: 60);
         var repository = new MemoryDefinitionRepository(definitions);
         var simulation = new ShootingSimulation(repository, new MutableInputState(), configuration);
+        var sourceHash = DefinitionContentHasher.Compute(definitions);
         var recorder = new ReplayRecorder(
             configuration,
-            DefinitionContentHasher.Compute(definitions),
+            sourceHash,
             DateTimeOffset.UnixEpoch,
-            hashInterval: 60);
+            hashInterval: 60,
+            compiledContentHash: simulation.CompiledContentHash);
         while (simulation.Status == SimulationStatus.Running && simulation.RunState.Frame < 60 * 60)
         {
             var input = CreatePilotInput(simulation);
@@ -222,7 +230,10 @@ public static class ProductReleaseQaRunner
 
         Require(simulation.Status == SimulationStatus.StageClear, "Boss Training replay recording did not clear.");
         var document = recorder.Complete(simulation);
-        ReplayValidator.Validate(document, DefinitionContentHasher.Compute(definitions));
+        ReplayValidator.Validate(
+            document,
+            sourceHash,
+            expectedCompiledContentHash: simulation.CompiledContentHash);
         var playback = new ShootingSimulation(repository, new MutableInputState(), configuration);
         var session = new ReplayPlaybackSession(document);
         while (!session.IsComplete) session.Step(playback);

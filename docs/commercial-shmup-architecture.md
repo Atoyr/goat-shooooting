@@ -1,5 +1,7 @@
 # 商用弾幕シューティングへ向けたプロダクト設計
 
+Definition v2完成後のProjectile program、汎用resource／state machine、複合Boss、mode variant、専用Editorについては、[拡張可能な弾幕STGビルダー vNext設計](extensible-shmup-builder-vnext-design.md)を参照する。
+
 ## 1. 目的
 
 `goat-shooooting` を、1本のサンプルを動かす基盤から、複数の縦スクロール弾幕シューティングを制作し、販売品質まで仕上げられる基盤へ発展させる。

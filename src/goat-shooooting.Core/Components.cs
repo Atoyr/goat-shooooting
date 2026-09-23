@@ -61,6 +61,117 @@ public sealed class ColliderComponent(float radius, CollisionLayer layer)
     public CollisionLayer Layer { get; } = layer;
 }
 
+public sealed class RotationComponent(float degrees = 0)
+{
+    public float Degrees { get; set; } = degrees;
+}
+
+public enum ActorPartHealthPolicy { Shared, Independent, Indestructible }
+public enum HurtboxShape { Circle, Capsule, Aabb, Obb }
+
+public readonly record struct HurtboxShapeData(
+    string Id,
+    HurtboxShape Shape,
+    Vector2 Offset,
+    float Radius,
+    float Width,
+    float Height,
+    float Length,
+    float RotationDegrees,
+    float BoundingRadius);
+
+public sealed class HurtboxSetComponent(IReadOnlyList<HurtboxShapeData> shapes)
+{
+    public IReadOnlyList<HurtboxShapeData> Shapes { get; } = shapes.ToArray();
+    public float MaximumBoundingRadius { get; } = shapes.Count == 0 ? 0 : shapes.Max(static shape =>
+        shape.Offset.Length() + shape.BoundingRadius);
+}
+
+public readonly record struct HardpointData(
+    string Id,
+    Vector2 Offset,
+    float RotationDegrees,
+    string? WeaponId,
+    int WeaponHandle);
+
+public sealed class HardpointSetComponent(IReadOnlyList<HardpointData> hardpoints)
+{
+    public IReadOnlyList<HardpointData> Hardpoints { get; } = hardpoints.ToArray();
+}
+
+public sealed class ActorRootComponent(string definitionId, int definitionHandle, ulong tagMask)
+{
+    public string DefinitionId { get; } = definitionId;
+    public int DefinitionHandle { get; } = definitionHandle;
+    public ulong TagMask { get; } = tagMask;
+}
+
+public sealed class ActorPresentationComponent(
+    string? visualId,
+    string? animationId,
+    string? animationStateId,
+    int renderLayer)
+{
+    public string? VisualId { get; } = visualId;
+    public string? AnimationId { get; } = animationId;
+    public string? AnimationStateId { get; } = animationStateId;
+    public int RenderLayer { get; } = renderLayer;
+    public string SemanticState { get; set; } = "idle";
+}
+
+public sealed class ParentTransformComponent(
+    int rootEntityId,
+    int parentEntityId,
+    Vector2 localOffset,
+    float localRotationDegrees)
+{
+    public int RootEntityId { get; } = rootEntityId;
+    public int ParentEntityId { get; } = parentEntityId;
+    public Vector2 LocalOffset { get; } = localOffset;
+    public float LocalRotationDegrees { get; } = localRotationDegrees;
+}
+
+public sealed class ActorPartComponent(
+    int rootEntityId,
+    int parentEntityId,
+    int partHandle,
+    string partId,
+    Vector2 localOffset,
+    float localRotationDegrees,
+    ActorPartHealthPolicy healthPolicy,
+    float damageForwardingRatio,
+    bool targetable,
+    int lockCapacity,
+    bool enabled,
+    ulong tagMask,
+    string interactionClass,
+    string? destroySignal,
+    string? detachSignal)
+{
+    public int RootEntityId { get; } = rootEntityId;
+    public int ParentEntityId { get; set; } = parentEntityId;
+    public int PartHandle { get; } = partHandle;
+    public string PartId { get; } = partId;
+    public Vector2 LocalOffset { get; } = localOffset;
+    public float LocalRotationDegrees { get; } = localRotationDegrees;
+    public ActorPartHealthPolicy HealthPolicy { get; } = healthPolicy;
+    public float DamageForwardingRatio { get; } = damageForwardingRatio;
+    public bool Targetable { get; } = targetable;
+    public int LockCapacity { get; } = lockCapacity;
+    public bool Enabled { get; set; } = enabled;
+    public bool Detached { get; set; }
+    public ulong TagMask { get; } = tagMask;
+    public string InteractionClass { get; } = interactionClass;
+    public string? DestroySignal { get; } = destroySignal;
+    public string? DetachSignal { get; } = detachSignal;
+}
+
+public sealed class LockTargetComponent(bool targetable = true, int capacity = 1)
+{
+    public bool Targetable { get; set; } = targetable;
+    public int Capacity { get; set; } = Math.Max(0, capacity);
+}
+
 public sealed class GrazeRadiusComponent(float radius)
 {
     public float Radius { get; } = radius > 0 ? radius : throw new ArgumentOutOfRangeException(nameof(radius));
@@ -86,7 +197,12 @@ public sealed class ShipComponent(
     int maximumBombs = 9,
     string? bombWeaponId = null,
     string? specialWeaponId = null,
-    string? visualId = null)
+    string? visualId = null,
+    int definitionHandle = -1,
+    IReadOnlyList<int>? normalWeaponHandles = null,
+    IReadOnlyList<int>? focusWeaponHandles = null,
+    int bombWeaponHandle = -1,
+    int specialWeaponHandle = -1)
 {
     public string DefinitionId { get; } = string.IsNullOrWhiteSpace(definitionId)
         ? throw new ArgumentException("Ship definition id must not be empty.", nameof(definitionId))
@@ -110,6 +226,11 @@ public sealed class ShipComponent(
     public string? BombWeaponId { get; } = bombWeaponId;
     public string? SpecialWeaponId { get; } = specialWeaponId;
     public string? VisualId { get; } = visualId;
+    public int DefinitionHandle { get; } = definitionHandle;
+    public IReadOnlyList<int> NormalWeaponHandles { get; } = normalWeaponHandles?.ToArray() ?? Array.Empty<int>();
+    public IReadOnlyList<int> FocusWeaponHandles { get; } = focusWeaponHandles?.ToArray() ?? Array.Empty<int>();
+    public int BombWeaponHandle { get; } = bombWeaponHandle;
+    public int SpecialWeaponHandle { get; } = specialWeaponHandle;
     public bool IsFocused { get; set; }
 }
 
@@ -190,7 +311,9 @@ public sealed class OptionUnitComponent(
     float radius,
     IReadOnlyList<string> normalWeaponIds,
     IReadOnlyList<string> focusWeaponIds,
-    string? visualId)
+    string? visualId,
+    IReadOnlyList<int>? normalWeaponHandles = null,
+    IReadOnlyList<int>? focusWeaponHandles = null)
 {
     public int OwnerEntityId { get; } = ownerEntityId > 0
         ? ownerEntityId
@@ -204,6 +327,8 @@ public sealed class OptionUnitComponent(
     public IReadOnlyList<string> NormalWeaponIds { get; } = normalWeaponIds.ToArray();
     public IReadOnlyList<string> FocusWeaponIds { get; } = focusWeaponIds.ToArray();
     public string? VisualId { get; } = visualId;
+    public IReadOnlyList<int> NormalWeaponHandles { get; } = normalWeaponHandles?.ToArray() ?? Array.Empty<int>();
+    public IReadOnlyList<int> FocusWeaponHandles { get; } = focusWeaponHandles?.ToArray() ?? Array.Empty<int>();
 }
 
 public sealed class WeaponRuntimeComponent
@@ -247,10 +372,13 @@ public sealed class LaserComponent(
     int damage,
     float damageInterval,
     string visualId,
-    string projectileInteraction)
+    string projectileInteraction,
+    ulong tagMask = 0,
+    int interactionPower = 1,
+    int interactionResistance = 0)
 {
     public int OwnerEntityId { get; } = ownerEntityId;
-    public CollisionLayer OwnerLayer { get; } = ownerLayer;
+    public CollisionLayer OwnerLayer { get; set; } = ownerLayer;
     public Vector2 Direction { get; set; } = direction;
     public float Length { get; } = length;
     public float Width { get; } = width;
@@ -258,18 +386,23 @@ public sealed class LaserComponent(
     public float DamageInterval { get; } = damageInterval;
     public string VisualId { get; } = visualId;
     public string ProjectileInteraction { get; } = projectileInteraction;
+    public ulong TagMask { get; } = tagMask;
+    public int InteractionPower { get; } = interactionPower;
+    public int InteractionResistance { get; } = interactionResistance;
     public float DamageCooldownRemaining { get; set; }
 }
 
-public sealed class EnemyComponent(string definitionId)
+public sealed class EnemyComponent(string definitionId, int definitionHandle = -1)
 {
     public string DefinitionId { get; } = definitionId;
+    public int DefinitionHandle { get; } = definitionHandle;
 }
 
 /// <summary>Renderer-neutral state for a legacy boss marker or a managed multi-phase boss.</summary>
-public sealed class BossComponent(string? definitionId = null, string? displayName = null)
+public sealed class BossComponent(string? definitionId = null, string? displayName = null, int definitionHandle = -1)
 {
     public string? DefinitionId { get; } = definitionId;
+    public int DefinitionHandle { get; } = definitionHandle;
     public string DisplayName { get; } = displayName ?? definitionId ?? string.Empty;
     public int PhaseIndex { get; set; } = -1;
     public string PhaseId { get; set; } = string.Empty;
@@ -321,9 +454,10 @@ public sealed class HomingMovementComponent(float turnRadiansPerSecond)
         : throw new ArgumentOutOfRangeException(nameof(turnRadiansPerSecond));
 }
 
-public sealed class WeaponHolderComponent(string weaponId)
+public sealed class WeaponHolderComponent(string weaponId, int weaponHandle = -1)
 {
     public string WeaponId { get; } = weaponId;
+    public int WeaponHandle { get; } = weaponHandle;
     public float CooldownRemaining { get; set; }
     public float PatternAngleDegrees { get; set; }
     public int PatternDirection { get; set; } = 1;

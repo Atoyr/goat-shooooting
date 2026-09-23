@@ -5,9 +5,12 @@ using GoatShooooting.Definitions;
 
 namespace GoatShooooting.Runtime;
 
-public sealed class MotionTimelineComponent(string patternId)
+public sealed class MotionTimelineComponent(
+    string patternId,
+    IReadOnlyList<TimelineCommandDefinition>? compiledCommands = null)
 {
     public string PatternId { get; } = patternId;
+    public IReadOnlyList<TimelineCommandDefinition>? CompiledCommands { get; } = compiledCommands;
     public int CommandIndex { get; set; }
     public float Elapsed { get; set; }
     public Vector2 Start { get; set; }
@@ -15,17 +18,34 @@ public sealed class MotionTimelineComponent(string patternId)
     public bool CommandStarted { get; set; }
 }
 
-public sealed class AttackTimelineComponent(IEnumerable<string> patternIds)
+public sealed class AttackTimelineComponent(
+    IEnumerable<string> patternIds,
+    IReadOnlyList<CompiledPatternDefinition>? compiledPatterns = null)
 {
     public IReadOnlyList<string> PatternIds { get; } = patternIds.ToArray();
+    public IReadOnlyList<CompiledPatternDefinition>? CompiledPatterns { get; } = compiledPatterns;
     internal List<AttackTimelineTrack> Tracks { get; } = new();
     internal bool Initialized { get; set; }
 }
 
-internal sealed class AttackTimelineTrack(string patternId, IReadOnlyList<TimelineCommandDefinition> commands)
+internal sealed class AttackTimelineTrack
 {
-    public string PatternId { get; } = patternId;
-    public IReadOnlyList<TimelineCommandDefinition> Commands { get; } = commands;
+    public AttackTimelineTrack(string patternId, IReadOnlyList<TimelineCommandDefinition> commands)
+    {
+        PatternId = patternId;
+        Commands = commands;
+    }
+
+    public AttackTimelineTrack(CompiledPatternDefinition pattern)
+    {
+        PatternId = pattern.Definition.Id;
+        Commands = pattern.Commands;
+        RuntimeCommands = pattern.RuntimeCommands;
+    }
+
+    public string PatternId { get; }
+    public IReadOnlyList<TimelineCommandDefinition> Commands { get; }
+    public IReadOnlyList<CompiledTimelineCommandDefinition>? RuntimeCommands { get; }
     public int CommandIndex { get; set; }
     public float WaitRemaining { get; set; }
 }
@@ -65,11 +85,29 @@ public sealed class MotionTimelineSystem
 {
     public void Update(
         World world,
+        CompiledCatalog definitions,
+        string? difficultyId,
+        float deltaTime,
+        SimulationTelemetry? telemetry = null,
+        IReadOnlyList<string>? patternTags = null) =>
+        UpdateCore(world, definitions.Source, difficultyId, deltaTime, telemetry, patternTags);
+
+    public void Update(
+        World world,
         DefinitionCatalog definitions,
         string? difficultyId,
         float deltaTime,
         SimulationTelemetry? telemetry = null,
         IReadOnlyList<string>? patternTags = null)
+        => UpdateCore(world, definitions, difficultyId, deltaTime, telemetry, patternTags);
+
+    private static void UpdateCore(
+        World world,
+        DefinitionCatalog definitions,
+        string? difficultyId,
+        float deltaTime,
+        SimulationTelemetry? telemetry,
+        IReadOnlyList<string>? patternTags)
     {
         ArgumentNullException.ThrowIfNull(world);
         ArgumentNullException.ThrowIfNull(definitions);
@@ -77,7 +115,7 @@ public sealed class MotionTimelineSystem
         {
             if (entity.Has<PendingDestroyComponent>()) continue;
             var state = entity.Get<MotionTimelineComponent>();
-            var commands = TimelineCompiler.Compile(definitions, state.PatternId);
+            var commands = state.CompiledCommands ?? TimelineCompiler.Compile(definitions, state.PatternId);
             while (state.CommandIndex < commands.Count && !IsEnabled(commands[state.CommandIndex], difficultyId, patternTags))
             {
                 state.CommandIndex++;
@@ -232,12 +270,33 @@ public sealed class AttackTimelineSystem
 
     public void Update(
         World world,
+        CompiledCatalog definitions,
+        string? difficultyId,
+        float deltaTime,
+        SimulationTelemetry telemetry,
+        ProjectileStore projectiles,
+        IReadOnlyList<string>? patternTags = null) =>
+        UpdateCore(world, definitions.Source, definitions, difficultyId, deltaTime, telemetry, projectiles, patternTags);
+
+    public void Update(
+        World world,
         DefinitionCatalog definitions,
         string? difficultyId,
         float deltaTime,
         SimulationTelemetry telemetry,
         ProjectileStore projectiles,
         IReadOnlyList<string>? patternTags = null)
+        => UpdateCore(world, definitions, null, difficultyId, deltaTime, telemetry, projectiles, patternTags);
+
+    private void UpdateCore(
+        World world,
+        DefinitionCatalog definitions,
+        CompiledCatalog? compiledDefinitions,
+        string? difficultyId,
+        float deltaTime,
+        SimulationTelemetry telemetry,
+        ProjectileStore projectiles,
+        IReadOnlyList<string>? patternTags)
     {
         foreach (var entity in world.Query<AttackTimelineComponent, TransformComponent>().ToArray())
         {
@@ -245,9 +304,22 @@ public sealed class AttackTimelineSystem
             var runner = entity.Get<AttackTimelineComponent>();
             if (!runner.Initialized)
             {
-                foreach (var patternId in runner.PatternIds)
+                if (runner.CompiledPatterns is not null)
                 {
-                    runner.Tracks.Add(new AttackTimelineTrack(patternId, TimelineCompiler.Compile(definitions, patternId)));
+                    foreach (var pattern in runner.CompiledPatterns)
+                        runner.Tracks.Add(new AttackTimelineTrack(pattern));
+                }
+                else
+                {
+                    foreach (var patternId in runner.PatternIds)
+                    {
+                        if (compiledDefinitions is null)
+                            runner.Tracks.Add(new AttackTimelineTrack(
+                                patternId, TimelineCompiler.Compile(definitions, patternId)));
+                        else
+                            runner.Tracks.Add(new AttackTimelineTrack(
+                                compiledDefinitions.Get(compiledDefinitions.ResolvePattern(patternId))));
+                    }
                 }
 
                 runner.Initialized = true;
@@ -264,30 +336,52 @@ public sealed class AttackTimelineSystem
 
                 while (track.CommandIndex < track.Commands.Count)
                 {
-                    var command = track.Commands[track.CommandIndex++];
+                    var commandIndex = track.CommandIndex++;
+                    var command = track.Commands[commandIndex];
+                    var runtimeCommand = track.RuntimeCommands?[commandIndex];
                     if (!MotionTimelineSystem.IsEnabled(command, difficultyId, patternTags)) continue;
                     switch (command.Type)
                     {
                         case "fire":
+                            var hasHolder = entity.TryGet<WeaponHolderComponent>(out var holder);
                             var weaponId = MotionTimelineSystem.GetString(
-                                command,
-                                "weaponId",
-                                entity.TryGet<WeaponHolderComponent>(out var holder) ? holder.WeaponId : string.Empty);
-                            if (string.IsNullOrWhiteSpace(weaponId))
+                                command, "weaponId", hasHolder ? holder.WeaponId : string.Empty);
+                            if (compiledDefinitions is not null)
+                            {
+                                var weaponHandle = runtimeCommand?.WeaponHandle ??
+                                    (hasHolder && holder.WeaponHandle >= 0
+                                        ? new WeaponHandle(holder.WeaponHandle)
+                                        : (WeaponHandle?)null);
+                                if (weaponHandle is null)
+                                    throw new InvalidOperationException(
+                                        $"Compiled timeline fire in '{track.PatternId}' for '{weaponId}' requires a weapon handle " +
+                                        $"(runtimeCommand={runtimeCommand is not null}, holderHandle={holder?.WeaponHandle ?? -1}).");
+                                _weapons.FireOnce(
+                                    world, compiledDefinitions, entity, weaponHandle.Value, telemetry, projectiles);
+                            }
+                            else if (string.IsNullOrWhiteSpace(weaponId))
                             {
                                 throw new InvalidOperationException("Timeline fire requires weaponId or WeaponHolderComponent.");
                             }
-
-                            _weapons.FireOnce(world, definitions, entity, weaponId, telemetry, projectiles);
+                            else
+                                _weapons.FireOnce(world, definitions, entity, weaponId, telemetry, projectiles);
                             break;
                         case "wait":
                             track.WaitRemaining = MotionTimelineSystem.GetFloat(command, "duration");
                             break;
                         case "parallel":
                         case "start-pattern":
-                            runner.Tracks.Add(new AttackTimelineTrack(
-                                command.PatternId!,
-                                TimelineCompiler.Compile(definitions, command.PatternId!)));
+                            if (compiledDefinitions is null)
+                            {
+                                runner.Tracks.Add(new AttackTimelineTrack(
+                                    command.PatternId!, TimelineCompiler.Compile(definitions, command.PatternId!)));
+                            }
+                            else
+                            {
+                                var patternHandle = runtimeCommand?.PatternHandle ?? throw new InvalidOperationException(
+                                    "Compiled timeline branch requires a pattern handle.");
+                                runner.Tracks.Add(new AttackTimelineTrack(compiledDefinitions.Get(patternHandle)));
+                            }
                             break;
                         case "stop-pattern":
                             stopped.Add(command.PatternId!);

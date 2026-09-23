@@ -102,6 +102,21 @@ public sealed class FrameworkAdapterTests
     }
 
     [Fact]
+    public void EntityAnimationClockStartsAtSpawnAndRestartsOnSemanticStateChange()
+    {
+        var clock = new EntityAnimationClock();
+
+        Assert.Equal(0, clock.GetElapsed(10, "enemy-states:idle", 15));
+        Assert.Equal(0.5, clock.GetElapsed(10, "enemy-states:idle", 15.5));
+        Assert.Equal(0, clock.GetElapsed(10, "enemy-states:damaged", 16));
+        Assert.Equal(0.25, clock.GetElapsed(10, "enemy-states:damaged", 16.25));
+        Assert.Equal(0, clock.GetElapsed(11, "enemy-states:damaged", 16.25));
+
+        clock.Retain([11]);
+        Assert.Equal(0, clock.GetElapsed(10, "enemy-states:damaged", 17));
+    }
+
+    [Fact]
     public void PixelTextLayoutRightAlignsScoreInsideHud()
     {
         var rectangles = PrimitiveRenderLayout.ToPixelTextRectangles("SCORE 00000123", 624, 16);

@@ -31,4 +31,18 @@ public sealed class World
         where T1 : class
         where T2 : class
         where T3 : class => _entities.Where(entity => entity.Has<T1>() && entity.Has<T2>() && entity.Has<T3>());
+
+    /// <summary>Creates an isolated copy while allowing the owning runtime to copy its component types.</summary>
+    public World Clone(Func<object, object> cloneComponent)
+    {
+        ArgumentNullException.ThrowIfNull(cloneComponent);
+        var clone = new World { _nextEntityId = _nextEntityId };
+        foreach (var entity in _entities)
+        {
+            var clonedEntity = new Entity(entity.Id);
+            foreach (var component in entity.Components) clonedEntity.AddComponent(cloneComponent(component));
+            clone._entities.Add(clonedEntity);
+        }
+        return clone;
+    }
 }

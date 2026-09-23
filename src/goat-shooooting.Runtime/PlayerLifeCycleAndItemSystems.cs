@@ -71,7 +71,9 @@ public sealed class PlayerLifeCycleSystem
         BombSystem bombSystem,
         RunState runState,
         SimulationTelemetry telemetry,
-        GameEventBuffer events)
+        GameEventBuffer events,
+        ScopedResourceStore? resources = null,
+        ResourceHandle? sharedBombResource = null)
     {
         ArgumentNullException.ThrowIfNull(damageEvents);
         var autoBombDamage = new List<DamageEvent>();
@@ -85,7 +87,10 @@ public sealed class PlayerLifeCycleSystem
             lifeCycle.State = PlayerLifeCycleState.HitPending;
             lifeCycle.HitSourceEntityId = damageEvent.SourceEntityId;
             var bombs = player.Get<BombComponent>();
-            if (autoBombEnabled && bombs.Remaining >= rules.AutoBombCost)
+            var canAutoBomb = sharedBombResource is { } resource
+                ? resources is not null && resources.Get(resource, player.Id) >= rules.AutoBombCost
+                : bombs.Remaining >= rules.AutoBombCost;
+            if (autoBombEnabled && canAutoBomb)
             {
                 autoBombDamage.AddRange(bombSystem.UseAutoBomb(
                     world,
@@ -95,7 +100,9 @@ public sealed class PlayerLifeCycleSystem
                     rules.AutoBombCost,
                     rules.BombInvincibilitySeconds,
                     telemetry,
-                    events));
+                    events,
+                    resources,
+                    sharedBombResource));
                 lifeCycle.State = PlayerLifeCycleState.BombRescue;
                 lifeCycle.Timer = BombRescueTransitionSeconds;
                 continue;
@@ -253,6 +260,30 @@ public sealed class ItemDropSystem(ItemFactory? itemFactory = null)
         }
     }
 
+    public void SpawnDrops(
+        World world,
+        CompiledCatalog definitions,
+        IEnumerable<IGameplayEvent> gameplayEvents,
+        IRandomSource random,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        foreach (var destroyed in gameplayEvents.OfType<EnemyDestroyedEvent>().ToArray())
+        {
+            var enemy = OptionFollowSystem.FindEntity(world, destroyed.EnemyEntityId);
+            if (enemy is null || !enemy.TryGet<TransformComponent>(out var transform) ||
+                !enemy.TryGet<EnemyComponent>(out var enemyState) || enemyState.DefinitionHandle < 0) continue;
+            SpawnDropTable(
+                world,
+                definitions,
+                definitions.Get(new EnemyHandle(enemyState.DefinitionHandle)).DropTable,
+                transform.Position,
+                random,
+                telemetry,
+                events);
+        }
+    }
+
     public void SpawnDropTable(
         World world,
         DefinitionCatalog definitions,
@@ -280,6 +311,52 @@ public sealed class ItemDropSystem(ItemFactory? itemFactory = null)
         }
     }
 
+    public void SpawnDropTable(
+        World world,
+        CompiledCatalog definitions,
+        IReadOnlyList<DropEntryDefinition> dropTable,
+        Vector2 position,
+        IRandomSource random,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events) =>
+        SpawnDropTable(
+            world,
+            definitions,
+            dropTable.Select(drop => new CompiledDropEntryDefinition(drop, definitions.ResolveItem(drop.ItemId))).ToArray(),
+            position,
+            random,
+            telemetry,
+            events);
+
+    public void SpawnDropTable(
+        World world,
+        CompiledCatalog definitions,
+        IReadOnlyList<CompiledDropEntryDefinition> dropTable,
+        Vector2 position,
+        IRandomSource random,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        foreach (var compiledDrop in dropTable)
+        {
+            var drop = compiledDrop.Definition;
+            var item = definitions.Get(compiledDrop.ItemHandle);
+            for (var index = 0; index < drop.Count; index++)
+            {
+                if (random.NextSingle() >= drop.Chance) continue;
+                var angle = random.NextSingle() * MathF.Tau;
+                var speed = drop.ScatterSpeed * (0.5f + (random.NextSingle() * 0.5f));
+                _itemFactory.Create(
+                    world,
+                    item,
+                    position,
+                    new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * speed,
+                    telemetry,
+                    events);
+            }
+        }
+    }
+
     public void SpawnProjectileCancelDrops(
         World world,
         DefinitionCatalog definitions,
@@ -290,6 +367,24 @@ public sealed class ItemDropSystem(ItemFactory? itemFactory = null)
     {
         if (string.IsNullOrWhiteSpace(itemDefinitionId)) return;
         var item = definitions.GetItem(itemDefinitionId);
+        foreach (var cancelled in gameplayEvents.OfType<ProjectileCancelledEvent>().ToArray())
+        {
+            if (cancelled.Source != "special-gauge" || cancelled.X is not { } x || cancelled.Y is not { } y)
+                continue;
+            _itemFactory.Create(world, item, new Vector2(x, y), Vector2.Zero, telemetry, events);
+        }
+    }
+
+    public void SpawnProjectileCancelDrops(
+        World world,
+        CompiledCatalog definitions,
+        IEnumerable<IGameplayEvent> gameplayEvents,
+        ItemHandle? itemHandle,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        if (itemHandle is null) return;
+        var item = definitions.Get(itemHandle.Value);
         foreach (var cancelled in gameplayEvents.OfType<ProjectileCancelledEvent>().ToArray())
         {
             if (cancelled.Source != "special-gauge" || cancelled.X is not { } x || cancelled.Y is not { } y)

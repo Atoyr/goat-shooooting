@@ -1,19 +1,64 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Security.Cryptography;
+using System.Text;
 using GoatShooooting.Definitions;
 using GoatShooooting.Framework;
 using GoatShooooting.Runtime;
 
 namespace GoatShooooting.Tooling;
 
-public sealed record EditorValidationResult(bool Success, string Message);
+public sealed record EditorValidationResult(bool Success, string Message)
+{
+    public IReadOnlyList<EditorDiagnostic> Diagnostics { get; init; } = Array.Empty<EditorDiagnostic>();
+}
+
+public sealed record EditorDiagnostic(
+    string File,
+    string JsonPath,
+    string? NodeId,
+    string Domain,
+    string ErrorCode,
+    IReadOnlyList<string> ReferenceChain,
+    IReadOnlyDictionary<string, string> ResolvedParameters,
+    IReadOnlyList<string> ModifierProvenance,
+    long EstimatedInstructionBudget,
+    long EstimatedSpawnBudget,
+    string Message);
 
 public sealed record EditorPreviewRequest(
     string Path,
     string Content,
     int TargetFrame = 0,
     long Seed = 0,
-    string? DifficultyId = null);
+    string? DifficultyId = null,
+    string? RuleSetId = null,
+    string? VariantId = null,
+    string? ShipId = null,
+    string? StartStageId = null,
+    string? CheckpointId = null,
+    int? InitialPower = null,
+    int? InitialLives = null,
+    int? InitialBombs = null,
+    int? InitialGauge = null,
+    double? InitialRank = null,
+    IReadOnlyDictionary<string, double>? InitialResources = null,
+    IReadOnlyList<InputFrame>? RecordedInputs = null,
+    IReadOnlyList<EditorInputScriptStep>? InputScript = null,
+    IReadOnlyList<EditorEventInjection>? EventInjections = null,
+    bool PlayerInvincible = true,
+    float WorldTimeScale = 1,
+    string PreviewKind = "stage",
+    string? TargetDefinitionId = null);
+
+public sealed record EditorInputScriptStep(
+    int StartFrame,
+    int EndFrame,
+    sbyte MoveX,
+    sbyte MoveY,
+    InputButtons Buttons);
+
+public sealed record EditorEventInjection(int Frame, string Type, string? Id = null);
 
 public sealed record EditorPreviewItem(
     int EntityId,
@@ -42,12 +87,45 @@ public sealed record EditorPreviewResult(
     IReadOnlyDictionary<string, long> ScoreBreakdown,
     IReadOnlyList<EditorScoreTrace> ScoreTrace,
     IReadOnlyList<EditorPreviewItem> Items,
-    ulong StateHash);
+    ulong StateHash)
+{
+    public long RestoredCheckpointFrame { get; init; }
+    public int SimulatedFrames { get; init; }
+    public IReadOnlyDictionary<string, double> LiveResources { get; init; } =
+        new Dictionary<string, double>(StringComparer.Ordinal);
+    public IReadOnlyDictionary<string, string> LiveStates { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+    public IReadOnlyList<EditorProjectileTrace> ProjectileTrace { get; init; } = Array.Empty<EditorProjectileTrace>();
+    public IReadOnlyList<EditorRuleTrace> RuleTrace { get; init; } = Array.Empty<EditorRuleTrace>();
+    public IReadOnlyList<string> ModifierProvenance { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<EditorHeatmapCell> Heatmap { get; init; } = Array.Empty<EditorHeatmapCell>();
+}
+
+public sealed record EditorHeatmapCell(int X, int Y, int ProjectileCount);
+public sealed record EditorProjectileTrace(
+    int ProjectileId,
+    string DefinitionId,
+    string? ProgramId,
+    string? SourceNodeId,
+    int ProgramCounter,
+    long WakeFrame,
+    int SpawnLineageId);
+public sealed record EditorRuleTrace(
+    long Frame,
+    string SourceDefinitionId,
+    string NodeId,
+    string Command,
+    string? TargetId,
+    string? ResourceId,
+    double Value);
 
 /// <summary>Safe filesystem boundary shared by the validation API and browser editor.</summary>
 public sealed class DefinitionEditorService
 {
+    private const int PreviewCheckpointInterval = 300;
     private readonly string _rootDirectory;
+    private readonly object _previewGate = new();
+    private readonly Dictionary<string, PreviewSession> _previewSessions = new(StringComparer.Ordinal);
 
     public DefinitionEditorService(string rootDirectory)
     {
@@ -87,6 +165,17 @@ public sealed class DefinitionEditorService
         if (normalized.StartsWith("difficulties/", StringComparison.OrdinalIgnoreCase)) return "difficulty";
         if (normalized.StartsWith("visuals/", StringComparison.OrdinalIgnoreCase)) return "visual";
         if (normalized.StartsWith("audio/", StringComparison.OrdinalIgnoreCase)) return "audio";
+        if (normalized.StartsWith("stage-programs/", StringComparison.OrdinalIgnoreCase)) return "stage-program";
+        if (normalized.StartsWith("effects/", StringComparison.OrdinalIgnoreCase)) return "effect";
+        if (normalized.StartsWith("animation-states/", StringComparison.OrdinalIgnoreCase)) return "animation-state";
+        if (normalized.StartsWith("programs/", StringComparison.OrdinalIgnoreCase)) return "program";
+        if (normalized.StartsWith("variants/", StringComparison.OrdinalIgnoreCase)) return "variant";
+        if (normalized.StartsWith("parameter-sets/", StringComparison.OrdinalIgnoreCase)) return "parameter-set";
+        if (normalized.StartsWith("interactions/", StringComparison.OrdinalIgnoreCase)) return "interaction";
+        if (normalized.StartsWith("resources/", StringComparison.OrdinalIgnoreCase)) return "resource";
+        if (normalized.StartsWith("rules/", StringComparison.OrdinalIgnoreCase)) return "rule";
+        if (normalized.StartsWith("state-machines/", StringComparison.OrdinalIgnoreCase)) return "state-machine";
+        if (normalized.StartsWith("actors/", StringComparison.OrdinalIgnoreCase)) return "actor";
         throw new ArgumentException($"Cannot select a schema for '{relativePath}'.", nameof(relativePath));
     }
 
@@ -117,14 +206,45 @@ public sealed class DefinitionEditorService
         {
             using var candidate = CreateCandidate(relativePath, content);
             var catalog = LoadAndValidate(candidate.Path);
+            var compiled = new DefinitionCompiler().Compile(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
             return new EditorValidationResult(
                 true,
                 $"Valid: {catalog.Enemies.Count} enemies, {catalog.Weapons.Count} weapons, " +
-                $"{catalog.Patterns.Count} patterns, {catalog.Bosses.Count} bosses, {catalog.Stages.Count} stages.");
+                $"{catalog.Patterns.Count} patterns, {catalog.Bosses.Count} bosses, {catalog.Stages.Count} stages, " +
+                $"{catalog.StagePrograms.Count} stage programs, {catalog.EffectRecipes.Count} effect recipes.")
+            {
+                Diagnostics = compiled.Diagnostics.Entries.Select(static entry => new EditorDiagnostic(
+                    entry.File,
+                    entry.JsonPath,
+                    entry.NodeId,
+                    entry.Domain,
+                    entry.ErrorCode,
+                    entry.ReferenceChain,
+                    entry.ResolvedParameters,
+                    entry.ModifierProvenance.Select(static value =>
+                        $"{value.StatKey}:{value.SourceDefinitionId}:{value.Before}->{value.After}").ToArray(),
+                    entry.EstimatedInstructionBudget,
+                    entry.EstimatedSpawnBudget,
+                    $"Compiled {entry.DefinitionKind} '{entry.DefinitionId}'.")).ToArray()
+            };
         }
         catch (Exception exception) when (IsContentException(exception))
         {
-            return new EditorValidationResult(false, SanitizeTemporaryPath(exception.Message));
+            var message = SanitizeTemporaryPath(exception.Message);
+            string domain;
+            try { domain = GetSchemaName(relativePath); }
+            catch (ArgumentException) { domain = "definition"; }
+            return new EditorValidationResult(false, message)
+            {
+                Diagnostics =
+                [
+                    new EditorDiagnostic(
+                        relativePath.Replace('\\', '/'), "$", null, domain,
+                        exception is JsonException ? "json.syntax" : "definition.validation",
+                        Array.Empty<string>(), new Dictionary<string, string>(StringComparer.Ordinal),
+                        Array.Empty<string>(), 0, 0, message)
+                ]
+            };
         }
     }
 
@@ -163,6 +283,114 @@ public sealed class DefinitionEditorService
         return Save(targetPath, source.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
     }
 
+    public EditorValidationResult Rename(string relativePath, string newId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(newId);
+        var source = JsonNode.Parse(Read(relativePath))?.AsObject()
+            ?? throw new InvalidDataException($"Definition '{relativePath}' must contain a JSON object.");
+        var oldId = source["id"]?.GetValue<string>()
+            ?? throw new InvalidDataException($"Definition '{relativePath}' has no ID.");
+        if (oldId == newId) return new EditorValidationResult(true, $"ID is already '{newId}'.");
+        var referenceFields = ReferenceFieldsFor(relativePath);
+        var temporaryRoot = Path.Combine(Path.GetTempPath(), $"goat-shooooting-rename-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(temporaryRoot);
+        try
+        {
+            foreach (var path in Directory.EnumerateFiles(_rootDirectory, "*", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(_rootDirectory, path);
+                var destination = Path.Combine(temporaryRoot, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                File.Copy(path, destination);
+            }
+            foreach (var path in Directory.EnumerateFiles(temporaryRoot, "*.json", SearchOption.AllDirectories))
+            {
+                var document = JsonNode.Parse(File.ReadAllText(path));
+                if (document is null) continue;
+                ReplaceReferences(document, oldId, newId, referenceFields, fieldName: null);
+                if (string.Equals(
+                    Path.GetRelativePath(temporaryRoot, path).Replace('\\', '/'),
+                    relativePath.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase))
+                    document["id"] = newId;
+                File.WriteAllText(path, document.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            }
+            _ = LoadAndValidate(temporaryRoot);
+            foreach (var path in Directory.EnumerateFiles(temporaryRoot, "*.json", SearchOption.AllDirectories))
+            {
+                var target = Path.Combine(_rootDirectory, Path.GetRelativePath(temporaryRoot, path));
+                File.Copy(path, target, overwrite: true);
+            }
+            return new EditorValidationResult(true, $"Renamed '{oldId}' to '{newId}' and updated references.");
+        }
+        catch (Exception exception) when (IsContentException(exception))
+        {
+            return new EditorValidationResult(false, SanitizeTemporaryPath(exception.Message));
+        }
+        finally
+        {
+            Directory.Delete(temporaryRoot, recursive: true);
+        }
+    }
+
+    private static HashSet<string> ReferenceFieldsFor(string path)
+    {
+        var kind = path.Replace('\\', '/').Split('/')[0];
+        return kind switch
+        {
+            "programs" => Fields("programId", "defaultProgramId"),
+            "parameter-sets" => Fields("parameterSetId", "defaultParameterSetId"),
+            "actors" => Fields("actorId"),
+            "resources" => Fields("resourceId", "resourceIds", "bombResourceId"),
+            "rules" => Fields("eventRuleId", "eventRuleIds"),
+            "state-machines" => Fields("stateMachineId", "stateMachineIds"),
+            "stage-programs" => Fields("stageProgramId"),
+            "enemies" => Fields("enemyId"),
+            "weapons" => Fields("weaponId", "weaponIds", "normalWeaponIds", "focusWeaponIds", "bombWeaponId", "specialWeaponId"),
+            "bullets" or "projectiles" => Fields("bulletId", "projectileId", "convertProjectileId", "revengeProjectileId"),
+            "patterns" => Fields("patternId", "patternIds", "motionPatternId", "attackPatternIds"),
+            "bosses" => Fields("bossId"),
+            "stages" => Fields("stageId", "stageIds", "startStageId", "nextStageId"),
+            "ships" or "players" => Fields("shipId", "shipIds", "playerId"),
+            "visuals" => Fields("visualId"),
+            "audio" => Fields("audioId", "bgmAudioId"),
+            "variants" => Fields("variantId", "defaultVariantId"),
+            _ => new(StringComparer.Ordinal)
+        };
+
+        static HashSet<string> Fields(params string[] values) => new(values, StringComparer.Ordinal);
+    }
+
+    private static void ReplaceReferences(
+        JsonNode node,
+        string oldId,
+        string newId,
+        IReadOnlySet<string> referenceFields,
+        string? fieldName)
+    {
+        if (node is JsonObject objectNode)
+        {
+            foreach (var pair in objectNode.ToArray())
+            {
+                if (pair.Value is null) continue;
+                if (referenceFields.Contains(pair.Key) && pair.Value is JsonValue value &&
+                    value.TryGetValue<string>(out var text) && text == oldId)
+                    objectNode[pair.Key] = newId;
+                else ReplaceReferences(pair.Value, oldId, newId, referenceFields, pair.Key);
+            }
+        }
+        else if (node is JsonArray array)
+        {
+            for (var index = 0; index < array.Count; index++)
+            {
+                if (fieldName is not null && referenceFields.Contains(fieldName) &&
+                    array[index] is JsonValue value && value.TryGetValue<string>(out var text) && text == oldId)
+                    array[index] = newId;
+                else if (array[index] is { } item)
+                    ReplaceReferences(item, oldId, newId, referenceFields, fieldName: null);
+            }
+        }
+    }
+
     public EditorValidationResult Delete(string relativePath)
     {
         var targetPath = ResolvePath(relativePath);
@@ -196,55 +424,99 @@ public sealed class DefinitionEditorService
         {
             using var candidate = CreateCandidate(request.Path, request.Content);
             var catalog = LoadAndValidate(candidate.Path);
-            var gameId = string.IsNullOrWhiteSpace(catalog.Game.Id) ? "editor-preview" : catalog.Game.Id;
-            var configuration = new RunConfiguration(
-                gameId,
-                request.Seed,
-                difficultyId: request.DifficultyId,
-                isPractice: true,
-                initialInvincibilitySeconds: 600);
-            var simulation = new ShootingSimulation(
-                new MemoryDefinitionRepository(catalog),
-                new MutableInputState(),
-                configuration);
-            var scoreTrace = new List<EditorScoreTrace>();
-            for (var frame = 0; frame < request.TargetFrame; frame++)
+            ValidatePreviewRequest(request);
+            lock (_previewGate)
             {
-                var moveX = (sbyte)(((frame / 120) & 1) == 0 ? 48 : -48);
-                simulation.Tick(new InputFrame(moveX, 0, InputButtons.Fire));
-                foreach (var awarded in simulation.Events.Events.OfType<ScoreAwardedEvent>())
+                var key = CreatePreviewKey(request);
+                if (!_previewSessions.TryGetValue(key, out var session))
                 {
-                    if (scoreTrace.Count >= 4_096) break;
-                    scoreTrace.Add(new EditorScoreTrace(
-                        awarded.Frame,
-                        awarded.Reason,
-                        awarded.BaseAmount,
-                        awarded.Multiplier,
-                        awarded.FinalAmount,
-                        awarded.Category));
+                    session = CreatePreviewSession(catalog, request);
+                    _previewSessions.Add(key, session);
                 }
-            }
+                var cached = session.Checkpoints.Last(pair => pair.Key <= request.TargetFrame).Value;
+                session.Simulation.RestoreCheckpoint(cached.Checkpoint);
+                var scoreTrace = new List<EditorScoreTrace>(cached.ScoreTrace);
+                var ruleTrace = new List<EditorRuleTrace>(cached.RuleTrace);
+                var simulatedFrames = 0;
+                for (var frame = checked((int)cached.Checkpoint.Frame); frame < request.TargetFrame; frame++)
+                {
+                    foreach (var injection in request.EventInjections ?? Array.Empty<EditorEventInjection>())
+                        if (injection.Frame == frame && injection.Type == "signal")
+                            session.Simulation.InjectSignal(injection.Id!);
+                    session.Simulation.Tick(ResolvePreviewInput(request, frame));
+                    simulatedFrames++;
+                    foreach (var awarded in session.Simulation.Events.Events.OfType<ScoreAwardedEvent>())
+                    {
+                        if (scoreTrace.Count >= 4_096) break;
+                        scoreTrace.Add(new EditorScoreTrace(
+                            awarded.Frame, awarded.Reason, awarded.BaseAmount, awarded.Multiplier,
+                            awarded.FinalAmount, awarded.Category));
+                    }
+                    foreach (var applied in session.Simulation.Events.Events.OfType<RuleCommandAppliedEvent>())
+                    {
+                        if (ruleTrace.Count >= 4_096) break;
+                        ruleTrace.Add(new EditorRuleTrace(
+                            applied.Frame, applied.SourceDefinitionId, $"action-{applied.ActionIndex}",
+                            applied.Command, applied.TargetId, applied.ResourceId, applied.Value));
+                    }
+                    if (session.Simulation.RunState.Frame % PreviewCheckpointInterval == 0)
+                        session.Checkpoints[session.Simulation.RunState.Frame] = new CachedPreviewCheckpoint(
+                            session.Simulation.CreateCheckpoint(), scoreTrace.ToArray(), ruleTrace.ToArray());
+                }
 
-            var snapshot = simulation.CaptureFrame(new RenderSystem());
-            var items = snapshot.Items.Take(20_000).Select(static item => new EditorPreviewItem(
-                item.EntityId,
-                item.Kind.ToString(),
-                item.Position.X,
-                item.Position.Y,
-                item.Radius,
-                item.VisualId)).ToArray();
-            return new EditorPreviewResult(
-                true,
-                "Preview generated by the production Runtime.",
-                snapshot.Frame,
-                simulation.Projectiles.ActiveCount,
-                simulation.Telemetry.BulletsSpawned,
-                CalculateTheoreticalSpawnBudget(catalog),
-                snapshot.Score,
-                new Dictionary<string, long>(simulation.RunState.ScoreBreakdown, StringComparer.Ordinal),
-                scoreTrace,
-                items,
-                simulation.ComputeCanonicalStateHash());
+                var simulation = session.Simulation;
+                var snapshot = simulation.CaptureFrame(new RenderSystem());
+                var items = snapshot.Items.Take(20_000).Select(static item => new EditorPreviewItem(
+                    item.EntityId, item.Kind.ToString(), item.Position.X, item.Position.Y, item.Radius,
+                    item.VisualId)).ToArray();
+                var liveResources = simulation.Resources.Definitions.ToDictionary(
+                    static definition => definition.Definition.Id,
+                    definition => simulation.Resources.Get(definition.Handle),
+                    StringComparer.Ordinal);
+                var liveStates = simulation.StateMachines.CaptureCanonicalSnapshot().ToDictionary(
+                    value => $"{simulation.CompiledDefinitions.Get(value.Machine).Definition.Id}@{value.ScopeKey}",
+                    value => simulation.CompiledDefinitions.Get(value.Machine).States[value.State.Value].Definition.Id,
+                    StringComparer.Ordinal);
+                var projectileTrace = Enumerable.Range(0, simulation.Projectiles.ActiveCount)
+                    .Select(simulation.Projectiles.GetSnapshot)
+                    .Where(static value => value.ProgramHandle is not null || value.SourceNodeId is not null)
+                    .Take(4_096)
+                    .Select(value => new EditorProjectileTrace(
+                        value.Id,
+                        value.DefinitionId,
+                        value.SourceProgramId ?? (value.ProgramHandle is { } handle
+                            ? simulation.CompiledDefinitions.Get(handle).Definition.Id : null),
+                        value.SourceNodeId,
+                        value.ProgramCounter,
+                        value.WakeFrame,
+                        value.SpawnLineageId))
+                    .ToArray();
+                return new EditorPreviewResult(
+                    true,
+                    "Preview generated by the production Runtime checkpoint sandbox.",
+                    snapshot.Frame,
+                    simulation.Projectiles.ActiveCount,
+                    simulation.Telemetry.BulletsSpawned,
+                    CalculateTheoreticalSpawnBudget(catalog),
+                    snapshot.Score,
+                    new Dictionary<string, long>(simulation.RunState.ScoreBreakdown, StringComparer.Ordinal),
+                    scoreTrace,
+                    items,
+                    simulation.ComputeCanonicalStateHash())
+                {
+                    RestoredCheckpointFrame = cached.Checkpoint.Frame,
+                    SimulatedFrames = simulatedFrames,
+                    LiveResources = liveResources,
+                    LiveStates = liveStates,
+                    ProjectileTrace = projectileTrace,
+                    RuleTrace = ruleTrace,
+                    ModifierProvenance = simulation.DebugSnapshot.ModifierProvenance.Select(static value =>
+                        $"{value.StatKey} <- {value.SourceDefinitionId}" +
+                        (value.SourceState is null ? string.Empty : $"/{value.SourceState}") +
+                        $" [{value.Before} {value.Operation} {value.Operand} = {value.After}]").ToArray(),
+                    Heatmap = CreateHeatmap(items)
+                };
+            }
         }
         catch (Exception exception) when (IsContentException(exception) || exception is InvalidOperationException)
         {
@@ -263,6 +535,98 @@ public sealed class DefinitionEditorService
         }
     }
 
+    private static void ValidatePreviewRequest(EditorPreviewRequest request)
+    {
+        if (!float.IsFinite(request.WorldTimeScale) || request.WorldTimeScale is < 0 or > 4)
+            throw new ArgumentOutOfRangeException(nameof(request), "World time scale must be between 0 and 4.");
+        if (request.PreviewKind is not ("pattern" or "actor" or "boss-phase" or "stage" or "full-run"))
+            throw new ArgumentException($"Unsupported preview kind '{request.PreviewKind}'.", nameof(request));
+        foreach (var step in request.InputScript ?? Array.Empty<EditorInputScriptStep>())
+            if (step.StartFrame < 0 || step.EndFrame < step.StartFrame)
+                throw new ArgumentException("Input script ranges must be ordered non-negative frames.", nameof(request));
+        foreach (var injection in request.EventInjections ?? Array.Empty<EditorEventInjection>())
+            if (injection.Frame < 0 || injection.Type != "signal" || string.IsNullOrWhiteSpace(injection.Id))
+                throw new ArgumentException("Event injections currently require a frame and semantic signal ID.", nameof(request));
+    }
+
+    private static PreviewSession CreatePreviewSession(DefinitionCatalog catalog, EditorPreviewRequest request)
+    {
+        var gameId = string.IsNullOrWhiteSpace(catalog.Game.Id) ? "editor-preview" : catalog.Game.Id;
+        var configuration = new RunConfiguration(
+            gameId, request.Seed, request.RuleSetId, request.DifficultyId, request.ShipId,
+            request.StartStageId, request.CheckpointId, isPractice: request.PreviewKind != "full-run",
+            request.InitialPower, request.InitialLives, request.InitialBombs, request.InitialRank,
+            request.InitialGauge, request.PlayerInvincible ? 600 : null, variantId: request.VariantId);
+        var simulation = new ShootingSimulation(
+            new MemoryDefinitionRepository(catalog), new MutableInputState(), configuration);
+        foreach (var pair in request.InitialResources ?? new Dictionary<string, double>())
+            simulation.Resources.Set(simulation.CompiledDefinitions.ResolveResource(pair.Key), pair.Value);
+        simulation.Resources.SynchronizeToLegacy(simulation.RunState, simulation.Player);
+        simulation.SetWorldTimeScale(request.WorldTimeScale);
+        BootstrapPreviewTarget(simulation, request);
+        var checkpoint = simulation.CreateCheckpoint();
+        return new PreviewSession(simulation, new SortedDictionary<long, CachedPreviewCheckpoint>
+        {
+            [checkpoint.Frame] = new CachedPreviewCheckpoint(
+                checkpoint, Array.Empty<EditorScoreTrace>(), Array.Empty<EditorRuleTrace>())
+        });
+    }
+
+    private static void BootstrapPreviewTarget(ShootingSimulation simulation, EditorPreviewRequest request)
+    {
+        if (request.PreviewKind is "stage" or "full-run") return;
+        var id = request.TargetDefinitionId;
+        if (string.IsNullOrWhiteSpace(id))
+        {
+            using var document = JsonDocument.Parse(request.Content);
+            id = document.RootElement.TryGetProperty("id", out var value) ? value.GetString() : null;
+        }
+        if (string.IsNullOrWhiteSpace(id))
+            throw new DefinitionValidationException("An isolated preview target requires a definition ID.");
+        var path = request.Path.Replace('\\', '/');
+        var kind = request.PreviewKind switch
+        {
+            "pattern" when path.StartsWith("programs/", StringComparison.OrdinalIgnoreCase) =>
+                SimulationSandboxTargetKind.Program,
+            "pattern" => SimulationSandboxTargetKind.Pattern,
+            "actor" => SimulationSandboxTargetKind.Actor,
+            "boss-phase" => SimulationSandboxTargetKind.BossPhase,
+            _ => throw new ArgumentException($"Unsupported isolated preview kind '{request.PreviewKind}'.", nameof(request))
+        };
+        simulation.BootstrapSandboxTarget(kind, id, request.CheckpointId);
+    }
+
+    private static InputFrame ResolvePreviewInput(EditorPreviewRequest request, int frame)
+    {
+        if (request.RecordedInputs is { } recorded && frame < recorded.Count) return recorded[frame];
+        var scripted = request.InputScript?.LastOrDefault(step => step.StartFrame <= frame && frame <= step.EndFrame);
+        if (scripted is not null) return new InputFrame(scripted.MoveX, scripted.MoveY, scripted.Buttons);
+        var moveX = (sbyte)(((frame / 120) & 1) == 0 ? 48 : -48);
+        return new InputFrame(moveX, 0, InputButtons.Fire);
+    }
+
+    private static string CreatePreviewKey(EditorPreviewRequest request)
+    {
+        var payload = JsonSerializer.Serialize(request with { TargetFrame = 0 });
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload)));
+    }
+
+    private static IReadOnlyList<EditorHeatmapCell> CreateHeatmap(IReadOnlyList<EditorPreviewItem> items) =>
+        items.Where(static item => item.Kind is "PlayerBullet" or "EnemyBullet")
+            .GroupBy(static item => ((int)MathF.Floor(item.X / 32), (int)MathF.Floor(item.Y / 32)))
+            .OrderBy(static group => group.Key.Item2).ThenBy(static group => group.Key.Item1)
+            .Select(static group => new EditorHeatmapCell(group.Key.Item1, group.Key.Item2, group.Count()))
+            .ToArray();
+
+    private sealed record CachedPreviewCheckpoint(
+        SimulationCheckpoint Checkpoint,
+        IReadOnlyList<EditorScoreTrace> ScoreTrace,
+        IReadOnlyList<EditorRuleTrace> RuleTrace);
+
+    private sealed record PreviewSession(
+        ShootingSimulation Simulation,
+        SortedDictionary<long, CachedPreviewCheckpoint> Checkpoints);
+
     public HeadlessBenchmarkReport Benchmark(string relativePath, string content)
     {
         using var candidate = CreateCandidate(relativePath, content);
@@ -273,7 +637,7 @@ public sealed class DefinitionEditorService
     private DefinitionCatalog LoadAndValidate(string rootDirectory)
     {
         var catalog = new JsonDefinitionRepository(rootDirectory).Load();
-        new CapabilityValidator().Validate(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
+        _ = new DefinitionCompiler().Compile(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
         _ = VisualAssetManifestLoader.LoadOptional(rootDirectory, catalog);
         _ = AudioAssetResolver.Resolve(rootDirectory, catalog);
         if (Directory.Exists(Path.Combine(rootDirectory, "strings")))

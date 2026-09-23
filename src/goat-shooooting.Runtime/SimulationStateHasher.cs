@@ -11,6 +11,7 @@ internal static class SimulationStateHasher
         hash.Add(simulation.Configuration.GameId);
         hash.Add(simulation.Configuration.RuleSetId);
         hash.Add(simulation.Configuration.DifficultyId);
+        hash.Add(simulation.Configuration.VariantId);
         hash.Add(simulation.Configuration.ShipId);
         hash.Add(simulation.Configuration.StartStageId);
         hash.Add(simulation.Configuration.CheckpointId);
@@ -55,6 +56,24 @@ internal static class SimulationStateHasher
         }
         hash.Add(simulation.RunState.ClaimedExtendThresholds.Count);
         foreach (var threshold in simulation.RunState.ClaimedExtendThresholds.Order()) hash.Add(threshold);
+        var resources = simulation.Resources.CaptureCanonicalSnapshot();
+        hash.Add(resources.Count);
+        foreach (var resource in resources)
+        {
+            hash.Add(resource.Handle.Value);
+            hash.Add(resource.ScopeKey);
+            hash.Add(resource.Value);
+        }
+        var stateMachines = simulation.StateMachines.CaptureCanonicalSnapshot();
+        hash.Add(stateMachines.Count);
+        foreach (var stateMachine in stateMachines)
+        {
+            hash.Add(stateMachine.Machine.Value);
+            hash.Add(stateMachine.ScopeKey);
+            hash.Add(stateMachine.State.Value);
+            hash.Add(stateMachine.EnteredFrame);
+            hash.Add(stateMachine.StateTicks);
+        }
         hash.Add((int)simulation.Status);
         hash.Add((int)simulation.Phase);
         hash.Add(simulation.StageNumber);
@@ -64,6 +83,25 @@ internal static class SimulationStateHasher
         hash.Add(simulation.CurrentDifficulty?.Id);
         hash.Add(simulation.Elapsed);
         hash.Add(simulation.PhaseElapsed);
+        if (simulation.HasStageProgram || simulation.WorldClock.ScaleQ16 != FixedWorldClock.One)
+        {
+            hash.Add("stage-program-v3");
+            hash.Add(simulation.WorldClock.ScaleQ16);
+            hash.Add(simulation.WorldClock.TimeQ16);
+            var snapshot = simulation.StageProgramSnapshot;
+            var tracks = snapshot?.Tracks ?? Array.Empty<(int Track, int Event, long WaitStarted)>();
+            hash.Add(tracks.Count);
+            foreach (var track in tracks)
+            {
+                hash.Add(track.Track);
+                hash.Add(track.Event);
+                hash.Add(track.WaitStarted);
+            }
+            var signals = snapshot?.Signals ?? Array.Empty<string>();
+            hash.Add(signals.Count);
+            foreach (var signal in signals) hash.Add(signal);
+            hash.Add(snapshot?.ForceClear ?? false);
+        }
         AddTelemetry(hash, simulation.Telemetry);
 
         foreach (var entity in simulation.World.Entities.OrderBy(static entity => entity.Id))
@@ -102,6 +140,59 @@ internal static class SimulationStateHasher
                 hash.Add(collider.Radius);
                 hash.Add((int)collider.Layer);
             });
+            var hasRotation = entity.TryGet<RotationComponent>(out var rotation);
+            var hasActorPart = entity.TryGet<ActorPartComponent>(out var actorPart);
+            var hasParentTransform = entity.TryGet<ParentTransformComponent>(out var parentTransform);
+            var hasHurtboxes = entity.TryGet<HurtboxSetComponent>(out var hurtboxes);
+            var hasActorPresentation = entity.TryGet<ActorPresentationComponent>(out var actorPresentation);
+            if (hasRotation || hasActorPart || hasParentTransform || hasHurtboxes || hasActorPresentation)
+            {
+                hash.Add("actor-composition-v3");
+                AddComponent(hash, hasRotation, () => hash.Add(rotation.Degrees));
+                AddComponent(hash, hasActorPart, () =>
+                {
+                    hash.Add(actorPart.RootEntityId);
+                    hash.Add(actorPart.ParentEntityId);
+                    hash.Add(actorPart.PartHandle);
+                    hash.Add(actorPart.PartId);
+                    hash.Add(actorPart.LocalOffset.X);
+                    hash.Add(actorPart.LocalOffset.Y);
+                    hash.Add(actorPart.LocalRotationDegrees);
+                    hash.Add((int)actorPart.HealthPolicy);
+                    hash.Add(actorPart.DamageForwardingRatio);
+                    hash.Add(actorPart.Targetable);
+                    hash.Add(actorPart.LockCapacity);
+                    hash.Add(actorPart.Enabled);
+                    hash.Add(actorPart.Detached);
+                    hash.Add(actorPart.TagMask);
+                    hash.Add(actorPart.InteractionClass);
+                });
+                AddComponent(hash, hasParentTransform, () =>
+                {
+                    hash.Add(parentTransform.RootEntityId);
+                    hash.Add(parentTransform.ParentEntityId);
+                    hash.Add(parentTransform.LocalOffset.X);
+                    hash.Add(parentTransform.LocalOffset.Y);
+                    hash.Add(parentTransform.LocalRotationDegrees);
+                });
+                AddComponent(hash, hasHurtboxes, () =>
+                {
+                    hash.Add(hurtboxes.Shapes.Count);
+                    foreach (var shape in hurtboxes.Shapes)
+                    {
+                        hash.Add(shape.Id);
+                        hash.Add((int)shape.Shape);
+                        hash.Add(shape.Offset.X);
+                        hash.Add(shape.Offset.Y);
+                        hash.Add(shape.Radius);
+                        hash.Add(shape.Width);
+                        hash.Add(shape.Height);
+                        hash.Add(shape.Length);
+                        hash.Add(shape.RotationDegrees);
+                    }
+                });
+                AddComponent(hash, hasActorPresentation, () => hash.Add(actorPresentation.SemanticState));
+            }
             AddComponent(hash, entity.TryGet<GrazeRadiusComponent>(out var graze), () =>
                 hash.Add(graze.Radius));
             AddComponent(hash, entity.TryGet<PlayerComponent>(out var player), () =>
@@ -195,6 +286,9 @@ internal static class SimulationStateHasher
                 hash.Add(laser.DamageInterval);
                 hash.Add(laser.VisualId);
                 hash.Add(laser.ProjectileInteraction);
+                hash.Add(laser.TagMask);
+                hash.Add(laser.InteractionPower);
+                hash.Add(laser.InteractionResistance);
                 hash.Add(laser.DamageCooldownRemaining);
             });
             AddComponent(hash, entity.TryGet<EnemyComponent>(out var enemy), () =>
@@ -318,6 +412,20 @@ internal static class SimulationStateHasher
             hash.Add(projectile.GrazedPlayerEntityId);
             hash.Add(projectile.PendingRemoval);
             hash.Add(projectile.TargetEntityId);
+            hash.Add(projectile.DefinitionHandle?.Value ?? -1);
+            hash.Add(projectile.ProgramHandle?.Value ?? -1);
+            hash.Add(projectile.ProgramCounter);
+            hash.Add(projectile.WakeFrame);
+            hash.Add(projectile.LocalSlotOffset);
+            hash.Add((int)projectile.MotionKernel);
+            hash.Add(projectile.Acceleration.X);
+            hash.Add(projectile.Acceleration.Y);
+            hash.Add(projectile.AngularVelocity);
+            hash.Add(projectile.SpawnLineageId);
+            hash.Add(projectile.TagMask);
+            hash.Add(projectile.InteractionClass);
+            hash.Add(projectile.InteractionPower);
+            hash.Add(projectile.InteractionResistance);
         }
 
         hash.Add(simulation.CompletedBossIds.Count);

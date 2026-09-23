@@ -12,6 +12,8 @@ public sealed record GameDefinition
     public string DefaultRuleSetId { get; init; } = string.Empty;
     public IReadOnlyList<string> RuleSetIds { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> DifficultyIds { get; init; } = Array.Empty<string>();
+    public string? DefaultVariantId { get; init; }
+    public IReadOnlyList<string> VariantIds { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> ShipIds { get; init; } = Array.Empty<string>();
     public string StageRouteId { get; init; } = string.Empty;
     public int Width { get; init; } = 800;
@@ -103,6 +105,7 @@ public sealed record StageDefinition
     public string? NextStageId { get; init; }
     public string? BackgroundId { get; init; }
     public string? BgmAudioId { get; init; }
+    public string? StageProgramId { get; init; }
     public IReadOnlyList<StageEventDefinition> Events { get; init; } = Array.Empty<StageEventDefinition>();
     public IReadOnlyList<StageObjectiveDefinition> Objectives { get; init; } = Array.Empty<StageObjectiveDefinition>();
 }

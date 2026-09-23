@@ -97,6 +97,9 @@ public sealed record LaserWeaponDefinition
     public float Width { get; init; }
     public string VisualId { get; init; } = string.Empty;
     public string ProjectileInteraction { get; init; } = "none";
+    public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
+    public int InteractionPower { get; init; } = 1;
+    public int InteractionResistance { get; init; }
 }
 
 public sealed record LockOnWeaponDefinition
@@ -127,6 +130,10 @@ public sealed record ProjectileDefinition
     public int PierceCount { get; init; }
     public string DamageType { get; init; } = "normal";
     public string ClearBehavior { get; init; } = "remove";
+    public SemanticProgramSlotDefinition? ProgramSlot { get; init; }
+    public IReadOnlyList<string> Tags { get; init; } = Array.Empty<string>();
+    public int InteractionPower { get; init; } = 1;
+    public int InteractionResistance { get; init; }
     [System.Text.Json.Serialization.JsonIgnore]
     internal bool MigratedFromV1 { get; init; }
 }
@@ -174,6 +181,7 @@ public sealed record BossDefinition
     public string Id { get; init; } = string.Empty;
     public string DisplayName { get; init; } = string.Empty;
     public string EnemyId { get; init; } = string.Empty;
+    public string? ActorId { get; init; }
     public float WarningSeconds { get; init; } = 5;
     public string? BgmAudioId { get; init; }
     public IReadOnlyList<BossPhaseDefinition> Phases { get; init; } = Array.Empty<BossPhaseDefinition>();
@@ -185,6 +193,7 @@ public sealed record BossPhaseDefinition
     public string DisplayName { get; init; } = string.Empty;
     public int Hp { get; init; }
     public float TimeLimit { get; init; }
+    public string Clock { get; init; } = "run-frame";
     public string? MotionPatternId { get; init; }
     public IReadOnlyList<string> AttackPatternIds { get; init; } = Array.Empty<string>();
     public float InvulnerabilitySeconds { get; init; }
@@ -196,6 +205,7 @@ public sealed record BossPhaseDefinition
     public long NoMissBonus { get; init; }
     public long NoBombBonus { get; init; }
     public IReadOnlyList<DropEntryDefinition> DropTable { get; init; } = Array.Empty<DropEntryDefinition>();
+    public IReadOnlyList<PartSignalDefinition> PartSignals { get; init; } = Array.Empty<PartSignalDefinition>();
 }
 
 public sealed record RuleSetDefinition
@@ -228,6 +238,10 @@ public sealed record RuleSetDefinition
     public IReadOnlyList<CapabilityDefinition> ScoreRules { get; init; } = Array.Empty<CapabilityDefinition>();
     public CapabilityDefinition? SpecialGaugeRule { get; init; }
     public CapabilityDefinition? RankRule { get; init; }
+    public IReadOnlyList<string> ResourceIds { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> EventRuleIds { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> StateMachineIds { get; init; } = Array.Empty<string>();
+    public string? BombResourceId { get; init; }
     public bool IsAvailable { get; init; } = true;
     public string? UnlockId { get; init; }
 }

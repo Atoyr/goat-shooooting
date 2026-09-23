@@ -13,7 +13,7 @@ public sealed record ReplayLoadResult(ReplayDocument? Replay, ReplayErrorCode? E
 public interface IReplayStore
 {
     string Save(string runId, ReplayDocument replay);
-    ReplayLoadResult Load(string reference, string expectedContentHash);
+    ReplayLoadResult Load(string reference, string expectedContentHash, string? expectedCompiledContentHash = null);
 }
 
 public sealed class JsonReplayStore : IReplayStore
@@ -40,7 +40,10 @@ public sealed class JsonReplayStore : IReplayStore
         if (!IsSafeId(runId))
             throw new ReplayException(ReplayErrorCode.InvalidPath, "Replay run ID contains unsupported characters.");
         ArgumentNullException.ThrowIfNull(replay);
-        ReplayValidator.Validate(replay, replay.Header.ContentHash);
+        ReplayValidator.Validate(
+            replay,
+            replay.Header.ContentHash,
+            expectedCompiledContentHash: replay.Header.CompiledContentHash);
         try
         {
             return SaveCore(runId, replay);
@@ -72,7 +75,10 @@ public sealed class JsonReplayStore : IReplayStore
         return reference;
     }
 
-    public ReplayLoadResult Load(string reference, string expectedContentHash)
+    public ReplayLoadResult Load(
+        string reference,
+        string expectedContentHash,
+        string? expectedCompiledContentHash = null)
     {
         try
         {
@@ -92,7 +98,10 @@ public sealed class JsonReplayStore : IReplayStore
                     System.Text.Encoding.ASCII.GetBytes(checksum),
                     System.Text.Encoding.ASCII.GetBytes(envelope.Checksum)))
                 throw new ReplayException(ReplayErrorCode.ChecksumMismatch, "Replay checksum does not match its contents.");
-            ReplayValidator.Validate(envelope.Replay, expectedContentHash);
+            ReplayValidator.Validate(
+                envelope.Replay,
+                expectedContentHash,
+                expectedCompiledContentHash: expectedCompiledContentHash);
             return new ReplayLoadResult(envelope.Replay, null, null);
         }
         catch (ReplayException exception)

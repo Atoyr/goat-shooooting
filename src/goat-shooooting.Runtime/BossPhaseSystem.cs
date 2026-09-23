@@ -16,6 +16,38 @@ public sealed class BossPhaseSystem(
         float deltaTime,
         ProjectileStore projectiles,
         SimulationTelemetry telemetry,
+        GameEventBuffer events) =>
+        BeginAndAdvanceCore(world, definitions, null, deltaTime, deltaTime, projectiles, telemetry, events);
+
+    public void BeginAndAdvance(
+        World world,
+        CompiledCatalog definitions,
+        float deltaTime,
+        ProjectileStore projectiles,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events) =>
+        BeginAndAdvanceCore(world, definitions.Source, definitions, deltaTime, deltaTime, projectiles, telemetry, events);
+
+    public void BeginAndAdvance(
+        World world,
+        CompiledCatalog definitions,
+        float runDeltaTime,
+        float worldDeltaTime,
+        ProjectileStore projectiles,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events) =>
+        BeginAndAdvanceCore(
+            world, definitions.Source, definitions, runDeltaTime, worldDeltaTime,
+            projectiles, telemetry, events);
+
+    private void BeginAndAdvanceCore(
+        World world,
+        DefinitionCatalog definitions,
+        CompiledCatalog? compiledDefinitions,
+        float runDeltaTime,
+        float worldDeltaTime,
+        ProjectileStore projectiles,
+        SimulationTelemetry telemetry,
         GameEventBuffer events)
     {
         foreach (var entity in world.Query<BossComponent, HealthComponent>().ToArray())
@@ -24,11 +56,25 @@ public sealed class BossPhaseSystem(
             if (!state.IsManaged || state.IsComplete || entity.Has<PendingDestroyComponent>()) continue;
             if (!state.IsInitialized)
             {
-                BeginPhase(entity, definitions.GetBoss(state.DefinitionId!), phaseIndex: 0, projectiles, telemetry, events);
+                var compiledBoss = compiledDefinitions is null ? null : ResolveCompiledBoss(compiledDefinitions, state);
+                BeginPhase(
+                    world,
+                    entity,
+                    compiledBoss?.Definition ?? ResolveBoss(definitions, null, state),
+                    phaseIndex: 0,
+                    projectiles,
+                    telemetry,
+                    events,
+                    compiledDefinitions,
+                    compiledBoss);
             }
             else
             {
-                state.PhaseElapsed = Math.Min(state.PhaseTimeLimit, state.PhaseElapsed + deltaTime);
+                var boss = compiledDefinitions is null ? ResolveBoss(definitions, null, state) :
+                    ResolveCompiledBoss(compiledDefinitions, state).Definition;
+                var phaseDelta = boss.Phases[state.PhaseIndex].Clock == "world-time"
+                    ? worldDeltaTime : runDeltaTime;
+                state.PhaseElapsed = Math.Min(state.PhaseTimeLimit, state.PhaseElapsed + phaseDelta);
             }
         }
     }
@@ -36,6 +82,25 @@ public sealed class BossPhaseSystem(
     public void Resolve(
         World world,
         DefinitionCatalog definitions,
+        ProjectileStore projectiles,
+        IRandomSource random,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events) =>
+        ResolveCore(world, definitions, null, projectiles, random, telemetry, events);
+
+    public void Resolve(
+        World world,
+        CompiledCatalog definitions,
+        ProjectileStore projectiles,
+        IRandomSource random,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events) =>
+        ResolveCore(world, definitions.Source, definitions, projectiles, random, telemetry, events);
+
+    private void ResolveCore(
+        World world,
+        DefinitionCatalog definitions,
+        CompiledCatalog? compiledDefinitions,
         ProjectileStore projectiles,
         IRandomSource random,
         SimulationTelemetry telemetry,
@@ -48,7 +113,8 @@ public sealed class BossPhaseSystem(
             var healthDepleted = entity.Get<HealthComponent>().Current <= 0;
             var timedOut = !healthDepleted && state.PhaseElapsed >= state.PhaseTimeLimit;
             if (!healthDepleted && !timedOut) continue;
-            EndPhase(world, entity, definitions, projectiles, random, telemetry, events, timedOut);
+            EndPhase(
+                world, entity, definitions, compiledDefinitions, projectiles, random, telemetry, events, timedOut);
         }
     }
 
@@ -66,13 +132,33 @@ public sealed class BossPhaseSystem(
         var phaseIndex = boss.Phases.ToList().FindIndex(phase => phase.CheckpointId == checkpointId);
         if (phaseIndex < 0)
             throw new DefinitionValidationException($"Boss '{boss.Id}' has no checkpoint '{checkpointId}'.");
-        BeginPhase(entity, boss, phaseIndex, projectiles, telemetry, events);
+        BeginPhase(null, entity, boss, phaseIndex, projectiles, telemetry, events, null, null);
+    }
+
+    public void BeginAtCheckpoint(
+        World world,
+        Entity entity,
+        CompiledCatalog definitions,
+        BossHandle bossHandle,
+        string checkpointId,
+        ProjectileStore projectiles,
+        SimulationTelemetry telemetry,
+        GameEventBuffer events)
+    {
+        var compiledBoss = definitions.GetCompiled(bossHandle);
+        var boss = compiledBoss.Definition;
+        ArgumentException.ThrowIfNullOrWhiteSpace(checkpointId);
+        var phaseIndex = boss.Phases.ToList().FindIndex(phase => phase.CheckpointId == checkpointId);
+        if (phaseIndex < 0)
+            throw new DefinitionValidationException($"Boss '{boss.Id}' has no checkpoint '{checkpointId}'.");
+        BeginPhase(world, entity, boss, phaseIndex, projectiles, telemetry, events, definitions, compiledBoss);
     }
 
     private void EndPhase(
         World world,
         Entity entity,
         DefinitionCatalog definitions,
+        CompiledCatalog? compiledDefinitions,
         ProjectileStore projectiles,
         IRandomSource random,
         SimulationTelemetry telemetry,
@@ -80,8 +166,10 @@ public sealed class BossPhaseSystem(
         bool timedOut)
     {
         var state = entity.Get<BossComponent>();
-        var boss = definitions.GetBoss(state.DefinitionId!);
+        var compiledBoss = compiledDefinitions is null ? null : ResolveCompiledBoss(compiledDefinitions, state);
+        var boss = compiledBoss?.Definition ?? ResolveBoss(definitions, null, state);
         var phase = boss.Phases[state.PhaseIndex];
+        var compiledPhase = compiledBoss?.Phases[state.PhaseIndex];
         CancelProjectiles(projectiles, phase.EndProjectileCancel, telemetry, events);
         var remainingSeconds = Math.Max(0, phase.TimeLimit - state.PhaseElapsed);
         events.Publish((frame, sequence) => new BossPhaseEndedEvent(
@@ -96,20 +184,26 @@ public sealed class BossPhaseSystem(
             MultiplySaturating(phase.TimeBonusPerSecond, remainingSeconds),
             telemetry.PlayerDeaths == state.PlayerDeathsAtPhaseStart ? phase.NoMissBonus : 0,
             telemetry.BombsUsed == state.BombsUsedAtPhaseStart ? phase.NoBombBonus : 0));
-        _itemDropSystem.SpawnDropTable(
-            world,
-            definitions,
-            phase.DropTable,
-            entity.Get<TransformComponent>().Position,
-            random,
-            telemetry,
-            events);
+        if (compiledDefinitions is null)
+        {
+            _itemDropSystem.SpawnDropTable(
+                world, definitions, phase.DropTable, entity.Get<TransformComponent>().Position,
+                random, telemetry, events);
+        }
+        else
+        {
+            _itemDropSystem.SpawnDropTable(
+                world, compiledDefinitions, compiledPhase!.DropTable, entity.Get<TransformComponent>().Position,
+                random, telemetry, events);
+        }
         ResetPatterns(entity);
 
         var nextPhaseIndex = state.PhaseIndex + 1;
         if (nextPhaseIndex < boss.Phases.Count)
         {
-            BeginPhase(entity, boss, nextPhaseIndex, projectiles, telemetry, events);
+            BeginPhase(
+                world,
+                entity, boss, nextPhaseIndex, projectiles, telemetry, events, compiledDefinitions, compiledBoss);
             return;
         }
 
@@ -128,14 +222,18 @@ public sealed class BossPhaseSystem(
     }
 
     private void BeginPhase(
+        World? world,
         Entity entity,
         BossDefinition boss,
         int phaseIndex,
         ProjectileStore projectiles,
         SimulationTelemetry telemetry,
-        GameEventBuffer events)
+        GameEventBuffer events,
+        CompiledCatalog? compiledDefinitions,
+        CompiledBossDefinition? compiledBoss)
     {
         var phase = boss.Phases[phaseIndex];
+        var compiledPhase = compiledBoss?.Phases[phaseIndex];
         var state = entity.Get<BossComponent>();
         state.PhaseIndex = phaseIndex;
         state.PhaseId = phase.Id;
@@ -155,12 +253,22 @@ public sealed class BossPhaseSystem(
         ResetPatterns(entity);
         if (!string.IsNullOrWhiteSpace(phase.MotionPatternId))
         {
-            entity.Add(new MotionTimelineComponent(phase.MotionPatternId));
+            entity.Add(new MotionTimelineComponent(
+                phase.MotionPatternId,
+                compiledDefinitions is not null && compiledPhase?.MotionPatternHandle is { } motionHandle
+                    ? compiledDefinitions.Get(motionHandle).Commands
+                    : null));
         }
 
         if (phase.AttackPatternIds.Count > 0)
         {
-            entity.Add(new AttackTimelineComponent(phase.AttackPatternIds));
+            entity.Add(new AttackTimelineComponent(
+                phase.AttackPatternIds,
+                compiledDefinitions is null
+                    ? null
+                    : compiledPhase!.AttackPatternHandles
+                        .Select(compiledDefinitions.Get)
+                        .ToArray()));
         }
 
         entity.Remove<InvincibilityComponent>();
@@ -174,8 +282,27 @@ public sealed class BossPhaseSystem(
         }
 
         CancelProjectiles(projectiles, phase.StartProjectileCancel, telemetry, events);
+        if (world is not null && compiledPhase is not null)
+            ActorPartSignalSystem.Apply(world, entity.Id, compiledPhase, events);
         events.Publish((frame, sequence) => new BossPhaseStartedEvent(
             frame, sequence, entity.Id, boss.Id, phase.Id, phaseIndex, phase.CheckpointId));
+    }
+
+    private static BossDefinition ResolveBoss(
+        DefinitionCatalog definitions,
+        CompiledCatalog? compiledDefinitions,
+        BossComponent state) =>
+        compiledDefinitions is not null && state.DefinitionHandle >= 0
+            ? compiledDefinitions.Get(new BossHandle(state.DefinitionHandle))
+            : definitions.GetBoss(state.DefinitionId!);
+
+    private static CompiledBossDefinition ResolveCompiledBoss(
+        CompiledCatalog definitions,
+        BossComponent state)
+    {
+        if (state.DefinitionHandle < 0)
+            throw new InvalidOperationException($"Boss '{state.DefinitionId}' was not compiled.");
+        return definitions.GetCompiled(new BossHandle(state.DefinitionHandle));
     }
 
     private static void ResetPatterns(Entity entity)

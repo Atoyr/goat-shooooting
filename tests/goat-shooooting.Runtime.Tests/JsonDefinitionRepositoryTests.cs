@@ -227,6 +227,51 @@ public sealed class JsonDefinitionRepositoryTests
         Assert.Null(repository.PollChanges());
     }
 
+    [Fact]
+    public void LoadsM6StagePresentationDirectoriesAndCompilesFlattenedTrackArguments()
+    {
+        using var directory = DefinitionDirectory.Create();
+        directory.WriteStage(
+            """{"id":"stage","stageProgramId":"multi","events":[]}""");
+        directory.WriteDefinition("stage-programs", "multi.json", """
+            {
+              "schemaVersion": 3,
+              "id": "multi",
+              "endFrame": 60,
+              "tracks": [
+                { "id": "environment", "kind": "environment", "events": [
+                  { "nodeId": "background", "frame": 0, "op": "set-background", "cueId": "night" }
+                ] }
+              ]
+            }
+            """);
+        directory.WriteDefinition("effects", "destroy.json", """
+            {
+              "schemaVersion": 3,
+              "id": "destroy",
+              "on": "enemy-destroyed",
+              "actions": [{ "type": "flash", "intensity": 0.5 }]
+            }
+            """);
+        directory.WriteDefinition("animation-states", "enemy.json", """
+            {
+              "schemaVersion": 3,
+              "id": "enemy",
+              "defaultState": "idle",
+              "states": { "idle": "enemy-idle", "damaged": "enemy-damaged" }
+            }
+            """);
+
+        var catalog = new JsonDefinitionRepository(directory.Path).Load();
+        var compiled = new DefinitionCompiler().Compile(catalog, RuntimeCapabilityRegistry.CreateBuiltIn());
+
+        Assert.Equal("multi", catalog.GetStage("stage").StageProgramId);
+        Assert.Equal("night", catalog.GetStageProgram("multi").Tracks[0].Events[0].Arguments["cueId"].GetString());
+        Assert.Single(compiled.StagePrograms);
+        Assert.Single(compiled.EffectRecipes);
+        Assert.Single(compiled.AnimationStates);
+    }
+
     private sealed class DefinitionDirectory : IDisposable
     {
         private DefinitionDirectory(string path) => Path = path;
@@ -235,6 +280,16 @@ public sealed class JsonDefinitionRepositoryTests
 
         public void WriteEnemy(string content) =>
             File.WriteAllText(System.IO.Path.Combine(Path, "enemies", "enemy.json"), content);
+
+        public void WriteStage(string content) =>
+            File.WriteAllText(System.IO.Path.Combine(Path, "stages", "stage.json"), content);
+
+        public void WriteDefinition(string directory, string fileName, string content)
+        {
+            var targetDirectory = System.IO.Path.Combine(Path, directory);
+            Directory.CreateDirectory(targetDirectory);
+            File.WriteAllText(System.IO.Path.Combine(targetDirectory, fileName), content);
+        }
 
         public static DefinitionDirectory Create(string weaponBulletId = "bullet")
         {
